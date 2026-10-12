@@ -40,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRefreshing = useRef(false);
+  const refreshPromise = useRef<Promise<string | null> | null>(null);
   // Track the timestamp of the last successful login
   const lastLoginTime = useRef<number>(0);
 
@@ -80,14 +81,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastLoginTime.current = 0;
   }, []);
 
-  const refreshAccessToken = useCallback(async () => {
-    if (isRefreshing.current) return;
+  const refreshAccessToken = useCallback((): Promise<string | null> => {
+    // Concurrent callers (timer + expired-token retries) share one request,
+    // otherwise refresh token rotation would revoke the parallel attempts.
+    if (refreshPromise.current) return refreshPromise.current;
+    refreshPromise.current = doRefresh().finally(() => {
+      refreshPromise.current = null;
+    });
+    return refreshPromise.current;
+  }, []);
+
+  // Let apiService recover from an expired access token by refreshing once
+  useEffect(() => {
+    apiService.setTokenRefresher(refreshAccessToken);
+  }, [refreshAccessToken]);
+
+  const doRefresh = async (): Promise<string | null> => {
     isRefreshing.current = true;
     try {
       const data = await apiService.refreshToken();
       setAccessToken(data.access_token);
       // Schedule next regular refresh on success
       scheduleRefresh(REFRESH_INTERVAL_MS);
+      return data.access_token;
     } catch (error: any) {
       const errMsg = String(error?.message || '').toLowerCase();
 
@@ -111,11 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // (e.g. after network reconnects or server restarts).
         scheduleRefresh(RETRY_INTERVAL_MS);
       }
+      return null;
     } finally {
       isRefreshing.current = false;
       setIsLoading(false);
     }
-  }, [scheduleRefresh, clearAuthState]);
+  };
 
   const login = useCallback((tokens: AuthTokens, userData: User) => {
     setAccessToken(tokens.access_token);
