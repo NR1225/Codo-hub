@@ -1,7 +1,7 @@
 /** WebSocket service for real-time messaging */
 import { API_BASE_URL } from './constants';
 
-export type WebSocketMessageType = 
+type WebSocketMessageType =
   | 'new_message'
   | 'message_read'
   | 'messages_read'

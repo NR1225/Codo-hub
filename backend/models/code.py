@@ -34,10 +34,6 @@ class CommentUpdate(BaseModel):
     content: str = Field(max_length=2000)
 
 
-class LikeRequest(BaseModel):
-    userId: str = Field(max_length=50)
-
-
 class ViewRequest(BaseModel):
     userId: Optional[str] = Field(default=None, max_length=50)
 

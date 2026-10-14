@@ -60,14 +60,7 @@ class ChatService:
                 'lastMessageTime': last_message_time
             })
         
-        # Sort: messages first (by time descending), then friends without messages (by username ascending)
-        chats.sort(key=lambda x: (
-            not x.get('lastMessage'),  # False (no message) sorts after True (has message)
-            x.get('lastMessageTime', '') or '',  # Newer messages first (string sort works for ISO dates)
-            x.get('partner', {}).get('username', '').lower()  # A-Z for no-message friends
-        ))
-        # Reverse only the "has message" groups to get newest messages first
-        # Re-sort properly: active chats by time desc, then friends by name asc
+        # Sort: active chats by time desc (newest first), then friends by name asc
         active_chats = sorted(
             [c for c in chats if c.get('lastMessage')],
             key=lambda x: x.get('lastMessageTime', '') or '',

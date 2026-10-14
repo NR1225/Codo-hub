@@ -8,21 +8,35 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from models import (
     UserRegister, UserLogin, ChangePassword,
-    RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest,
+    ForgotPasswordRequest, ResetPasswordRequest,
     TwoFASetupVerify, TwoFADisable, TwoFALoginVerify,
 )
 from db import get_db, User, PasswordReset
-from utils.password import hash_password, verify_password
+from utils.password import hash_password, verify_password, hash_refresh_token, verify_refresh_token
 from utils.auth import (
     create_access_token, create_refresh_token, create_temp_2fa_token,
-    decode_token, get_current_user, oauth2_scheme,
+    decode_token, get_current_user,
 )
-from config import JWT_SECRET_KEY, JWT_ALGORITHM
+from config import LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_MINUTES
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter()
+
+
+def _naive_utc(dt):
+    """Coerce a datetime to naive UTC.
+
+    SQLAlchemy's SQLite DateTime column returns offset-naive datetimes even
+    when an offset-aware value was stored, so comparing an aware `now` against
+    a stored value raises. Normalise both sides to naive UTC before comparing.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 # Cookie settings for refresh token
@@ -101,7 +115,7 @@ def _create_tokens(user: User, db: Session) -> dict:
     refresh_token = create_refresh_token(data={"sub": user.id})
 
     # Store refresh token hash for validation
-    user.refresh_token_hash = hash_password(refresh_token)
+    user.refresh_token_hash = hash_refresh_token(refresh_token)
     db.commit()
 
     return {
@@ -188,9 +202,34 @@ async def login(request: Request, login_data: UserLogin, db: Session = Depends(g
         user = db.query(User).filter(User.username == login_data.username.strip()).first()
 
     if not user:
+        # No per-account tracking for unknown accounts; the IP rate limiter covers it.
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Per-account brute-force lockout (independent of the IP rate limiter).
+    # Use naive UTC: SQLAlchemy's SQLite DateTime drops tzinfo on read, so
+    # comparing an offset-aware `now` against the stored value would raise.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if user.locked_until and _naive_utc(user.locked_until) > now:
+        retry_after = int((user.locked_until - now).total_seconds())
+        raise HTTPException(
+            status_code=429,
+            detail="Account temporarily locked due to too many failed attempts. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     if not user.password_hash or not verify_password(login_data.password, user.password_hash):
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        if user.failed_login_attempts >= LOGIN_MAX_ATTEMPTS:
+            user.locked_until = now + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+            user.failed_login_attempts = 0  # fresh attempts after the lock expires
+        db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Password verified: clear counters before issuing any tokens (also before
+    # the 2FA temp token, since the password is proven at this point).
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
 
     # If 2FA is enabled, return a temp token instead of real tokens
     if user.totp_enabled:
@@ -239,11 +278,28 @@ async def refresh_token(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    # Validate the refresh token hash
-    if not user.refresh_token_hash or not verify_password(refresh_token_value, user.refresh_token_hash):
-        raise HTTPException(status_code=401, detail="Refresh token revoked")
+    # Validate the refresh token hash. A mismatch means either the token was
+    # already rotated (stale), or it was forged. We can't tell the two apart,
+    # so treat ANY mismatch as reuse and revoke the whole session — this also
+    # kills the live access token (strict session check in resolve_access_user).
+    if not user.refresh_token_hash or not verify_refresh_token(refresh_token_value, user.refresh_token_hash):
+        user.session_id = None
+        user.refresh_token_hash = None
+        db.commit()
+        response = JSONResponse(status_code=401, content={"detail": "Refresh token revoked"})
+        _clear_refresh_token_cookie(response)
+        return response
 
-    # Issue new access token
+    # Defensive: never mint an access token with a None session_id.
+    if user.session_id is None:
+        user.refresh_token_hash = None
+        db.commit()
+        response = JSONResponse(status_code=401, content={"detail": "Session revoked"})
+        _clear_refresh_token_cookie(response)
+        return response
+
+    # Issue new access token (keeps the existing session_id, so the live
+    # access token stays valid across refreshes).
     access_token = create_access_token(
         data={"sub": user.id, "username": user.username, "session_id": user.session_id}
     )
@@ -252,7 +308,7 @@ async def refresh_token(request: Request, db: Session = Depends(get_db)):
     # never expires as long as the user is active (refreshing every 5 min).
     # The old refresh token is invalidated by overwriting its hash.
     new_refresh_token = create_refresh_token(data={"sub": user.id})
-    user.refresh_token_hash = hash_password(new_refresh_token)
+    user.refresh_token_hash = hash_refresh_token(new_refresh_token)
     db.commit()
 
     response = JSONResponse(content={
@@ -360,7 +416,7 @@ async def reset_password(request: Request, body: ResetPasswordRequest, db: Sessi
 
     if not reset_entry:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-    if reset_entry.expires_at and datetime.now(timezone.utc) > reset_entry.expires_at:
+    if reset_entry.expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > _naive_utc(reset_entry.expires_at):
         raise HTTPException(status_code=400, detail="Reset token has expired")
 
     user = db.query(User).filter(User.id == reset_entry.user_id).first()

@@ -162,5 +162,4 @@ class TerminalWebSocketService {
   }
 }
 
-export const terminalWS = new TerminalWebSocketService();
 export default TerminalWebSocketService;

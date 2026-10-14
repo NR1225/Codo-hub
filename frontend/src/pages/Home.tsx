@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBook, faLaptop, faUsers, faStar, faFileAlt, faList, faSearch, faChevronDown, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faStar, faFileAlt, faList, faSearch, faChevronDown, faChevronRight, faCode, faHashtag } from '@fortawesome/free-solid-svg-icons';
 import { CodeFile } from '../utils/api';
 import { apiService } from '../utils/api';
 import { subscribeToCodes, unsubscribe } from '../utils/realtimeService';
@@ -22,15 +22,20 @@ function dayIndexForDailyQuote(): number {
   return Math.floor(localMidnight / 86400000);
 }
 
+// Модуль деңгейіндегі кэш: Home-қа қайта оралғанда loading spinner флешы
+// көрінбеуі үшін — бұрын жүктелген кодтарды бірден көрсетіп, фонда жаңартамыз.
+let homeCachedCodes: CodeFile[] | null = null;
+let homeCachedTotal = 0;
+
 const Home: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { config } = useSiteConfig();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [codes, setCodes] = useState<CodeFile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [codes, setCodes] = useState<CodeFile[]>(homeCachedCodes ?? []);
+  const [loading, setLoading] = useState(homeCachedCodes === null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
-  const [totalCodesCount, setTotalCodesCount] = useState(0);
+  const [totalCodesCount, setTotalCodesCount] = useState(homeCachedTotal);
   const [filterLanguage, setFilterLanguage] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const viewMode: ViewMode = 'grid'; // Default view mode
@@ -53,6 +58,9 @@ const Home: React.FC = () => {
 
       setCodes(response.codes);
       setTotalCodesCount(response.total);
+      // Модуль кэшін жаңарту — келесі рет Home-қа кіргенде бірден көрсетуге.
+      homeCachedCodes = response.codes;
+      homeCachedTotal = response.total;
       setError(null);
       setLoading(false);
 
@@ -80,7 +88,11 @@ const Home: React.FC = () => {
 
     // Негізгі жүктеу функциясы
     const initializeCodes = async () => {
-      setLoading(true);
+      // Тек бірінші рет жүктегенде spinner көрсету; кэш бар болса — фонда
+      // жаңартып, loading флешын жасамау.
+      if (homeCachedCodes === null) {
+        setLoading(true);
+      }
 
       // API-дан кодтарды жүктеу
       const response = await loadCodes(50, 0);
@@ -353,56 +365,96 @@ const Home: React.FC = () => {
           <div className="flex flex-col gap-2">
             {/* Статистика */}
             <div className="flex flex-col gap-4 mt-8">
-              <div className="flex items-center gap-4 p-4 bg-bg-primary rounded-xl border border-border transition-all hover:translate-x-1 hover:border-primary hover:shadow-glow translate-y-[9px]">
-                <div className="text-2xl text-primary flex-shrink-0">
-                  <FontAwesomeIcon icon={faBook} />
+              {/* Жалпы кодтар */}
+              <div className="stat-widget stat-widget--codes">
+                <div className="stat-widget-body">
+                  <div className="stat-widget-icon stat-widget-icon--codes">
+                    <FontAwesomeIcon icon={faCode} />
+                  </div>
+                  <div className="stat-widget-info">
+                    <div className="stat-widget-label">{t('home.totalCodes')}</div>
+                    <div className="stat-widget-value">{stats.totalCodes}</div>
+                  </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="text-sm text-text-secondary font-medium uppercase tracking-wider">
-                    {t('home.totalCodes')}
-                  </div>
-                  <div className="text-2xl font-extrabold bg-accent-gradient bg-clip-text text-transparent">
-                    {stats.totalCodes}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-4 bg-bg-primary rounded-xl border border-border transition-all hover:translate-x-1 hover:border-primary hover:shadow-glow">
-                <div className="text-2xl text-primary flex-shrink-0">
-                  <FontAwesomeIcon icon={faLaptop} />
-                </div>
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="text-sm text-text-secondary font-medium uppercase tracking-wider">
-                    {t('home.programmingLanguages')}
-                  </div>
-                  <div className="text-2xl font-extrabold bg-accent-gradient bg-clip-text text-transparent">
-                    {stats.totalLanguages}
-                  </div>
+                <div className="stat-widget-chart" aria-hidden="true">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className="stat-chart-bar"
+                      style={{ '--bar-height': `${35 + Math.random() * 65}%` } as React.CSSProperties }
+                    />
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center gap-4 p-4 bg-bg-primary rounded-xl border border-border transition-all hover:translate-x-1 hover:border-primary hover:shadow-glow">
-                <div className="text-2xl text-primary flex-shrink-0">
-                  <FontAwesomeIcon icon={faUsers} />
+
+              {/* Бағдарламалау тілдері */}
+              <div className="stat-widget stat-widget--languages">
+                <div className="stat-widget-body">
+                  <div className="stat-widget-icon stat-widget-icon--languages">
+                    <FontAwesomeIcon icon={faHashtag} />
+                  </div>
+                  <div className="stat-widget-info">
+                    <div className="stat-widget-label">{t('home.programmingLanguages')}</div>
+                    <div className="stat-widget-value">{stats.totalLanguages}</div>
+                  </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="text-sm text-text-secondary font-medium uppercase tracking-wider">
-                    {t('home.authors')}
-                  </div>
-                  <div className="text-2xl font-extrabold bg-accent-gradient bg-clip-text text-transparent">
-                    {stats.totalAuthors}
-                  </div>
+                <div className="stat-widget-chart" aria-hidden="true">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className="stat-chart-bar"
+                      style={{ '--bar-height': `${35 + Math.random() * 65}%` } as React.CSSProperties }
+                    />
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center gap-4 p-4 bg-bg-primary rounded-xl border border-border transition-all hover:translate-x-1 hover:border-primary hover:shadow-glow">
-                <div className="text-2xl text-primary flex-shrink-0">
-                  <FontAwesomeIcon icon={faStar} />
+
+              {/* Авторлар */}
+              <div className="stat-widget stat-widget--authors">
+                <div className="stat-widget-body">
+                  <div className="stat-widget-icon stat-widget-icon--authors">
+                    <FontAwesomeIcon icon={faUsers} />
+                  </div>
+                  <div className="stat-widget-info">
+                    <div className="stat-widget-label">{t('home.authors')}</div>
+                    <div className="stat-widget-value">{stats.totalAuthors}</div>
+                  </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="text-sm text-text-secondary font-medium uppercase tracking-wider">
-                    {t('home.lastWeek')}
+                <div className="stat-widget-chart" aria-hidden="true">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className="stat-chart-bar"
+                      style={{ '--bar-height': `${35 + Math.random() * 65}%` } as React.CSSProperties }
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Соңғы аптада */}
+              <div className="stat-widget stat-widget--recent">
+                <div className="stat-widget-body">
+                  <div className="stat-widget-icon stat-widget-icon--recent">
+                    <FontAwesomeIcon icon={faStar} />
                   </div>
-                  <div className="text-2xl font-extrabold bg-accent-gradient bg-clip-text text-transparent">
-                    {stats.recentCodes}
+                  <div className="stat-widget-info">
+                    <div className="stat-widget-label">{t('home.lastWeek')}</div>
+                    <div className="stat-widget-value">{stats.recentCodes}</div>
                   </div>
+                </div>
+                <div className="stat-widget-chart stat-widget-chart--line" aria-hidden="true">
+                  <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="stat-chart-svg">
+                    <polyline
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={Array.from({ length: 8 })
+                        .map((_, i) => `${i * 14 + 5},${30 - Math.random() * 22}`)
+                        .join(' ')}
+                    />
+                  </svg>
                 </div>
               </div>
             </div>

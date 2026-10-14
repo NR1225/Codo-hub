@@ -46,6 +46,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
+    // Restore access token from localStorage so a page reload keeps the
+    // user authenticated while the periodic refresh runs in the background.
+    // The long-lived refresh_token stays in the HttpOnly cookie; this only
+    // caches the short-lived access_token to avoid a race where mounted
+    // pages fire authenticated requests before the refresh resolves.
+    const storedAccessToken = localStorage.getItem('accessToken');
+    if (storedAccessToken) {
+      setAccessToken(storedAccessToken);
+    }
     if (storedUser) {
       try {
         setUserState(JSON.parse(storedUser));
@@ -75,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearAuthState = useCallback(() => {
     localStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
     setAccessToken(null);
     setUserState(null);
     lastLoginTime.current = 0;
@@ -86,21 +96,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await apiService.refreshToken();
       setAccessToken(data.access_token);
+      // Persist the renewed access token so reloads keep the session live
+      localStorage.setItem('accessToken', data.access_token);
       // Schedule next regular refresh on success
       scheduleRefresh(REFRESH_INTERVAL_MS);
     } catch (error: any) {
+      const status = error?.status;
       const errMsg = String(error?.message || '').toLowerCase();
 
-      // Hard failure: token genuinely invalid/expired/revoked → must log out
+      // Hard failure: refresh token genuinely invalid/expired/revoked.
+      // Identified by HTTP status (set by api.ts on the thrown error) —
+      // NOT by message text, which is i18n-translated and unreliable.
       const isHardFailure =
-        (errMsg.includes('401') &&
-          !errMsg.includes('network') &&
-          !errMsg.includes('failed to fetch') &&
-          !errMsg.includes('err_connection')) ||
+        status === 401 ||
         errMsg.includes('invalid refresh token') ||
         errMsg.includes('refresh token revoked') ||
         errMsg.includes('refresh token required');
 
+      // 403 = CSRF validation failed (cookie present but mismatched) —
+      // treat as a soft, retryable failure, NOT a hard logout.
       if (isHardFailure) {
         // Session is truly dead — clear it
         clearAuthState();
@@ -119,6 +133,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback((tokens: AuthTokens, userData: User) => {
     setAccessToken(tokens.access_token);
+    // Persist access token so a page reload keeps the session live
+    // until the background refresh renews it.
+    localStorage.setItem('accessToken', tokens.access_token);
     // Store user data in localStorage for UI display and persistence
     localStorage.setItem('user', JSON.stringify(userData));
     setUserState(userData);
@@ -137,6 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { /* ignore */ }
     setAccessToken(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
     setUserState(null);
     lastLoginTime.current = 0;
     isRefreshing.current = false;
@@ -145,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setTokens = useCallback((tokens: AuthTokens) => {
     setAccessToken(tokens.access_token);
+    localStorage.setItem('accessToken', tokens.access_token);
   }, []);
 
   const setUser = useCallback((userData: User) => {

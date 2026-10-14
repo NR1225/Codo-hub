@@ -242,6 +242,8 @@
     "myCodeFiles": "Мои файлы кода",
     "noCodeFiles": "Файлы кода отсутствуют",
     "noCodeFilesDescription": "Загрузите свой первый файл и поделитесь кодом!",
+    "createNewProject": "Создать новый проект",
+    "importCode": "Импортировать код",
     "developer": "Разработчик",
     "changeBackground": "Изменить фон",
     "copied": "Скопировано",
@@ -372,7 +374,8 @@
     "folderTab": "Папки",
     "myFolders": "Мои папки",
     "noFolders": "Папок нет",
-    "noFoldersDescription": "Загрузите первую папку и поделитесь кодом!"
+    "noFoldersDescription": "Загрузите первую папку и поделитесь кодом!",
+    "infoTab": "Информация"
   },
   "about": {
     "title": "О нас",

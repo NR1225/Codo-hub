@@ -23,34 +23,34 @@ const Header: React.FC = () => {
   const profileButtonRef = useRef<HTMLButtonElement>(null);
 
   // Load avatar from imageStorage for display
-  useEffect(() => {
+  const loadDisplayUser = useCallback(async () => {
     if (!authUser?.id) {
       setDisplayUser(null);
       return;
     }
 
-    const loadDisplayUser = async () => {
-      const userData = { ...authUser };
+    const userData = { ...authUser };
 
-      // Load avatar from imageStorage if it exists
-      try {
-        const avatarFromStorage = await imageStorage.getImage(`avatar-${userData.id}`);
-        if (avatarFromStorage) {
-          userData.avatar = avatarFromStorage;
-        } else if (userData.avatar === 'stored') {
-          userData.avatar = undefined;
-        }
-      } catch {
-        if (userData.avatar === 'stored') {
-          userData.avatar = undefined;
-        }
+    // Load avatar from imageStorage if it exists
+    try {
+      const avatarFromStorage = await imageStorage.getImage(`avatar-${userData.id}`);
+      if (avatarFromStorage) {
+        userData.avatar = avatarFromStorage;
+      } else if (userData.avatar === 'stored') {
+        userData.avatar = undefined;
       }
+    } catch {
+      if (userData.avatar === 'stored') {
+        userData.avatar = undefined;
+      }
+    }
 
-      setDisplayUser(userData);
-    };
-
-    loadDisplayUser();
+    setDisplayUser(userData);
   }, [authUser]);
+
+  useEffect(() => {
+    loadDisplayUser();
+  }, [loadDisplayUser]);
 
   const loadIncomingRequestCount = useCallback(async () => {
     if (!authUser?.id) return;
@@ -103,10 +103,12 @@ const Header: React.FC = () => {
     }
   }, [isAuthenticated, authUser?.id, loadIncomingRequestCount]);
 
-  // Listen for profile update events
+  // Listen for profile update events — reload avatar from imageStorage
+  // (e.g. after editing profile in EditProfileModal, which saves the new
+  // avatar to imageStorage and dispatches this event)
   useEffect(() => {
     const handleProfileUpdate = () => {
-      // AuthContext will update authUser, which triggers the effect above
+      loadDisplayUser();
     };
 
     window.addEventListener('userProfileUpdated', handleProfileUpdate);
@@ -114,7 +116,7 @@ const Header: React.FC = () => {
     return () => {
       window.removeEventListener('userProfileUpdated', handleProfileUpdate);
     };
-  }, []);
+  }, [loadDisplayUser]);
 
   return (
     <header className="relative border-b border-border py-0.5 sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10">
@@ -140,6 +142,11 @@ const Header: React.FC = () => {
           <Button
             variant="primary"
             onClick={() => {
+              // Кірмеген қолданушыны логин бетіне өткізу
+              if (!isAuthenticated) {
+                navigate('/login');
+                return;
+              }
               navigate('/');
               setIsUploadModalOpen(true);
             }}

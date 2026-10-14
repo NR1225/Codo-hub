@@ -1,6 +1,6 @@
 """Message routes"""
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
-from typing import Optional, List
+from typing import Optional
 import json
 from models import MessageCreate
 from services.message_service import MessageService

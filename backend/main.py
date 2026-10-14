@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, Response
-from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -93,9 +92,6 @@ async def lifespan(app: FastAPI):
         await auto_save_task
     except asyncio.CancelledError:
         pass
-    
-    # Shutdown (if needed)
-    pass
 
 
 # Initialize FastAPI app with lifespan
@@ -292,8 +288,8 @@ async def serve_upload(file_path: str):
 from fastapi import WebSocket, WebSocketDisconnect, Query
 from database import messages, save_messages
 from websocket import manager
-from utils.auth import decode_token
-from db import SessionLocal, User
+from utils.auth import resolve_access_user
+from db import SessionLocal
 
 @app.websocket("/api/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Query(None)):
@@ -306,19 +302,24 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
         await websocket.close(code=4003, reason="Origin not allowed")
         return
 
-    # Validate JWT token (required)
+    # Validate JWT access token (required). Uses the same strict validation as
+    # get_current_user: type=="access" + session_id must match the live session,
+    # so a logged-out / session-revoked token is rejected here too.
     if not token:
         await websocket.close(code=4001, reason="Authentication required")
         return
+    db = SessionLocal()
     try:
-        payload = decode_token(token)
-        token_user_id = payload.get("sub")
-        if token_user_id != user_id:
+        try:
+            user = resolve_access_user(token, db)
+        except Exception:
+            await websocket.close(code=4001, reason="Invalid token")
+            return
+        if user.id != user_id:
             await websocket.close(code=4001, reason="User ID mismatch")
             return
-    except Exception:
-        await websocket.close(code=4001, reason="Invalid token")
-        return
+    finally:
+        db.close()
 
     await manager.connect(websocket, user_id)
     try:
@@ -366,21 +367,24 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
         await websocket.close(code=4003, reason="Origin not allowed")
         return
 
-    # Validate JWT token
+    # Validate JWT access token. Same strict validation as get_current_user
+    # (type=="access" + live session_id match) so a revoked session can't open
+    # a terminal WebSocket either.
     if not token:
         await websocket.close(code=4001, reason="Authentication required")
         return
 
     user_id = None
+    db = SessionLocal()
     try:
-        payload = decode_token(token)
-        user_id = payload.get("sub")
-        if not user_id:
+        try:
+            user = resolve_access_user(token, db)
+        except Exception:
             await websocket.close(code=4001, reason="Invalid token")
             return
-    except Exception:
-        await websocket.close(code=4001, reason="Invalid token")
-        return
+        user_id = user.id
+    finally:
+        db.close()
 
     # Accept the WebSocket connection
     await websocket.accept()

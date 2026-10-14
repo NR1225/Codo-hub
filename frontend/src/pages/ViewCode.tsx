@@ -13,7 +13,6 @@ import UploadModal from '../components/modals/UploadModal';
 import Button from '../components/ui/Button';
 import { isImageFile } from '../utils/fileHandler';
 import { formatDate as formatDateUtil, formatDateTime } from '../utils/dateFormatter';
-import JSZip from 'jszip';
 import './ViewCode.css';
 
 interface CommentItemProps {
@@ -644,6 +643,8 @@ const ViewCode: React.FC = () => {
     }
 
     try {
+      // jszip-ті тек қана экспорт кезінде динамикалық жүктеу (~100KB)
+      const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
       
       // Add all files to ZIP maintaining folder structure

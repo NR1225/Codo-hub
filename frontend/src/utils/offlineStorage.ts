@@ -122,33 +122,6 @@ class OfflineStorage {
       };
     });
   }
-
-  async clearAll(): Promise<void> {
-    if (!this.db) {
-      await this.init();
-    }
-
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      const transaction = this.db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.clear();
-
-      request.onsuccess = () => {
-        console.log('Барлық кэш тазаланды');
-        resolve();
-      };
-
-      request.onerror = () => {
-        console.error('Кэшті тазалау қатесі:', request.error);
-        reject(request.error);
-      };
-    });
-  }
 }
 
 export const offlineStorage = new OfflineStorage();

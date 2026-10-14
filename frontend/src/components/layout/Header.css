@@ -95,7 +95,29 @@
     right: -3px !important;
   }
   
-  /* Button order: Upload (1), Chat (2), Vibecoding (2.5), Profile (3) */
+  .header-btn-vibecoding {
+  position: relative;
+  overflow: visible;
+}
+
+.header-btn-vibecoding::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(0, 175, 202, 0.5), rgba(157, 123, 255, 0.35));
+  opacity: 0.6;
+  filter: blur(8px);
+  z-index: -1;
+  transition: opacity 0.3s ease;
+}
+
+.header-btn-vibecoding:hover::before {
+  opacity: 1;
+  filter: blur(12px);
+}
+
+/* Button order: Upload (1), Chat (2), Vibecoding (2.5), Profile (3) */
   .header-btn-upload {
     order: 1;
   }

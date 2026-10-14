@@ -1,5 +1,5 @@
 """SQL Database setup with SQLAlchemy"""
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Text, func
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Text, Integer, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -34,6 +34,8 @@ class User(Base):
     totp_secret = Column(String(255), nullable=True)
     totp_enabled = Column(Boolean, default=False)
     recovery_codes = Column(Text, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -41,7 +43,33 @@ class User(Base):
 def init_db():
     """Initialize database - create all tables"""
     Base.metadata.create_all(bind=engine)
+    _ensure_user_columns()
     print(f"Database initialized at {DB_PATH}")
+
+
+def _ensure_user_columns():
+    """Idempotently add new columns to the existing `users` table.
+
+    `Base.metadata.create_all` won't ALTER existing SQLite tables, so any
+    columns added to the `User` model after the first run need an explicit
+    migration here. Runs on every startup; safe because each ADD COLUMN is
+    guarded by a presence check.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        # Fresh database: create_all already produced the full schema.
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("users")}
+    with engine.begin() as conn:
+        if "failed_login_attempts" not in existing:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0")
+            )
+        if "locked_until" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN locked_until DATETIME"))
 
 
 def get_db():

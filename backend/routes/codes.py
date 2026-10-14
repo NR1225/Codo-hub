@@ -1,9 +1,12 @@
 """Code routes"""
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
-from typing import Optional
-from models import CodeCreate, CodeUpdate, CommentCreate, CommentUpdate, LikeRequest, ViewRequest, DeleteMultipleRequest
+from fastapi import APIRouter, HTTPException, Query, Depends, Request, File, Form, UploadFile
+from typing import Optional, List
+import json
+import base64
+import mimetypes
+from models import CodeCreate, CodeUpdate, CommentCreate, CommentUpdate, ViewRequest, DeleteMultipleRequest
 from services.code_service import CodeService
-from utils.auth import get_current_user, get_optional_user
+from utils.auth import get_current_user
 from db import User
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -47,6 +50,103 @@ async def create_code(request: Request, code_data: CodeCreate, user: User = Depe
     except Exception as e:
         import logging
         logging.getLogger("kazakh_hub").error(f"Code creation error: {e}")
+        raise HTTPException(status_code=500, detail="Қате орын алды! Сервер қатесі.")
+
+
+# Сурет кеңейтімдері — content-ті data-URL (base64) ретінде сақтау үшін
+_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico'}
+
+
+@router.post("/codes/folder")
+@limiter.limit("30/minute")
+async def create_folder(
+    request: Request,
+    manifest: str = Form(...),
+    files: List[UploadFile] = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Бүтін папканы бір сұраумен жүктеу.
+
+    Frontend бір multipart сұрау жібереді:
+      - manifest: JSON {folderName, title, description, tags, language,
+        structure, files: [{path, name, language, isImage, size}]}
+      - files: шикі File тізімі (manifest.files ретімен сәйкес келеді)
+
+    Бет әр файл үшін жеке сұрау жасамайды (және файл мазмұнын оқымайды) —
+    контейнер + барлық ішкі файлдарды сервер құрып шығарады.
+    """
+    try:
+        try:
+            manifest_data = json.loads(manifest)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="manifest JSON дұрыс емес")
+
+        file_entries = manifest_data.get('files', [])
+        if not file_entries:
+            raise HTTPException(status_code=400, detail="Папка бос")
+
+        if len(files) != len(file_entries):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Файлдар саны сәйкес келмейді: manifest={len(file_entries)}, "
+                      f"жіберілген={len(files)}"
+            )
+
+        # Контейнер мазмұны (структура метаақпараты)
+        folder_content = json.dumps({
+            'structure': manifest_data.get('structure', {}),
+            'fileCount': len(file_entries),
+        }, ensure_ascii=False, indent=2)
+
+        folder_data = {
+            'title': manifest_data.get('title') or manifest_data.get('folderName') or 'folder',
+            'content': folder_content,
+            'language': manifest_data.get('language') or 'folder',
+            'author': user.username,
+            'description': manifest_data.get('description'),
+            'tags': manifest_data.get('tags') or ['folder'],
+            'folderStructure': manifest_data.get('structure'),
+        }
+
+        # Әр файл үшін контент дайындау (сервердің өзі оқиды — frontend оқымайды)
+        files_data = []
+        for entry, upload in zip(file_entries, files):
+            raw = await upload.read()
+            if raw is None:
+                raw = b''
+            path = entry.get('path') or upload.filename or entry.get('name', 'file')
+            name = entry.get('name') or upload.filename or path.split('/')[-1]
+            is_image = entry.get('isImage', False)
+
+            if is_image:
+                ext = '.' + (path.rsplit('.', 1)[-1].lower()
+                             if '.' in path else '')
+                mime = mimetypes.guess_type(name)[0] or 'image/png'
+                if ext in _IMAGE_EXTENSIONS and mime == 'application/octet-stream':
+                    mime = 'image/' + ext.lstrip('.')
+                b64 = base64.b64encode(raw).decode('ascii')
+                content = f"data:{mime};base64,{b64}"
+            else:
+                content = raw.decode('utf-8', errors='replace')
+
+            files_data.append({
+                'title': name,
+                'content': content,
+                'language': entry.get('language') or 'other',
+                'author': user.username,
+                'description': manifest_data.get('description'),
+                'tags': ['folder-file'],
+                'folderPath': path,
+            })
+
+        return CodeService.create_folder_batch(folder_data, files_data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.getLogger("kazakh_hub").error(f"Folder upload error: {e}")
         raise HTTPException(status_code=500, detail="Қате орын алды! Сервер қатесі.")
 
 

@@ -1,15 +1,25 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect, lazy, Suspense } from 'react';
 import { useVibecoding } from '../../contexts/VibecodingContext';
+import { EditorMetaProvider } from '../../contexts/EditorMetaContext';
 import { useResizer } from '../../hooks/useResizer';
 import ResizeHandle from './ResizeHandle';
 import FileExplorerPanel from './FileExplorerPanel';
 import EditorPanel from './EditorPanel';
 import ChatPanel from './ChatPanel';
-import TerminalPanel from './TerminalPanel';
+import StatusBar from './StatusBar';
+import EditorSettings from './EditorSettings';
+
+// TerminalPanel xterm-ді (~200KB) тартады — тек terminal ашылғанда жүктеу үшін lazy.
+const TerminalPanel = lazy(() => import('./TerminalPanel'));
+
+const TerminalFallback: React.FC = () => (
+  <div className="flex items-center justify-center h-full text-sm opacity-60">…</div>
+);
 
 const IDELayout: React.FC = () => {
   const { state, dispatch, isMobile, isTablet, isDesktop } = useVibecoding();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const { sizes, onDragStart } = useResizer({
     initialSizes: state.panelSizes,
@@ -42,126 +52,154 @@ const IDELayout: React.FC = () => {
     dispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: false });
   }, [dispatch]);
 
+  // Listen for settings open/toggle requests from shortcuts & command palette
+  useEffect(() => {
+    const onOpen = () => setShowSettings(true);
+    const onToggle = () => setShowSettings(v => !v);
+    window.addEventListener('vibecoding:open-settings', onOpen);
+    window.addEventListener('vibecoding:toggle-settings', onToggle);
+    return () => {
+      window.removeEventListener('vibecoding:open-settings', onOpen);
+      window.removeEventListener('vibecoding:toggle-settings', onToggle);
+    };
+  }, []);
+
   return (
-    <div
-      ref={containerRef}
-      className="flex-1 flex flex-col overflow-hidden relative bg-[var(--ide-bg)]"
-    >
-      {/* Editor + Terminal Area */}
-      <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Left Panel - Desktop inline */}
-        {isDesktop && (
-          <>
+    <EditorMetaProvider>
+      <div
+        ref={containerRef}
+        className="flex-1 flex flex-col overflow-hidden relative bg-[var(--ide-bg)]"
+      >
+        {/* Editor + Terminal Area */}
+        <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
+          {/* Left Panel - Desktop inline */}
+          {isDesktop && (
+            <>
+              <div
+                className="vibe-panel-left overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  width: `${leftWidth}%`,
+                  minWidth: state.leftPanelVisible ? '180px' : '0',
+                  maxWidth: state.leftPanelVisible ? '400px' : '0',
+                  opacity: state.leftPanelVisible ? 1 : 0,
+                }}
+              >
+                {state.leftPanelVisible && <FileExplorerPanel />}
+              </div>
+
+              {state.leftPanelVisible && (
+                <ResizeHandle
+                  type="vertical"
+                  onMouseDown={(e) => onDragStart(e, 'left', containerRef.current!)}
+                  onDoubleClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
+                />
+              )}
+            </>
+          )}
+
+          {/* Left Panel - Mobile/Tablet Overlay */}
+          {showLeftAsOverlay && state.leftPanelVisible && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fadeIn"
+                onClick={closeLeftOverlay}
+              />
+              {/* Sidebar overlay */}
+              <div
+                className="fixed left-0 top-0 bottom-0 z-50 w-[85vw] max-w-[360px] shadow-2xl animate-slideInLeft"
+                style={{ backgroundColor: 'var(--ide-sidebar-bg)' }}
+              >
+                <FileExplorerPanel />
+              </div>
+            </>
+          )}
+
+          {/* Center - Editor + Terminal */}
+          <div className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+            {/* Editor */}
+            <div style={{ height: editorHeight }} className="overflow-hidden">
+              <EditorPanel />
+            </div>
+
+            {/* Terminal - inline on all breakpoints */}
             <div
-              className="overflow-hidden transition-all duration-300 ease-in-out"
+              className="vibe-panel-bottom overflow-hidden transition-all duration-300 ease-in-out bg-[var(--ide-terminal-bg)]"
               style={{
-                width: `${leftWidth}%`,
-                minWidth: state.leftPanelVisible ? '180px' : '0',
-                maxWidth: state.leftPanelVisible ? '400px' : '0',
-                opacity: state.leftPanelVisible ? 1 : 0,
+                height: state.bottomPanelVisible ? `${bottomHeight}%` : '0',
               }}
             >
-              {state.leftPanelVisible && <FileExplorerPanel />}
+              {state.bottomPanelVisible && (
+                <>
+                  <ResizeHandle
+                    type="horizontal"
+                    onMouseDown={(e) => onDragStart(e, 'bottom', containerRef.current!)}
+                    onDoubleClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
+                  />
+                  <Suspense fallback={<TerminalFallback />}>
+                    <TerminalPanel />
+                  </Suspense>
+                </>
+              )}
             </div>
-
-            {state.leftPanelVisible && (
-              <ResizeHandle
-                type="vertical"
-                onMouseDown={(e) => onDragStart(e, 'left', containerRef.current!)}
-                onDoubleClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
-              />
-            )}
-          </>
-        )}
-
-        {/* Left Panel - Mobile/Tablet Overlay */}
-        {showLeftAsOverlay && state.leftPanelVisible && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fadeIn"
-              onClick={closeLeftOverlay}
-            />
-            {/* Sidebar overlay */}
-            <div
-              className="fixed left-0 top-0 bottom-0 z-50 w-[85vw] max-w-[360px] shadow-2xl animate-slideInLeft"
-              style={{ backgroundColor: 'var(--ide-sidebar-bg)' }}
-            >
-              <FileExplorerPanel />
-            </div>
-          </>
-        )}
-
-        {/* Center - Editor + Terminal */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
-          {/* Editor */}
-          <div style={{ height: editorHeight }} className="overflow-hidden">
-            <EditorPanel />
           </div>
 
-          {/* Terminal - inline on all breakpoints */}
-          <div
-            className="overflow-hidden transition-all duration-300 ease-in-out"
-            style={{
-              height: state.bottomPanelVisible ? `${bottomHeight}%` : '0',
-            }}
-          >
-            {state.bottomPanelVisible && (
-              <>
+          {/* Right Panel - Desktop inline */}
+          {isDesktop && (
+            <>
+              {state.rightPanelVisible && (
                 <ResizeHandle
-                  type="horizontal"
-                  onMouseDown={(e) => onDragStart(e, 'bottom', containerRef.current!)}
-                  onDoubleClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
+                  type="vertical"
+                  onMouseDown={(e) => onDragStart(e, 'right', containerRef.current!)}
+                  onDoubleClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
                 />
-                <TerminalPanel />
-              </>
-            )}
-          </div>
+              )}
+              <div
+                className="vibe-panel-right overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  width: `${rightWidth}%`,
+                  minWidth: state.rightPanelVisible ? '250px' : '0',
+                  maxWidth: state.rightPanelVisible ? '500px' : '0',
+                  opacity: state.rightPanelVisible ? 1 : 0,
+                }}
+              >
+                {state.rightPanelVisible && <ChatPanel />}
+              </div>
+            </>
+          )}
+
+          {/* Right Panel - Mobile/Tablet Overlay */}
+          {showRightAsOverlay && state.rightPanelVisible && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fadeIn"
+                onClick={closeRightOverlay}
+              />
+              {/* Chat overlay */}
+              <div
+                className="fixed right-0 top-0 bottom-0 z-50 w-[90vw] max-w-[400px] shadow-2xl animate-slideInRight"
+                style={{ backgroundColor: 'var(--ide-sidebar-bg)' }}
+              >
+                <ChatPanel />
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Right Panel - Desktop inline */}
-        {isDesktop && (
-          <>
-            {state.rightPanelVisible && (
-              <ResizeHandle
-                type="vertical"
-                onMouseDown={(e) => onDragStart(e, 'right', containerRef.current!)}
-                onDoubleClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
-              />
-            )}
-            <div
-              className="overflow-hidden transition-all duration-300 ease-in-out"
-              style={{
-                width: `${rightWidth}%`,
-                minWidth: state.rightPanelVisible ? '250px' : '0',
-                maxWidth: state.rightPanelVisible ? '500px' : '0',
-                opacity: state.rightPanelVisible ? 1 : 0,
-              }}
-            >
-              {state.rightPanelVisible && <ChatPanel />}
-            </div>
-          </>
-        )}
+        {/* Global status bar (full width, below everything) */}
+        <StatusBar
+          onOpenSettings={() => setShowSettings(v => !v)}
+          onTogglePalette={() => {
+            // Delegate to the page-level palette via a custom event
+            window.dispatchEvent(new CustomEvent('vibecoding:open-palette-commands'));
+          }}
+        />
 
-        {/* Right Panel - Mobile/Tablet Overlay */}
-        {showRightAsOverlay && state.rightPanelVisible && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fadeIn"
-              onClick={closeRightOverlay}
-            />
-            {/* Chat overlay */}
-            <div
-              className="fixed right-0 top-0 bottom-0 z-50 w-[90vw] max-w-[400px] shadow-2xl animate-slideInRight"
-              style={{ backgroundColor: 'var(--ide-sidebar-bg)' }}
-            >
-              <ChatPanel />
-            </div>
-          </>
-        )}
+        {/* Editor settings popover, anchored to bottom-right above the status bar */}
+        {showSettings && <EditorSettings onClose={() => setShowSettings(false)} />}
       </div>
-    </div>
+    </EditorMetaProvider>
   );
 };
 

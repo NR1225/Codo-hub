@@ -1,6 +1,5 @@
 """Application configuration"""
 import os
-from datetime import timedelta
 
 # JWT Configuration
 _jwt_secret = os.getenv("JWT_SECRET")
@@ -16,6 +15,10 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE", "30"))
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE", "30"))
 JWT_2FA_TEMP_TOKEN_EXPIRE_MINUTES = 5
 
+# Per-account login brute-force protection (independent of the IP rate limiter)
+LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+LOGIN_LOCKOUT_MINUTES = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "15"))
+
 # SMTP / Email Configuration
 SMTP_ENABLED = os.getenv("SMTP_ENABLED", "false").lower() == "true"
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -29,7 +32,6 @@ RESET_PASSWORD_URL = os.getenv("RESET_PASSWORD_URL", "http://localhost:5173/rese
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CODES_FILE = os.path.join(DATA_DIR, "codes.json")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
-PASSWORDS_FILE = os.path.join(DATA_DIR, "passwords.json")
 FRIENDS_FILE = os.path.join(DATA_DIR, "friends.json")
 MESSAGES_FILE = os.path.join(DATA_DIR, "messages.json")
 FRIEND_REQUESTS_FILE = os.path.join(DATA_DIR, "friendRequests.json")

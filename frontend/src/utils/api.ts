@@ -272,7 +272,12 @@ class ApiService {
           errorMessage = tApi('apiErrors.serviceUnavailable');
         }
 
-        throw new Error(errorMessage);
+        const apiError = new Error(errorMessage);
+        // Attach HTTP status code so callers can distinguish hard failures
+        // (401/404) from transient ones (network/timeout) without relying on
+        // the translated message text.
+        (apiError as any).status = response.status;
+        throw apiError;
       }
 
       // Handle empty responses (e.g., 204 No Content)

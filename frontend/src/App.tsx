@@ -7,8 +7,8 @@ import { SiteConfigProvider, useSiteConfig } from './contexts/SiteConfigContext'
 import { apiService } from './utils/api';
 import { initializeFirebase, isFirebaseInitialized } from './utils/firebase';
 import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
 import ScrollToTop from './components/layout/ScrollToTop';
+import ProtectedRoute from './components/ProtectedRoute';
 import './styles/globals.css';
 import './styles/theme.css';
 
@@ -50,16 +50,16 @@ const FirebaseBridge: React.FC = () => {
   return null;
 };
 
-// Loading component
+// Loading component — беттің қаңқасын (skeleton) көрсетіп, толық spinner
+// флешын азайтады; беттің ашылып жатқанын бірден көрсетеді.
 const PageLoader: React.FC = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    minHeight: '50vh' 
-  }}>
-    <div className="loading-spinner">
-      <div className="spinner"></div>
+  <div className="page-skeleton" aria-hidden="true">
+    <div className="page-skeleton-bar page-skeleton-bar--lg" />
+    <div className="page-skeleton-bar page-skeleton-bar--md" />
+    <div className="page-skeleton-grid">
+      <div className="page-skeleton-card" />
+      <div className="page-skeleton-card" />
+      <div className="page-skeleton-card" />
     </div>
   </div>
 );
@@ -71,10 +71,6 @@ const AppContent: React.FC = () => {
   // Hide header and sidebar on auth pages (login, register, forgot/reset password)
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
     || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  // Hide footer on chat page, view code page, profile page, and vibecoding page
-  const isChatPage = location.pathname === '/chat';
-  const isViewCodePage = location.pathname.startsWith('/view/');
-  const isProfilePage = location.pathname.startsWith('/profile');
   const isVibecodingPage = location.pathname === '/vibecoding';
   
   return (
@@ -85,22 +81,24 @@ const AppContent: React.FC = () => {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/upload" element={<Upload />} />
-              <Route path="/view/:id" element={<ViewCode />} />
-              <Route path="/profile/:username?" element={<Profile />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/features" element={<FeaturesPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/vibecoding" element={<VibecodingPage />} />
+              <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+              <Route path="/view/:id" element={<ProtectedRoute><ViewCode /></ProtectedRoute>} />
+              <Route path="/profile/:username?" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+              <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
+              <Route path="/features" element={<ProtectedRoute><FeaturesPage /></ProtectedRoute>} />
+              <Route path="/terms" element={<ProtectedRoute><TermsPage /></ProtectedRoute>} />
+              <Route path="/privacy" element={<ProtectedRoute><PrivacyPage /></ProtectedRoute>} />
+              <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
+              <Route path="/vibecoding" element={<ProtectedRoute><VibecodingPage /></ProtectedRoute>} />
               <Route path="*" element={
-                <div style={{ padding: '2rem', textAlign: 'center' }}>
-                  <h1>{t('viewCode.404')}</h1>
-                  <p>{t('viewCode.pageNotFound')}</p>
-                </div>
+                <ProtectedRoute>
+                  <div style={{ padding: '2rem', textAlign: 'center' }}>
+                    <h1>{t('viewCode.404')}</h1>
+                    <p>{t('viewCode.pageNotFound')}</p>
+                  </div>
+                </ProtectedRoute>
               } />
             </Routes>
           </Suspense>
@@ -117,7 +115,6 @@ const AppContent: React.FC = () => {
           </Suspense>
         </main>
       )}
-      {!isAuthPage && !isChatPage && !isViewCodePage && !isProfilePage && !isVibecodingPage && <Footer />}
     </div>
   );
 };

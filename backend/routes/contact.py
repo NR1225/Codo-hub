@@ -5,7 +5,6 @@ from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

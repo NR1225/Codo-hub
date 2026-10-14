@@ -566,3 +566,58 @@ select {
   background-color: var(--ide-sidebar-bg) !important;
 }
 
+/* Page skeleton — Suspense fallback. Бет ашылғанша қаңқаны көрсету. */
+.page-skeleton {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: skeleton-fade 0.4s ease;
+}
+.page-skeleton-bar {
+  height: 22px;
+  border-radius: 8px;
+  background: var(--bg-primary, #1e1e2a);
+  position: relative;
+  overflow: hidden;
+}
+.page-skeleton-bar--lg { width: 45%; height: 28px; }
+.page-skeleton-bar--md { width: 30%; }
+.page-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+.page-skeleton-card {
+  height: 160px;
+  border-radius: 12px;
+  background: var(--bg-primary, #1e1e2a);
+  position: relative;
+  overflow: hidden;
+}
+.page-skeleton-bar::after,
+.page-skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.06),
+    transparent
+  );
+  animation: skeleton-shimmer 1.3s infinite;
+}
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+@keyframes skeleton-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+

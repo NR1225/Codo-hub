@@ -49,22 +49,6 @@ class UserUpdate(BaseModel):
         return v
 
 
-class DeleteUserRequest(BaseModel):
-    userId: Optional[str] = Field(default=None, max_length=50)
-    email: Optional[str] = Field(default=None, max_length=255)
-
-    @field_validator('email')
-    @classmethod
-    def validate_email(cls, v):
-        if v is not None:
-            return validate_email(v)
-        return v
-
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(max_length=500)
-
-
 class ForgotPasswordRequest(BaseModel):
     email: str = Field(max_length=255)
 
@@ -77,10 +61,6 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str = Field(max_length=200)
     new_password: str = Field(min_length=8, max_length=128)
-
-
-class TwoFACode(BaseModel):
-    code: str = Field(max_length=6, pattern=r'^\d{6}$')
 
 
 class TwoFASetupVerify(BaseModel):

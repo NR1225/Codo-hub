@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLaptop, faHeart, faComment, faEye, faFileAlt, faIdCard, faImage, faEdit, faCopy, faCheck, faArrowLeft, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faLaptop, faHeart, faComment, faEye, faFileAlt, faIdCard, faImage, faEdit, faCopy, faCheck, faArrowLeft, faUser, faPlus, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { User, CodeFile } from '../utils/api';
 import { apiService } from '../utils/api';
 import { ensureNumericId } from '../utils/idConverter';
@@ -12,13 +12,39 @@ import EditProfileModal from '../components/modals/EditProfileModal';
 import ChangeBackgroundModal from '../components/modals/ChangeBackgroundModal';
 import './Profile.css';
 
+// Модуль деңгейіндегі кэш: Profile-ға қайта оралғанда loading spinner
+// флешы көрінбеуі үшін — бұрын жүктелген деректі бірден көрсетіп, фонда жаңартамыз.
+interface ProfileCache {
+  user: User;
+  userCodes: CodeFile[];
+  stats: { totalLikes: number; totalComments: number; totalViews: number };
+}
+const profileCache: Record<string, ProfileCache> = {};
+
+const profileCacheKey = (username: string | undefined): string =>
+  username ? `@${username}` : '@me';
+
+const computeStats = (filteredCodes: CodeFile[]) => {
+  const totalLikes = filteredCodes.reduce((sum, code) => sum + (code.likes?.length || 0), 0);
+  const totalComments = filteredCodes.reduce((sum, code) => {
+    const commentCount = code.comments?.length || 0;
+    const replyCount = code.comments?.reduce((replySum, comment) => {
+      return replySum + (comment.replies?.length || 0);
+    }, 0) || 0;
+    return sum + commentCount + replyCount;
+  }, 0);
+  const totalViews = filteredCodes.reduce((sum, code) => sum + (code.views || 0), 0);
+  return { totalLikes, totalComments, totalViews };
+};
+
 const Profile: React.FC = () => {
   const { t } = useTranslation();
   const { username: urlUsername } = useParams<{ username?: string }>();
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [userCodes, setUserCodes] = useState<CodeFile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const _cacheKey = profileCacheKey(urlUsername);
+  const _cached = profileCache[_cacheKey];
+  const [user, setUser] = useState<User | null>(_cached?.user ?? null);
+  const [userCodes, setUserCodes] = useState<CodeFile[]>(_cached?.userCodes ?? []);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangeBackgroundModalOpen, setIsChangeBackgroundModalOpen] = useState(false);
@@ -37,7 +63,8 @@ const Profile: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    loadProfile();
+    // Кэш бар болса — фонда жаңартамыз (silent), әйтпесе толық жүктеу.
+    loadProfile(profileCache[_cacheKey] !== undefined);
     // Load current user from localStorage
     const loadCurrentUser = async () => {
       const storedUser = localStorage.getItem('user');
@@ -237,12 +264,10 @@ const Profile: React.FC = () => {
     setIsChangeBackgroundModalOpen(true);
   };
 
-  const loadProfile = async () => {
+  const loadProfile = async (silent: boolean = false) => {
     try {
-      setLoading(true);
-      
       let userData: User;
-      
+
       // If username is provided in URL, load that user's profile
       if (urlUsername) {
         try {
@@ -250,13 +275,12 @@ const Profile: React.FC = () => {
         } catch (err: any) {
           console.error('Failed to load user by username:', err);
           setError(t('profile.userNotFound'));
-          setLoading(false);
           return;
         }
       } else {
         // Try to get user from localStorage first
         const storedUser = localStorage.getItem('user');
-        
+
         if (storedUser) {
           userData = JSON.parse(storedUser);
           // Always verify user exists in backend using stored email and id
@@ -265,19 +289,31 @@ const Profile: React.FC = () => {
             const verifiedUser = await apiService.getCurrentUser(userData.email, userData.id);
             userData = verifiedUser;
           } catch (err: any) {
-            // If user not found in backend, clear localStorage and redirect to login
-            console.error('Failed to verify user:', err);
-            localStorage.removeItem('user');
-            navigate('/login');
-            return;
+            // Only redirect to login on a genuine "user not found" (HTTP 404).
+            // Transient errors (401, network, timeout, server down) must NOT
+            // log the user out — keep the cached user so the profile still
+            // renders while the session recovers in the background.
+            const status = err?.status;
+            const msg = String(err?.message || '');
+            const isUserGone =
+              status === 404 ||
+              /not found|табылмады|ne найден/i.test(msg);
+            if (isUserGone) {
+              console.warn('User no longer exists in backend, redirecting to login');
+              localStorage.removeItem('user');
+              navigate('/login');
+              return;
+            }
+            // Transient failure — keep the stored user and continue.
+            console.warn('getCurrentUser transient failure, using cached user:', err);
           }
         } else {
           // No stored user - redirect to login instead of trying to get random user
-          navigate('/login');
+          if (!silent) navigate('/login');
           return;
         }
       }
-      
+
       // Load avatar from imageStorage if it exists
       if (userData.id) {
         try {
@@ -295,61 +331,53 @@ const Profile: React.FC = () => {
           }
         }
       }
-      
+
       const codesResponse = await apiService.getCodeFiles(undefined, 1000, 0, false);
       setUser(userData);
       // Пайдаланушының кодтарын сүзгілеу
       const filteredCodes = codesResponse.codes.filter((code) => code.author === userData.username);
       setUserCodes(filteredCodes);
-      
+
       // Статистикаларды есептеу
-      const totalLikes = filteredCodes.reduce((sum, code) => sum + (code.likes?.length || 0), 0);
-      const totalComments = filteredCodes.reduce((sum, code) => {
-        const commentCount = code.comments?.length || 0;
-        // Пікірлердің жауаптарын да есептеу
-        const replyCount = code.comments?.reduce((replySum, comment) => {
-          return replySum + (comment.replies?.length || 0);
-        }, 0) || 0;
-        return sum + commentCount + replyCount;
-      }, 0);
-      const totalViews = filteredCodes.reduce((sum, code) => sum + (code.views || 0), 0);
-      
-      setStats({
-        totalLikes,
-        totalComments,
-        totalViews,
-      });
-      
+      const newStats = computeStats(filteredCodes);
+      setStats(newStats);
+
+      // Модуль кэшін жаңарту — келесі рет Profile-ға кіргенде бірден көрсету үшін.
+      profileCache[profileCacheKey(urlUsername)] = {
+        user: userData,
+        userCodes: filteredCodes,
+        stats: newStats,
+      };
+
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('profile.errorTitle'));
-    } finally {
-      setLoading(false);
+      // Silent фонда жаңарту кезіндегі қатені ескі деректі қайтармашылық ету.
+      if (!silent) {
+        setError(err instanceof Error ? err.message : t('profile.errorTitle'));
+      } else {
+        console.warn('Silent profile refresh failed, keeping cached data:', err);
+      }
     }
   };
 
 
-  if (loading) {
-    return (
-      <div className="profile-container">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>{t('profile.loading')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !user) {
+  // Loading spinner толығымен алынып тасталды — кэштелген дерек бірден
+  // көрінеді, алғашқы жүктеуде spinner орнына бос контейнер шығып, дерек
+  // келгенде мазмұн қосылады.
+  if (error && !user) {
     return (
       <div className="profile-container">
         <div className="error-state">
           <p className="error-icon">❌</p>
           <p className="error-title">{t('profile.errorTitle')}</p>
-          <p className="error-message">{error || t('profile.userNotFound')}</p>
+          <p className="error-message">{error}</p>
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return <div className="profile-container" />;
   }
 
   return (
@@ -493,6 +521,24 @@ const Profile: React.FC = () => {
             <p className="empty-description">
               {t('profile.noCodeFilesDescription')}
             </p>
+            {currentUser && user && currentUser.username === user.username && (
+              <div className="empty-state-actions">
+                <button
+                  className="empty-action-btn empty-action-btn--create"
+                  onClick={() => navigate('/upload')}
+                >
+                  <FontAwesomeIcon icon={faPlus} />
+                  <span>{t('profile.createNewProject')}</span>
+                </button>
+                <button
+                  className="empty-action-btn empty-action-btn--import"
+                  onClick={() => navigate('/upload')}
+                >
+                  <FontAwesomeIcon icon={faUpload} />
+                  <span>{t('profile.importCode')}</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="codes-grid">

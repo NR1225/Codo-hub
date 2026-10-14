@@ -34,9 +34,8 @@ const TerminalPanel: React.FC = () => {
     <div className={`h-full flex flex-col bg-[var(--ide-terminal-bg)] ${isMaximized ? 'fixed inset-0 z-50' : ''}`}>
       {/* Terminal header */}
       <div
-        className="flex items-center justify-between px-3 py-1 flex-shrink-0 select-none"
+        className="vibe-terminal-header flex items-center justify-between px-3 py-1 flex-shrink-0 select-none"
         style={{
-          backgroundColor: 'var(--ide-sidebar-bg)',
           borderBottom: '1px solid var(--ide-border)',
         }}
       >
@@ -44,7 +43,7 @@ const TerminalPanel: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <FontAwesomeIcon icon={faTerminal} className="text-[var(--ide-accent)] text-[10px]" />
             <span className="text-[11px] font-semibold text-[var(--ide-text)]">
-              {t('vibecoding.terminal.title', 'Терминал')}
+              Vibecoding Terminal
             </span>
           </div>
           {/* Status indicator */}
@@ -77,15 +76,14 @@ const TerminalPanel: React.FC = () => {
             <button
               onClick={handleConnect}
               disabled={connecting}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium rounded-md transition-all duration-200"
+              className="vibe-terminal-connect flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium rounded-md transition-all duration-200"
               style={{
-                backgroundColor: 'var(--ide-accent)',
                 color: '#fff',
-                opacity: connecting ? 0.5 : 1,
+                opacity: connecting ? 0.6 : 1,
               }}
             >
               <FontAwesomeIcon icon={faPlug} className="text-[8px]" />
-              {t('vibecoding.terminal.reconnect', 'Қосылу')}
+              Connect
             </button>
           ) : (
             <button

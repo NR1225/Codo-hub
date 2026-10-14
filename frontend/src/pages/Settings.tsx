@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFolder, faTrash, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faFolder, faTrash, faEye, faInfoCircle, faFolderOpen, faBook, faList, faLock, faRocket, faLaptop, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { apiService, CodeFile } from '../utils/api';
+import { apiService, CodeFile, SiteConfig } from '../utils/api';
 import { formatDate } from '../utils/dateFormatter';
 import Button from '../components/ui/Button';
 import './Settings.css';
 
-type SettingsTab = 'general' | 'account' | 'folder' | 'danger';
+type SettingsTab = 'general' | 'account' | 'folder' | 'info' | 'danger';
 
 const Settings: React.FC = () => {
   const { i18n, t } = useTranslation();
@@ -50,6 +50,15 @@ const Settings: React.FC = () => {
   const [folders, setFolders] = useState<CodeFile[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [folderError, setFolderError] = useState('');
+
+  // Site config (footer мазмұнын көрсету үшін)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+
+  useEffect(() => {
+    apiService.getConfig().then(setSiteConfig).catch((err) => {
+      console.error('Failed to load config:', err);
+    });
+  }, []);
 
   const loadFolders = useCallback(async () => {
     if (!user?.username) return;
@@ -212,8 +221,13 @@ const Settings: React.FC = () => {
     { key: 'general', label: t('settings.general') },
     { key: 'account', label: t('settings.account') },
     { key: 'folder', label: t('settings.folderTab') },
+    { key: 'info', label: t('settings.infoTab') },
     { key: 'danger', label: t('settings.dangerZone') },
   ];
+
+  const appName = siteConfig?.appName ?? t('header.appName');
+  const externalLinks = siteConfig?.externalLinks ?? [];
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className="settings-container">
@@ -465,6 +479,89 @@ const Settings: React.FC = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* Info Tab (футердің орнына баптау бетіне көшірілді) */}
+        {activeTab === 'info' && (
+          <>
+            <div className="settings-section">
+              <h2 className="section-title">{appName}</h2>
+              <p className="setting-info">{t('footer.description')}</p>
+              <div className="settings-actions">
+                <Button variant="secondary" onClick={() => navigate('/features')}>
+                  {t('footer.features')}
+                </Button>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faFolderOpen} style={{ marginRight: '0.5rem' }} />
+                {t('footer.links')}
+              </h2>
+              {externalLinks.length === 0 ? (
+                <p className="setting-info">{t('common.loading')}</p>
+              ) : (
+                <ul className="settings-info-links">
+                  {externalLinks.map((link) => (
+                    <li key={link.url}>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer">
+                        <span className="link-icon">
+                          {link.iconUrl ? (
+                            <img src={link.iconUrl} alt={link.name} style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                          ) : (
+                            <FontAwesomeIcon icon={faFolderOpen} />
+                          )}
+                        </span>
+                        {link.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="settings-section">
+              <h2 className="section-title">
+                <FontAwesomeIcon icon={faInfoCircle} style={{ marginRight: '0.5rem' }} />
+                {t('footer.info')}
+              </h2>
+              <ul className="settings-info-links">
+                <li>
+                  <Link to="/about">
+                    <span className="link-icon"><FontAwesomeIcon icon={faBook} /></span>
+                    {t('footer.about')}
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terms">
+                    <span className="link-icon"><FontAwesomeIcon icon={faList} /></span>
+                    {t('footer.terms')}
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/privacy">
+                    <span className="link-icon"><FontAwesomeIcon icon={faLock} /></span>
+                    {t('footer.privacy')}
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/contact">
+                    <span className="link-icon"><FontAwesomeIcon icon={faEnvelope} /></span>
+                    {t('footer.contact')}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div className="settings-section">
+              <p className="setting-info">&copy; {currentYear} {appName}. {t('footer.copyright')}</p>
+              <div className="settings-info-badges">
+                <span className="badge"><FontAwesomeIcon icon={faRocket} /> {t('footer.kazakhstan')}</span>
+                <span className="badge"><FontAwesomeIcon icon={faLaptop} /> {t('footer.openSource')}</span>
+              </div>
             </div>
           </>
         )}

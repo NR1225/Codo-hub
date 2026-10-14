@@ -1,0 +1,629 @@
+/* =========================================================
+   VibeCoding — Premium IDE shell
+   A clean, cohesive, professional editor surface
+   (Cursor / Windsurf / VS Code "Modern Dark" inspired).
+   ========================================================= */
+
+/* ── Design tokens for the IDE surface (dark default) ── */
+.vibe-root {
+  /* Surfaces */
+  --ide-bg: #0d0f12;
+  --ide-sidebar-bg: #131519;
+  --ide-editor-bg: #0d0f12;
+  --ide-terminal-bg: #0a0c0f;
+  --ide-tab-active-bg: #0d0f12;
+  --ide-tab-inactive-bg: #131519;
+
+  /* Text */
+  --ide-text: #d7dbe6;
+  --ide-text-muted: #6b7284;
+
+  /* Accent */
+  --ide-accent: #00b4c4;
+  --ide-accent-hover: #00d0e0;
+  --ide-accent-soft: rgba(0, 180, 196, 0.12);
+
+  /* Lines & hovers */
+  --ide-border: #1f232b;
+  --ide-border-soft: #171a20;
+  --ide-hover: #1a1d24;
+  --ide-active: #1c6b75;
+
+  /* Status bar */
+  --ide-status-bar-bg: #00b4c4;
+  --ide-status-bar-text: #04181c;
+  --ide-status-bar-item-hover: rgba(255, 255, 255, 0.18);
+
+  /* Scrollbar */
+  --ide-scrollbar-thumb: #2a2f3a;
+
+  /* Misc */
+  --ide-dirty: #fbbf24;
+  --ide-danger: #f87171;
+  --ide-success: #34d399;
+
+  --ide-radius: 8px;
+  --ide-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ide-shadow-2: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --ide-transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  color: var(--ide-text);
+  background: var(--ide-bg);
+}
+
+/* Light theme overrides */
+.light-theme .vibe-root {
+  --ide-bg: #fbfbfc;
+  --ide-sidebar-bg: #f3f4f6;
+  --ide-editor-bg: #ffffff;
+  --ide-terminal-bg: #f7f8fa;
+  --ide-tab-active-bg: #ffffff;
+  --ide-tab-inactive-bg: #f0f1f4;
+
+  --ide-text: #1f2430;
+  --ide-text-muted: #71778a;
+
+  --ide-accent: #0a9bb0;
+  --ide-accent-hover: #088699;
+  --ide-accent-soft: rgba(10, 155, 176, 0.1);
+
+  --ide-border: #e4e7ec;
+  --ide-border-soft: #edeff3;
+  --ide-hover: #ebedf1;
+  --ide-active: #d7eef2;
+
+  --ide-status-bar-bg: #0a9bb0;
+  --ide-status-bar-text: #ffffff;
+  --ide-status-bar-item-hover: rgba(255, 255, 255, 0.22);
+
+  --ide-scrollbar-thumb: #c8ccd4;
+  --ide-shadow-2: 0 8px 28px rgba(15, 23, 42, 0.12);
+}
+
+/* ── Subtle ambient background (replaces holographic clutter) ── */
+.vibe-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% -5%, rgba(0, 180, 196, 0.07), transparent 38%),
+    radial-gradient(circle at 85% 105%, rgba(100, 80, 200, 0.05), transparent 34%);
+  pointer-events: none;
+  z-index: 0;
+}
+.light-theme .vibe-root::before {
+  background:
+    radial-gradient(circle at 18% -5%, rgba(10, 155, 176, 0.06), transparent 38%),
+    radial-gradient(circle at 85% 105%, rgba(100, 80, 200, 0.04), transparent 34%);
+}
+
+/* ── Title bar (header glass) ── */
+.vibe-glass {
+  background: var(--ide-sidebar-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid var(--ide-border);
+  box-shadow: none;
+}
+.vibe-glass::before,
+.vibe-glass::after { display: none; }
+
+/* ── Header tab buttons ── */
+.vibe-header-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ide-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all var(--ide-transition);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vibe-header-tab:hover {
+  color: var(--ide-text);
+  background: var(--ide-hover);
+}
+.vibe-header-tab.active {
+  color: var(--ide-text);
+  background: var(--ide-active);
+  border-color: transparent;
+}
+
+/* ── Title in header ── */
+.vibe-title-glitch { position: relative; display: inline-block; }
+.vibe-title-glitch::before,
+.vibe-title-glitch::after { display: none; }
+
+/* ── Buttons ── */
+.vibe-btn,
+.vibe-btn-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--ide-radius);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ide-text);
+  background: var(--ide-accent);
+  border: none;
+  box-shadow: none;
+  transition: all var(--ide-transition);
+  cursor: pointer;
+}
+.vibe-btn:hover,
+.vibe-btn-secondary:hover {
+  background: var(--ide-accent-hover);
+  color: #04181c;
+  transform: none;
+  box-shadow: none;
+}
+.vibe-btn::before,
+.vibe-btn-secondary::before { display: none; }
+.vibe-btn-secondary {
+  background: transparent;
+  color: var(--ide-accent);
+  border: 1px solid var(--ide-border);
+}
+.vibe-btn-secondary:hover {
+  background: var(--ide-accent-soft);
+  color: var(--ide-accent);
+  border-color: var(--ide-accent);
+}
+
+/* ── Empty-state card ── */
+.vibe-empty-card {
+  width: min(440px, 90vw);
+  padding: 40px 32px;
+  border-radius: 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: var(--ide-sidebar-bg);
+  border: 1px solid var(--ide-border);
+  box-shadow: var(--ide-shadow-2);
+}
+.vibe-empty-card::after { display: none; }
+.vibe-glow-border::before { display: none; }
+
+/* ── Holographic icon → refined rounded icon tile ── */
+.vibe-holo-icon {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 22px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ide-accent-soft);
+  border: 1px solid var(--ide-border);
+  box-shadow: none;
+}
+.vibe-holo-icon::before,
+.vibe-holo-icon::after { display: none; }
+
+/* ── AI avatar ── */
+.vibe-ai-avatar {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ide-accent);
+  box-shadow: none;
+}
+.vibe-ai-avatar::before { display: none; }
+
+/* ── Panels: flat separators (no neon) ── */
+.vibe-panel-left,
+.vibe-panel-right,
+.vibe-panel-bottom { position: relative; }
+.vibe-panel-left::before,
+.vibe-panel-right::before,
+.vibe-panel-bottom::before { display: none; }
+.vibe-panel-left {
+  background: var(--ide-sidebar-bg);
+  border-right: 1px solid var(--ide-border);
+}
+.vibe-panel-right {
+  background: var(--ide-sidebar-bg);
+  border-left: 1px solid var(--ide-border);
+}
+.vibe-panel-bottom {
+  border-top: 1px solid var(--ide-border);
+}
+
+/* ── Terminal header ── */
+.vibe-terminal-header {
+  background: var(--ide-sidebar-bg);
+  border-bottom: 1px solid var(--ide-border);
+  padding: 4px 10px;
+}
+.vibe-terminal-connect {
+  background: var(--ide-accent);
+  color: #fff;
+  box-shadow: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-weight: 500;
+}
+.vibe-terminal-connect:hover {
+  background: var(--ide-accent-hover);
+  color: #04181c;
+}
+
+/* ── Status bar (legacy helper class kept for the editor mini-bar) ── */
+.vibe-z-status {
+  background: var(--ide-status-bar-bg);
+  color: var(--ide-status-bar-text);
+  font-size: 10px;
+  height: 22px;
+}
+
+/* ── Scrollbars ── */
+.vibe-root ::-webkit-scrollbar { width: 10px; height: 10px; }
+.vibe-root ::-webkit-scrollbar-track { background: transparent; }
+.vibe-root ::-webkit-scrollbar-thumb {
+  background: var(--ide-scrollbar-thumb);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.vibe-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--ide-text-muted);
+  background-clip: padding-box;
+}
+.vibe-root ::-webkit-scrollbar-corner { background: transparent; }
+.vibe-root .ide-scrollbar::-webkit-scrollbar { width: 10px; }
+
+/* ── Monaco overrides ── */
+.vibe-root .monaco-editor .margin { background: var(--ide-editor-bg) !important; }
+.vibe-root .monaco-editor,
+.vibe-root .monaco-editor-background,
+.vibe-root .monaco-editor .overflow-guard { background: var(--ide-editor-bg) !important; }
+.vibe-root .monaco-editor .minimap-decorations-layer,
+.vibe-root .monaco-editor .minimap-shadow-visible { box-shadow: none !important; }
+
+/* =========================================================
+   Status bar (global, VS Code style)
+   ========================================================= */
+.vibe-statusbar {
+  display: flex;
+  align-items: stretch;
+  height: 24px;
+  flex-shrink: 0;
+  background: var(--ide-status-bar-bg);
+  color: var(--ide-status-bar-text);
+  font-size: 11px;
+  user-select: none;
+  z-index: 20;
+}
+.vibe-statusbar-left,
+.vibe-statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow: hidden;
+}
+.vibe-statusbar-right { margin-left: auto; }
+.vibe-statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--ide-transition);
+}
+.vibe-statusbar-item:hover { background: var(--ide-status-bar-item-hover); }
+.vibe-statusbar-item:active { background: rgba(0, 0, 0, 0.12); }
+.vibe-statusbar-divider {
+  width: 1px;
+  align-self: center;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.vibe-statusbar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.vibe-statusbar-dot.pulse { animation: vibe-statusbar-pulse 1.6s ease-in-out infinite; }
+@keyframes vibe-statusbar-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* =========================================================
+   Command palette
+   ========================================================= */
+.vibe-cp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: vibe-cp-fade 140ms ease-out;
+}
+@keyframes vibe-cp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.vibe-cp {
+  width: min(620px, 92vw);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ide-sidebar-bg);
+  border: 1px solid var(--ide-border);
+  border-radius: 12px;
+  box-shadow: var(--ide-shadow-2);
+  overflow: hidden;
+  animation: vibe-cp-pop 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes vibe-cp-pop {
+  from { opacity: 0; transform: translateY(-8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.vibe-cp-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ide-border);
+}
+.vibe-cp-mode {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ide-accent);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.vibe-cp-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ide-text);
+  font-size: 14px;
+  font-family: inherit;
+}
+.vibe-cp-input::placeholder { color: var(--ide-text-muted); }
+.vibe-cp-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  outline: none;
+}
+.vibe-cp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ide-text);
+  transition: background var(--ide-transition);
+}
+.vibe-cp-item:hover { background: var(--ide-hover); }
+.vibe-cp-item.selected {
+  background: var(--ide-accent-soft);
+  outline: 1px solid var(--ide-accent);
+  outline-offset: -1px;
+}
+.vibe-cp-item-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--ide-hover);
+  color: var(--ide-accent);
+  flex-shrink: 0;
+  font-size: 10px;
+}
+.vibe-cp-item.selected .vibe-cp-item-icon {
+  background: var(--ide-accent);
+  color: #fff;
+}
+.vibe-cp-item-label { flex: 1; min-width: 0; }
+.vibe-cp-item-title { font-weight: 500; }
+.vibe-cp-item-sub {
+  font-size: 11px;
+  color: var(--ide-text-muted);
+  margin-top: 1px;
+}
+.vibe-cp-item-kbd {
+  font-size: 10px;
+  color: var(--ide-text-muted);
+  background: var(--ide-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.vibe-cp-hint {
+  padding: 7px 14px;
+  border-top: 1px solid var(--ide-border);
+  font-size: 10px;
+  color: var(--ide-text-muted);
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.vibe-cp-empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ide-text-muted);
+}
+
+/* =========================================================
+   Editor settings popover
+   ========================================================= */
+.vibe-settings {
+  position: absolute;
+  bottom: 30px;
+  right: 8px;
+  width: 280px;
+  background: var(--ide-sidebar-bg);
+  border: 1px solid var(--ide-border);
+  border-radius: 12px;
+  box-shadow: var(--ide-shadow-2);
+  z-index: 60;
+  overflow: hidden;
+  animation: vibe-cp-pop 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vibe-settings-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ide-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ide-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vibe-settings-body { padding: 6px 0; }
+.vibe-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--ide-text);
+}
+.vibe-setting-row:hover { background: var(--ide-hover); }
+.vibe-setting-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ide-text-muted);
+}
+.vibe-setting-label .fa { width: 14px; text-align: center; color: var(--ide-text-muted); }
+.vibe-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: var(--ide-hover);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.vibe-stepper button {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ide-text-muted);
+  font-size: 11px;
+  transition: background var(--ide-transition);
+}
+.vibe-stepper button:hover { background: var(--ide-border); color: var(--ide-text); }
+.vibe-stepper .vibe-stepper-val {
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--ide-text);
+}
+/* toggle switch */
+.vibe-toggle {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  background: var(--ide-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--ide-transition);
+  flex-shrink: 0;
+}
+.vibe-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--ide-transition);
+}
+.vibe-toggle.on { background: var(--ide-accent); }
+.vibe-toggle.on::after { transform: translateX(16px); }
+.vibe-select {
+  background: var(--ide-hover);
+  color: var(--ide-text);
+  border: 1px solid var(--ide-border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  outline: none;
+}
+
+/* =========================================================
+   Breadcrumbs
+   ========================================================= */
+.vibe-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--ide-text-muted);
+  background: var(--ide-editor-bg);
+  border-bottom: 1px solid var(--ide-border-soft);
+  flex-shrink: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.vibe-breadcrumbs::-webkit-scrollbar { display: none; }
+.vibe-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: color var(--ide-transition);
+}
+.vibe-breadcrumb:hover { color: var(--ide-text); }
+.vibe-breadcrumb-sep { opacity: 0.4; }
+
+/* =========================================================
+   Small utilities
+   ========================================================= */
+.vibe-hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.vibe-hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Match container helper — the content sits above the ambient layer */
+.vibe-content-layer {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}

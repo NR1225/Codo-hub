@@ -155,6 +155,113 @@ class CodeService:
         return deleted_ids
     
     @staticmethod
+    def create_folder_batch(
+        folder_data: Dict[str, Any],
+        files_data: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Контейнер (папка) + барлық ішкі файлдарды бір рет қана дискіге
+        сақтайтын пакеттік құру. Frontend әр файл үшін жеке сұрау жасамайтындай
+        етіп, бүтін папканы бір сұраумен жіберуге арналған.
+
+        folder_data: контейнер өрістері (title, content, language, author,
+                     description, tags, folderStructure, isFolder=True)
+        files_data: әр ішкі файл үшін {title, content, language, author,
+                    description, tags, folderId, folderPath}
+
+        {folder, folderId, created, failed, failedFiles} қайтарылады.
+        """
+        # Контейнерді жасау
+        container_validation = validate_file_on_server(
+            folder_data['title'], folder_data['content']
+        )
+        if not container_validation['valid']:
+            raise ValueError(container_validation['error'])
+
+        now = datetime.now().isoformat()
+        folder_id = str(uuid.uuid4())
+        folder_code = {
+            'id': folder_id,
+            'title': folder_data['title'],
+            'content': folder_data['content'],
+            'language': folder_data['language'],
+            'author': folder_data['author'],
+            'description': folder_data.get('description'),
+            'tags': folder_data.get('tags', []),
+            'likes': [],
+            'comments': [],
+            'folderId': None,
+            'folderPath': None,
+            'isFolder': True,
+            'folderStructure': folder_data.get('folderStructure'),
+            'views': 0,
+            'viewedBy': [],
+            'createdAt': now,
+            'updatedAt': now,
+        }
+        codes.append(folder_code)
+
+        created = 0
+        failed = 0
+        failed_files: List[str] = []
+        created_codes: List[Dict[str, Any]] = [folder_code]
+
+        for f in files_data:
+            try:
+                validation = validate_file_on_server(f['title'], f['content'])
+                if not validation['valid']:
+                    failed += 1
+                    failed_files.append(f.get('folderPath') or f['title'])
+                    continue
+
+                child = {
+                    'id': str(uuid.uuid4()),
+                    'title': f['title'],
+                    'content': f['content'],
+                    'language': f['language'],
+                    'author': f['author'],
+                    'description': f.get('description'),
+                    'tags': f.get('tags', []),
+                    'likes': [],
+                    'comments': [],
+                    'folderId': folder_id,
+                    'folderPath': f.get('folderPath'),
+                    'isFolder': False,
+                    'folderStructure': None,
+                    'views': 0,
+                    'viewedBy': [],
+                    'createdAt': now,
+                    'updatedAt': now,
+                }
+                codes.append(child)
+                created_codes.append(child)
+                created += 1
+            except Exception as e:
+                print(f'Warning: folder file creation failed for '
+                      f'{f.get("folderPath") or f["title"]}: {e}')
+                failed += 1
+                failed_files.append(f.get('folderPath') or f['title'])
+
+        # Барлығын бір рет сақтау (N диск жазуын → 1 жазуға дейін азайтады)
+        save_codes()
+
+        # Firestore синхрондау (барлық құрылған кодтар үшін)
+        if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
+            for code in created_codes:
+                try:
+                    FIRESTORE_SYNC_CODE(code)
+                except Exception as e:
+                    print(f'Warning: Firestore sync failed for '
+                          f'{code["id"]}: {e}')
+
+        return {
+            'folder': folder_code,
+            'folderId': folder_id,
+            'created': created,
+            'failed': failed,
+            'failedFiles': failed_files,
+        }
+
+    @staticmethod
     def delete_multiple_codes(code_ids: List[str]) -> int:
         """Delete multiple codes"""
         deleted_ids = set()

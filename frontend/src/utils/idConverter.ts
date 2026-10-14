@@ -2,7 +2,7 @@
  * Converts Firebase UID (alphanumeric) to numeric ID (12 digits)
  * Uses the same logic as backend to ensure consistency
  */
-export function convertToNumericId(firebaseUid: string): string {
+function convertToNumericId(firebaseUid: string): string {
   if (!firebaseUid) return '';
   
   // If already numeric, return as-is

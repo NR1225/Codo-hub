@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { apiService, SiteConfig } from '../utils/api';
-import { configureValidation } from '../utils/fileValidation';
 
 interface SiteConfigContextType {
   config: SiteConfig | null;
@@ -30,8 +29,6 @@ export const SiteConfigProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setError(null);
       const data = await apiService.getConfig();
       setConfig(data);
-      // Configure file validation with values from config
-      configureValidation({ fileConfig: data.fileConfig });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load site configuration';
       setError(message);

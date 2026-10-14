@@ -126,37 +126,12 @@ class TerminalManager:
                 session._output_queue = asyncio.Queue()
             await session._output_queue.put(None)  # Signal end of output
 
-    async def get_session(self, session_id: str) -> Optional[TerminalSession]:
-        """Get a terminal session by ID"""
-        return self.sessions.get(session_id)
-
     async def close_session(self, session_id: str):
         """Close and cleanup a terminal session"""
         session = self.sessions.pop(session_id, None)
         if session:
             await session.kill()
             logger.info(f"Terminal session {session_id} closed")
-
-    async def cleanup_stale_sessions(self, max_age_seconds: int = 3600):
-        """Remove sessions that have been inactive for too long"""
-        now = asyncio.get_event_loop().time()
-        stale = [
-            sid for sid, session in self.sessions.items()
-            if not session.is_alive or (now - session.created_at) > max_age_seconds
-        ]
-        for sid in stale:
-            await self.close_session(sid)
-
-    async def start_cleanup_task(self):
-        """Start periodic cleanup of stale sessions"""
-        while True:
-            try:
-                await asyncio.sleep(300)  # Cleanup every 5 minutes
-                await self.cleanup_stale_sessions()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in terminal cleanup task: {e}")
 
 
 # Global terminal manager instance

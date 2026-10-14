@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Query, Depends, Request
 from sqlalchemy.orm import Session
 from typing import Optional
-from models import UserUpdate, DeleteUserRequest
+from models import UserUpdate
 from database import codes, friends, messages, friend_requests, save_users, save_codes, save_friends, save_messages, save_friend_requests
 from db import get_db, User
 from utils.auth import get_current_user

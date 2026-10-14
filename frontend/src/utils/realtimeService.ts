@@ -404,16 +404,6 @@ export const subscribeToCodes = (
 };
 
 /**
- * Барлық listener-ларды жабу
- */
-export const unsubscribeAll = () => {
-  listeners.forEach((unsubscribe) => {
-    unsubscribe();
-  });
-  listeners.clear();
-};
-
-/**
  * Нақты listener-ды жабу
  */
 export const unsubscribe = (key: string) => {

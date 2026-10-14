@@ -1,7 +1,7 @@
 """Migrate users from JSON files to SQL database"""
 import json
 import os
-from db import SessionLocal, User, engine
+from db import SessionLocal, User
 from utils.password import hash_password
 
 

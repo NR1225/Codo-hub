@@ -2,7 +2,7 @@
 # Backend JSON файлдарға сақтаумен қатар Firestore-ға да жазады
 
 import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 try:

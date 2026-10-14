@@ -1,4 +1,5 @@
 """JWT authentication utilities"""
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status
@@ -32,7 +33,10 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(days=JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     )
-    to_encode.update({"exp": expire, "type": "refresh"})
+    # jti makes every refresh token unique even when minted in the same second
+    # (same `sub`, same `exp`), so rotation actually produces a distinct token
+    # and reuse detection can tell an old token from the new one.
+    to_encode.update({"exp": expire, "type": "refresh", "jti": secrets.token_hex(16)})
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
@@ -55,32 +59,46 @@ def decode_token(token: str) -> dict:
         )
 
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-) -> User:
-    payload = decode_token(token)
-    token_type = payload.get("type")
-    if token_type != "access":
+def resolve_access_user(token: str, db: Session) -> User:
+    """Validate an access JWT and return the live User, or raise HTTPException(401).
+
+    Single source of truth for access-token validation, shared by
+    ``get_current_user``, ``get_optional_user`` and the WebSocket handlers.
+    """
+    payload = decode_token(token)  # raises 401 on JWTError / expired
+    if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token type")
 
     user_id: str = payload.get("sub")
-    session_id: str = payload.get("session_id")
-    if user_id is None:
+    token_session_id: str = payload.get("session_id")
+    if user_id is None or token_session_id is None:
+        # Defensive: every access token minted by _create_tokens carries a
+        # session_id. A token without one is malformed or a legacy/forged token.
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
 
-    # Single session enforcement
-    if session_id and user.session_id and session_id != user.session_id:
+    # Strict session check. Previous logic used a falsy guard
+    # (`if session_id and user.session_id and ...`) which let tokens through
+    # after logout / password change / reset (where user.session_id is None).
+    # Now: user.session_id is None  => session revoked => reject
+    #      token_session_id != stored => logged in elsewhere => reject
+    if user.session_id is None or token_session_id != user.session_id:
         raise HTTPException(
             status_code=401,
             detail="Session invalidated. Please log in again.",
         )
 
     return user
+
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    return resolve_access_user(token, db)
 
 
 async def get_optional_user(
@@ -90,19 +108,7 @@ async def get_optional_user(
     if token is None:
         return None
     try:
-        payload = decode_token(token)
-        token_type = payload.get("type")
-        if token_type != "access":
-            return None
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            return None
-        user = db.query(User).filter(User.id == user_id).first()
-        if user is None:
-            return None
-        if user.session_id and payload.get("session_id") and payload.get("session_id") != user.session_id:
-            return None
-        return user
+        return resolve_access_user(token, db)
     except HTTPException:
         return None
 

@@ -75,32 +75,6 @@ export const setMarkFirestoreBlockedFn = (fn: () => void) => {
 };
 
 /**
- * Check if COOP (Cross-Origin-Opener-Policy) is likely blocking popups
- */
-export const isCOOPBlockingPopups = (): boolean => {
-  try {
-    if (window.opener && window.opener !== window) {
-      try {
-        void window.opener.location;
-        return false;
-      } catch {
-        return true;
-      }
-    }
-    return false;
-  } catch {
-    return true;
-  }
-};
-
-/**
- * Check if ad blocker is likely active (heuristic)
- */
-export const isAdBlockerActive = (): boolean => {
-  return false;
-};
-
-/**
  * Initialize targeted Firebase console noise suppression.
  *
  * Only filters console.error and console.warn output that matches known

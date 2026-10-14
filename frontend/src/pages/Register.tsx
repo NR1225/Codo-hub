@@ -13,8 +13,15 @@ import './Auth.css';
 const Register: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
+  const { login: authLogin, isAuthenticated, isLoading } = useAuth();
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // Already logged in? Skip the register page and go home.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
   const parallaxRef = useRef<Parallax | null>(null);
   const parallaxSceneRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({

@@ -1,4 +1,4 @@
-import { FILE_TYPES, SUPPORTED_EXTENSIONS } from './constants';
+import { FILE_TYPES } from './constants';
 import i18n from '../i18n/config';
 
 export interface FileInfo {
@@ -15,7 +15,7 @@ export interface FolderInfo {
   structure: FolderStructure;
 }
 
-export interface FolderStructure {
+interface FolderStructure {
   [path: string]: {
     type: 'file' | 'folder';
     name: string;
@@ -24,7 +24,7 @@ export interface FolderStructure {
   };
 }
 
-export const getFileExtension = (filename: string): string => {
+const getFileExtension = (filename: string): string => {
   const lastDotIndex = filename.lastIndexOf('.');
   if (lastDotIndex === -1) return '';
   return filename.toLowerCase().substring(lastDotIndex);
@@ -36,7 +36,7 @@ export const isImageFile = (filename: string): boolean => {
   return imageExtensions.includes(ext);
 };
 
-export const detectLanguage = (filename: string): string => {
+const detectLanguage = (filename: string): string => {
   const ext = getFileExtension(filename);
   
   const languageMap: Record<string, string> = {
@@ -58,12 +58,7 @@ export const detectLanguage = (filename: string): string => {
   return languageMap[ext] || FILE_TYPES.OTHER;
 };
 
-export const isSupportedFile = (filename: string): boolean => {
-  const ext = getFileExtension(filename);
-  return SUPPORTED_EXTENSIONS.includes(ext);
-};
-
-export const readFileContent = async (file: File): Promise<string> => {
+const readFileContent = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
@@ -117,14 +112,6 @@ export const processFile = async (file: File): Promise<FileInfo> => {
     language,
     size: file.size,
   };
-};
-
-export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 };
 
 export const processFolder = async (files: FileList | File[]): Promise<FolderInfo> => {
@@ -274,4 +261,56 @@ export const processFolder = async (files: FileList | File[]): Promise<FolderInf
     totalSize,
     structure,
   };
+};
+
+/**
+ * Манифест құру — файлдарды оқымай-ақ (FileReader циклсіз) бүтін папканы
+ * бір multipart сұраумен backend-ке жіберуге арналған. Контентті сервер өзі
+ * оқиды, сондықтан бет қатып қалмайды.
+ *
+ * files: input-тан келген File тізімі (webkitRelativePath сақталған).
+ */
+export const buildFolderManifest = (
+  files: FileList | File[]
+): {
+  folderName: string;
+  structure: FolderStructure;
+  files: Array<{ path: string; name: string; language: string; isImage: boolean; size: number }>;
+  totalSize: number;
+} => {
+  const fileArray = Array.from(files);
+  const folderName = fileArray[0]?.webkitRelativePath?.split('/')[0] || 'folder';
+  const structure: FolderStructure = {};
+  const entries: Array<{ path: string; name: string; language: string; isImage: boolean; size: number }> = [];
+  let totalSize = 0;
+
+  for (const file of fileArray) {
+    const path = file.webkitRelativePath || file.name;
+    const pathParts = path.split('/');
+
+    // Қапшық структурасын құру
+    let currentPath = '';
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      const part = pathParts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      if (!structure[currentPath]) {
+        structure[currentPath] = { type: 'folder', name: part };
+      }
+    }
+
+    const language = detectLanguage(file.name);
+    const isImg = isImageFile(file.name);
+    structure[path] = { type: 'file', name: file.name, size: file.size, language };
+
+    entries.push({
+      path,
+      name: file.name,
+      language,
+      isImage: isImg,
+      size: file.size,
+    });
+    totalSize += file.size;
+  }
+
+  return { folderName, structure, files: entries, totalSize };
 };

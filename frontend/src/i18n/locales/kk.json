@@ -250,6 +250,8 @@
     "myCodeFiles": "Менің код файлдарым",
     "noCodeFiles": "Код файлдары жоқ",
     "noCodeFilesDescription": "Алғашқы файлыңызды жүктеп, кодтарыңызбен бөлісіңіз!",
+    "createNewProject": "Жаңа жоба құру",
+    "importCode": "Кодты импорттау",
     "developer": "Әзірлеуші",
     "changeBackground": "Фон өзгерту",
     "copied": "Көшірілді",
@@ -364,7 +366,8 @@
     "folderTab": "Папкалар",
     "myFolders": "Менің папкаларым",
     "noFolders": "Папкалар жоқ",
-    "noFoldersDescription": "Алғашқы папкаңызды жүктеп, кодтарыңызбен бөлісіңіз!"
+    "noFoldersDescription": "Алғашқы папкаңызды жүктеп, кодтарыңызбен бөлісіңіз!",
+    "infoTab": "Ақпарат"
   },
   "about": {
     "title": "Біз туралы",

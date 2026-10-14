@@ -39,11 +39,7 @@ class ConnectionManager:
             # Remove disconnected connections
             for conn in disconnected:
                 self.active_connections[user_id].discard(conn)
-    
-    async def broadcast_to_user(self, message: dict, user_id: str):
-        """Broadcast message to a user (alias for send_personal_message)"""
-        await self.send_personal_message(message, user_id)
-    
+
     def is_user_online(self, user_id: str) -> bool:
         """Check if user is online"""
         return user_id in self.active_connections and len(self.active_connections[user_id]) > 0

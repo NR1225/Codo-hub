@@ -13,8 +13,15 @@ import './Auth.css';
 const Login: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // Already logged in? Skip the login page and go home.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
   
   // Сақталған логин деректерін жүктеу
   const savedEmail = localStorage.getItem('savedEmail') || '';

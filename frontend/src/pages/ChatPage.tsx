@@ -103,10 +103,24 @@ const ChatPage: React.FC = () => {
           const verifiedUser = await apiService.getCurrentUser(userData.email, userData.id);
           setCurrentUser(verifiedUser);
         } catch (err: any) {
-          // If user not found, clear localStorage and redirect to login
-          console.error('Failed to verify user:', err);
-          localStorage.removeItem('user');
-          navigate('/login');
+          // Only redirect to login on a genuine "user not found" (HTTP 404).
+          // Transient errors (401, network, timeout, server down) must NOT
+          // log the user out — fall back to the cached user so the chat keeps
+          // working and the session isn't destroyed by a temporary blip.
+          const status = err?.status;
+          const msg = String(err?.message || '');
+          const isUserGone =
+            status === 404 ||
+            /not found|табылмады|ne найден/i.test(msg);
+          if (isUserGone) {
+            console.warn('User no longer exists in backend, redirecting to login');
+            localStorage.removeItem('user');
+            navigate('/login');
+            return;
+          }
+          // Transient failure — keep the stored user and continue.
+          console.warn('getCurrentUser transient failure, using cached user:', err);
+          setCurrentUser(userData);
         }
       } else {
         // No stored user - redirect to login

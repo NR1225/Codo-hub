@@ -299,14 +299,14 @@ const ChatPanel: React.FC = () => {
               <FontAwesomeIcon icon={faTimes} className="text-[11px]" />
             </button>
           )}
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--ide-accent)', opacity: 0.9 }}>
+          <div className="vibe-ai-avatar">
             <FontAwesomeIcon icon={faRobot} className="text-white text-xs" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-[var(--ide-text)]">{t('vibecoding.chat.title')}</div>
+            <div className="text-xs font-semibold text-[var(--ide-text)]">{t('vibecoding.chat.title', 'ЖИ Көмекші')}</div>
             <div className="text-[10px] text-green-400 flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-green-400" />
-              {t('vibecoding.chat.ready')}
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              {t('vibecoding.chat.ready', 'Дайын')}
             </div>
           </div>
         </div>

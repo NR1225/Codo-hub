@@ -242,6 +242,8 @@
     "myCodeFiles": "My Code Files",
     "noCodeFiles": "No code files",
     "noCodeFilesDescription": "Upload your first file and share your code!",
+    "createNewProject": "Create New Project",
+    "importCode": "Import Code",
     "developer": "Developer",
     "changeBackground": "Change background",
     "copied": "Copied",
@@ -372,7 +374,8 @@
     "folderTab": "Folders",
     "myFolders": "My Folders",
     "noFolders": "No folders",
-    "noFoldersDescription": "Upload your first folder and share your code!"
+    "noFoldersDescription": "Upload your first folder and share your code!",
+    "infoTab": "Information"
   },
   "about": {
     "title": "About Us",

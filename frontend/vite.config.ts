@@ -22,6 +22,11 @@ export default defineConfig({
           'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
           'i18n-vendor': ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
           'ui-vendor': ['@fortawesome/react-fontawesome', '@fortawesome/fontawesome-svg-core'],
+          // Ауыр кітапханаларды бөлек chunk-қа шығару — бет chunk-тары жеңілдеу,
+          // браузер кэші бөлек сақталады (бір рет жүктелгенде қайта жүктелмейді).
+          'xterm-vendor': ['@xterm/xterm', '@xterm/addon-fit'],
+          'editor-vendor': ['@monaco-editor/react'],
+          'zip-vendor': ['jszip'],
         },
       },
     },

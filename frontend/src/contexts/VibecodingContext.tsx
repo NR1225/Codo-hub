@@ -28,6 +28,19 @@ export interface PanelSizes {
   bottom: number;
 }
 
+export interface EditorSettings {
+  fontSize: number;
+  tabSize: number;
+  wordWrap: 'on' | 'off';
+  minimap: boolean;
+  lineNumbers: 'on' | 'off';
+  fontLigatures: boolean;
+  autoClosingBrackets: boolean;
+  linkedEditing: boolean;
+  smoothCaret: boolean;
+  bracketPairColorization: boolean;
+}
+
 interface VibecodingState {
   projects: Project[];
   activeProjectId: string | null;
@@ -37,6 +50,7 @@ interface VibecodingState {
   leftPanelVisible: boolean;
   rightPanelVisible: boolean;
   bottomPanelVisible: boolean;
+  editorSettings: EditorSettings;
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────
@@ -62,6 +76,9 @@ type VibecodingAction =
   | { type: 'SET_LEFT_PANEL_VISIBLE'; payload: boolean }
   | { type: 'SET_RIGHT_PANEL_VISIBLE'; payload: boolean }
   | { type: 'SET_BOTTOM_PANEL_VISIBLE'; payload: boolean }
+  | { type: 'SAVE_FILE'; payload: { fileId: string } }
+  | { type: 'SAVE_ALL' }
+  | { type: 'SET_EDITOR_SETTINGS'; payload: Partial<EditorSettings> }
   | { type: 'LOAD_STATE'; payload: VibecodingState };
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -88,6 +105,19 @@ const DEFAULT_PANEL_SIZES: PanelSizes = {
   center: 55,
   right: 25,
   bottom: 30,
+};
+
+export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
+  fontSize: 14,
+  tabSize: 2,
+  wordWrap: 'on',
+  minimap: true,
+  lineNumbers: 'on',
+  fontLigatures: true,
+  autoClosingBrackets: true,
+  linkedEditing: true,
+  smoothCaret: true,
+  bracketPairColorization: true,
 };
 
 function createDefaultProject(): Project {
@@ -306,6 +336,39 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       return { ...state, bottomPanelVisible: action.payload };
     }
 
+    case 'SAVE_FILE': {
+      if (!state.activeProjectId) return state;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === state.activeProjectId
+            ? {
+                ...p,
+                files: p.files.map(f =>
+                  f.id === action.payload.fileId ? { ...f, isDirty: false } : f
+                ),
+              }
+            : p
+        ),
+      };
+    }
+
+    case 'SAVE_ALL': {
+      if (!state.activeProjectId) return state;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === state.activeProjectId
+            ? { ...p, files: p.files.map(f => ({ ...f, isDirty: false })) }
+            : p
+        ),
+      };
+    }
+
+    case 'SET_EDITOR_SETTINGS': {
+      return { ...state, editorSettings: { ...state.editorSettings, ...action.payload } };
+    }
+
     case 'LOAD_STATE': {
       return action.payload;
     }
@@ -323,6 +386,7 @@ interface VibecodingContextType {
   activeProject: Project | null;
   activeFile: VirtualFile | null;
   openFiles: VirtualFile[];
+  editorSettings: EditorSettings;
   breakpoint: Breakpoint;
   isMobile: boolean;
   isTablet: boolean;
@@ -344,7 +408,12 @@ const STORAGE_KEY = 'vibecoding_state';
 function loadState(): VibecodingState | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved) as VibecodingState;
+      // Merge with defaults so newly-added editor settings keys are filled in
+      parsed.editorSettings = { ...DEFAULT_EDITOR_SETTINGS, ...(parsed.editorSettings || {}) };
+      return parsed;
+    }
   } catch { /* ignore */ }
   return null;
 }
@@ -366,6 +435,7 @@ const initialState: VibecodingState = loadState() || {
   leftPanelVisible: true,
   rightPanelVisible: true,
   bottomPanelVisible: true,
+  editorSettings: DEFAULT_EDITOR_SETTINGS,
 };
 
 // ─── Provider ─────────────────────────────────────────────────────────
@@ -412,6 +482,7 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     activeProject,
     activeFile,
     openFiles,
+    editorSettings: state.editorSettings,
     breakpoint,
     isMobile,
     isTablet,
