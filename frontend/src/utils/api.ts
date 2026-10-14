@@ -154,6 +154,7 @@ export interface SiteConfig {
 class ApiService {
   private baseUrl: string;
   private _getToken: (() => string | null) | null = null;
+  private _refreshToken: (() => Promise<string | null>) | null = null;
   private configCache: SiteConfig | null = null;
   private configCacheExpiry: number = 0;
   private static readonly CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -175,6 +176,15 @@ class ApiService {
 
   setTokenGetter(getter: () => string | null) {
     this._getToken = getter;
+  }
+
+  /**
+   * Register a callback that obtains a fresh access token (via the refresh
+   * cookie). Used to transparently retry a request once when the access
+   * token has expired, e.g. after the computer slept or the tab was frozen.
+   */
+  setTokenRefresher(refresher: () => Promise<string | null>) {
+    this._refreshToken = refresher;
   }
 
   constructor() {
@@ -213,13 +223,26 @@ class ApiService {
         headers['Content-Type'] = 'application/json';
       }
 
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         ...options,
         signal: controller.signal,
         headers,
         credentials: 'include', // Include cookies (HttpOnly refresh_token)
       });
-      
+
+      // Access token expired → refresh once and retry with the new token
+      if (response.status === 401 && this._refreshToken && !endpoint.startsWith('/auth/')) {
+        const newToken = await this._refreshToken();
+        if (newToken) {
+          response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: { ...headers, 'Authorization': `Bearer ${newToken}` },
+            credentials: 'include',
+          });
+        }
+      }
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {

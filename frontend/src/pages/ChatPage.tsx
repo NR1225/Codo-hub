@@ -14,12 +14,14 @@ import { websocketService, WebSocketMessage } from '../utils/websocket';
 import { formatDateTime } from '../utils/dateFormatter';
 import { ensureNumericId, isNumericId } from '../utils/idConverter';
 import { API_BASE_URL } from '../utils/constants';
+import { useAuth } from '../contexts/AuthContext';
 import MessageInput from '../components/MessageInput';
 import '../components/Chat.css';
 
 const ChatPage: React.FC = () => {
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
@@ -248,10 +250,15 @@ const ChatPage: React.FC = () => {
     }
   }, [currentUser?.id, selectedFriend?.id]);
 
-  // Load current user
+  // Load current user once the access token has been restored (page reload)
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     loadCurrentUser();
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   // Connect WebSocket when user is loaded
   useEffect(() => {
