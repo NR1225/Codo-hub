@@ -125,6 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // NOT by message text, which is i18n-translated and unreliable.
       const isHardFailure =
         status === 401 ||
+        error?.csrfMissing === true ||
         errMsg.includes('invalid refresh token') ||
         errMsg.includes('refresh token revoked') ||
         errMsg.includes('refresh token required');

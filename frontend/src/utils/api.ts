@@ -484,13 +484,17 @@ class ApiService {
     // Refresh token is sent automatically via HttpOnly cookie (credentials: 'include')
     // CSRF token is sent as a custom header (double-submit cookie pattern)
     const csrfToken = this.getCsrfToken();
-    const headers: Record<string, string> = {};
-    if (csrfToken) {
-      headers['X-CSRF-Token'] = csrfToken;
+    if (!csrfToken) {
+      // Without a readable csrf_token cookie the server always answers 403,
+      // so the session can never be refreshed — signal it as unrecoverable.
+      const err = new Error('CSRF token missing');
+      (err as any).status = 403;
+      (err as any).csrfMissing = true;
+      throw err;
     }
     return this.request('/auth/refresh', {
       method: 'POST',
-      headers,
+      headers: { 'X-CSRF-Token': csrfToken },
     });
   }
 

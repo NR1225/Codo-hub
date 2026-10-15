@@ -74,6 +74,9 @@ def _set_refresh_token_cookie(response: JSONResponse, refresh_token: str) -> JSO
         samesite=COOKIE_SAMESITE,
         path="/",
     )
+    # Remove the legacy csrf_token cookie that older builds set on /api/auth
+    # (invisible to document.cookie, so it shadowed the real one).
+    response.delete_cookie(key=CSRF_TOKEN_COOKIE, path="/api/auth")
     return response
 
 
@@ -87,6 +90,7 @@ def _clear_refresh_token_cookie(response: JSONResponse) -> JSONResponse:
         key=CSRF_TOKEN_COOKIE,
         path="/",
     )
+    response.delete_cookie(key=CSRF_TOKEN_COOKIE, path="/api/auth")
     return response
 
 
