@@ -83,7 +83,12 @@
     "categoryWeb": "Веб",
     "categoryBackend": "Бэкенд",
     "categoryMarkup": "Разметка",
-    "categoryOther": "Другое"
+    "categoryOther": "Другое",
+    "uploadCode": "Загрузить код",
+    "dailyQuote": "Цитата дня",
+    "clearFilters": "Сбросить фильтры",
+    "resultsCount": "Результатов: {{count}}",
+    "explore": "Обзор кодов"
   },
   "upload": {
     "title": "Загрузить код",

@@ -83,7 +83,12 @@
     "categoryWeb": "Web",
     "categoryBackend": "Backend",
     "categoryMarkup": "Markup",
-    "categoryOther": "Other"
+    "categoryOther": "Other",
+    "uploadCode": "Upload code",
+    "dailyQuote": "Quote of the day",
+    "clearFilters": "Clear filters",
+    "resultsCount": "{{count}} results",
+    "explore": "Explore codes"
   },
   "upload": {
     "title": "Upload Code",

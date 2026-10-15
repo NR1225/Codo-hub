@@ -83,7 +83,12 @@
     "categoryWeb": "Веб",
     "categoryBackend": "Бэкенд",
     "categoryMarkup": "Разметка",
-    "categoryOther": "Басқа"
+    "categoryOther": "Басқа",
+    "uploadCode": "Код жүктеу",
+    "dailyQuote": "Күн дәйексөзі",
+    "clearFilters": "Сүзгілерді тазалау",
+    "resultsCount": "{{count}} нәтиже",
+    "explore": "Кодтарды шолу"
   },
   "upload": {
     "title": "Код жүктеу",
