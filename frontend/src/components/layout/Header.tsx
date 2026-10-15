@@ -119,8 +119,8 @@ const Header: React.FC = () => {
   }, [loadDisplayUser]);
 
   return (
-    <header className="relative border-b border-border py-0.5 sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10">
-      <div className="w-full m-0 pr-4 pl-4 flex items-center justify-between gap-4 relative flex-nowrap max-[491.5px]:pr-3 max-[491.5px]:pl-3 min-h-[45px]">
+    <header className="relative border-b border-border py-[2.6px] sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10">
+      <div className="w-full m-0 pr-4 pl-4 flex items-center justify-between gap-4 relative flex-nowrap max-[491.5px]:pr-3 max-[491.5px]:pl-3 min-h-[58px]">
         {/* Сайт атауы */}
         <Link
           to="/"
@@ -130,14 +130,14 @@ const Header: React.FC = () => {
           <img
             src="/logo.png"
             alt=""
-            className="w-8 h-6 sm:w-10 sm:h-8"
+            className="w-[34px] h-[25px] sm:w-[42px] sm:h-[34px]"
           />
-          <span className="bg-accent-gradient bg-clip-text text-transparent font-extrabold text-xl sm:text-2xl tracking-[-0.32px] truncate">
+          <span className="bg-accent-gradient bg-clip-text text-transparent font-extrabold text-[21px] sm:text-[25px] tracking-[-0.32px] truncate">
             {t('header.appName')}
           </span>
         </Link>
         {/* Батырмалар - оң жақта */}
-        <div className="flex gap-2 sm:gap-4 items-center flex-shrink-0 flex-nowrap flex-row">
+        <div className="flex gap-2 sm:gap-3 items-center flex-shrink-0 flex-nowrap flex-row">
           {/* Upload батырмасы */}
           <Button
             variant="primary"
@@ -151,7 +151,7 @@ const Header: React.FC = () => {
               setIsUploadModalOpen(true);
             }}
             icon={<FontAwesomeIcon icon={faUpload} />}
-            className="h-[32px] sm:h-[36px] text-xs sm:text-sm px-2 sm:px-3 py-0.5 header-btn-upload"
+            className="h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 header-btn-upload"
           >
             <span className="max-[360px]:hidden">{t('common.upload')}</span>
           </Button>
@@ -161,7 +161,7 @@ const Header: React.FC = () => {
             <LinkButton
               to="/chat"
               variant="secondary"
-              className="relative h-[32px] sm:h-[36px] text-xs sm:text-sm px-2 sm:px-3 py-0.5 min-w-[60px] sm:min-w-[80px] header-btn-chat"
+              className="relative h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 min-w-[60px] sm:min-w-[80px] header-btn-chat"
               title={t('header.chat')}
               icon={
                 <>
@@ -182,7 +182,7 @@ const Header: React.FC = () => {
           <LinkButton
             to="/vibecoding"
             variant="secondary"
-            className="h-[32px] sm:h-[36px] text-xs sm:text-sm px-2 sm:px-3 py-0.5 min-w-[60px] sm:min-w-[80px] header-btn-vibecoding"
+            className="h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 min-w-[60px] sm:min-w-[80px] header-btn-vibecoding"
             title={t('vibecoding.title', 'Vibecoding')}
             icon={<FontAwesomeIcon icon={faCode} />}
           >
@@ -217,7 +217,7 @@ const Header: React.FC = () => {
             <LinkButton
               to="/login"
               variant="secondary"
-              className="h-[32px] sm:h-[36px] text-xs sm:text-sm px-2 sm:px-3 py-0.5 header-btn-login"
+              className="h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 header-btn-login"
               icon={<FontAwesomeIcon icon={faLock} />}
             >
               <span className="max-[360px]:hidden">{t('common.login')}</span>
