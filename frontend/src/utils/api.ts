@@ -35,10 +35,29 @@ export interface CodeFile {
   viewedBy?: string[]; // Array of user IDs who viewed this code
 }
 
+// Vibecoding жобасы — серверде тек иесіне сақталады
+export interface VibecodingProjectFile {
+  id: string;
+  name: string;
+  path: string;
+  content: string;
+  language: string;
+}
+
+export interface VibecodingProjectDTO {
+  id: string;
+  name: string;
+  files: VibecodingProjectFile[];
+  folders?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   username: string;
   email: string;
+  phone?: string;
   avatar?: string;
   bio?: string;
 }
@@ -55,7 +74,10 @@ export interface Message {
   fromUserId: string;
   toUserId: string;
   content: string;
-  type?: 'text' | 'image' | 'audio' | 'video' | 'file' | 'sticker' | 'emoji' | 'location';
+  type?: 'text' | 'image' | 'audio' | 'video' | 'file' | 'sticker' | 'emoji' | 'location' | 'system' | 'project' | 'poll';
+  /** Топ хабарламасы болса — топтың id-і және жіберушінің қысқаша деректері */
+  groupId?: string;
+  sender?: GroupUser | null;
   attachments?: MessageAttachment[];
   metadata?: {
     latitude?: number;
@@ -69,6 +91,77 @@ export interface Message {
   read: boolean;
   status?: 'sent' | 'delivered' | 'read';
   readAt?: string;
+  /** Дауыстық хабарламаны алушы тыңдаған уақыт */
+  listenedAt?: string;
+  /** Тек клиентте: әлі серверге жетпеген (жіберіліп жатыр / жіберілмеді) хабарлама */
+  localState?: 'sending' | 'failed';
+  /** Тек клиентте: файлдың жүктелу барысы 0..1 */
+  uploadProgress?: number;
+  /** Тек клиентте: жіберілмеу себебі */
+  localError?: string;
+  /* Telegram сияқты әрекеттер (backend: services/message_extras.py) */
+  replyTo?: MessageReplyRef;
+  forwardedFrom?: { userId: string; username: string };
+  editedAt?: string;
+  /** emoji → оны қойған қолданушылардың id-лері */
+  reactions?: Record<string, string[]>;
+  pinned?: boolean;
+  /** Сауалнама дауыстары: optionId → дауыс бергендердің id-лері */
+  votes?: Record<string, string[]>;
+}
+
+/** type='poll' хабарламасының metadata-сы */
+export interface PollMeta {
+  question: string;
+  options: Array<{ id: string; text: string }>;
+  multiple: boolean;
+}
+
+export interface UploadOptions {
+  /** Жүктелу барысы 0..1 */
+  onProgress?: (ratio: number) => void;
+  /** Жүктеуді тоқтату */
+  signal?: AbortSignal;
+}
+
+/** Қолданушы жүктеуді өзі тоқтатты */
+export class UploadAbortedError extends Error {
+  constructor() {
+    super('Upload aborted');
+    this.name = 'UploadAbortedError';
+  }
+}
+
+/** Дауыстық хабарлама (type='audio', metadata.voice=true) */
+export interface VoiceMeta {
+  voice: true;
+  duration: number;
+  /** 0..1 аралығындағы деңгейлер (толқын пішіні) */
+  waveform: number[];
+}
+
+/** Чаттар тізіміндегі белгілер — тек өзіме көрінеді */
+export interface ChatPref {
+  kind: 'dm' | 'group';
+  id: string;
+  pinnedAt: string | null;
+  muted: boolean;
+  archived: boolean;
+}
+
+export interface MessageReplyRef {
+  id: string;
+  fromUserId: string;
+  senderName: string;
+  type: string;
+  preview: string;
+}
+
+export type ForwardTarget = { kind: 'dm' | 'group'; id: string };
+
+export interface PresenceInfo {
+  online: boolean;
+  lastSeen: string | null;
 }
 
 export interface FriendRequest {
@@ -89,6 +182,59 @@ export interface Chat {
   lastMessage: Message;
   unreadCount: number;
   lastMessageTime: string;
+}
+
+/* ---------- Чаттағы жоба карталары ---------- */
+
+/** type='project' хабарламасының metadata-сы (деректерді сервер толтырады) */
+export interface ProjectCardMeta {
+  kind: 'repo' | 'vibe';
+  projectId: string;
+  title: string;
+  language?: string;
+  description?: string;
+  author?: string;
+  isFolder?: boolean;
+  fileCount?: number;
+  ownerId?: string;
+  /** «Бірге бастайық» шақыруы */
+  invite?: boolean;
+}
+
+/* ---------- Топтық чат ---------- */
+
+export type GroupRole = 'owner' | 'admin' | 'member';
+
+export interface GroupUser {
+  id: string;
+  username: string;
+  avatar?: string | null;
+}
+
+export interface GroupMember extends GroupUser {
+  role: GroupRole;
+  joinedAt?: string;
+}
+
+export interface ChatGroup {
+  id: string;
+  name: string;
+  description?: string | null;
+  avatar?: string | null;
+  ownerId: string;
+  createdAt: string;
+  myRole: GroupRole;
+}
+
+export interface ChatGroupSummary extends ChatGroup {
+  memberCount: number;
+  lastMessage: Message | null;
+  lastMessageTime: string;
+  unreadCount: number;
+}
+
+export interface ChatGroupDetails extends ChatGroup {
+  members: GroupMember[];
 }
 
 export interface SiteConfig {
@@ -397,6 +543,35 @@ class ApiService {
     });
   }
 
+  // Vibecoding жобалары (тек ағымдағы қолданушының)
+  async getVibecodingProjects(): Promise<VibecodingProjectDTO[]> {
+    return this.request<VibecodingProjectDTO[]>('/vibecoding/projects');
+  }
+
+  /** Чатта бөлісілген Vibecoding жобасының көшірмесін өзіме алу */
+  async forkSharedProject(messageId: string, groupId?: string, name?: string): Promise<VibecodingProjectDTO> {
+    return this.request<VibecodingProjectDTO>('/vibecoding/projects/fork', {
+      method: 'POST',
+      body: JSON.stringify({ messageId, groupId, name }),
+    });
+  }
+
+  async saveVibecodingProject(
+    id: string,
+    project: { name: string; files: VibecodingProjectFile[]; folders?: string[]; createdAt?: string }
+  ): Promise<VibecodingProjectDTO> {
+    return this.request<VibecodingProjectDTO>(`/vibecoding/projects/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(project),
+    });
+  }
+
+  async deleteVibecodingProject(id: string): Promise<void> {
+    return this.request<void>(`/vibecoding/projects/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
   async deleteMultipleCodes(ids: string[]): Promise<{ message: string; deletedCount: number }> {
     return this.request<{ message: string; deletedCount: number }>('/codes/delete-multiple', {
       method: 'POST',
@@ -461,10 +636,36 @@ class ApiService {
   }
 
   // Authentication
-  async register(username: string, email: string, password: string): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
+  async register(username: string, email: string, password: string, phoneToken: string): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
     return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, phone_token: phoneToken }),
+    });
+  }
+
+  // SMS phone verification (registration)
+  async getSmsConfig(): Promise<{ provider: 'firebase' | 'backend' }> {
+    return this.request('/auth/sms/config');
+  }
+
+  async sendSmsCode(phone: string): Promise<{ message: string; phone: string; resend_after: number }> {
+    return this.request('/auth/sms/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  }
+
+  async verifySmsCode(phone: string, code: string): Promise<{ phone_token: string; phone: string }> {
+    return this.request('/auth/sms/verify', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    });
+  }
+
+  async verifyFirebasePhone(idToken: string): Promise<{ phone_token: string; phone: string }> {
+    return this.request('/auth/sms/firebase', {
+      method: 'POST',
+      body: JSON.stringify({ id_token: idToken }),
     });
   }
 
@@ -656,17 +857,19 @@ class ApiService {
     content: string,
     type: string = 'text',
     attachments?: MessageAttachment[],
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
+    replyToId?: string
   ): Promise<Message> {
     return this.request<Message>('/messages', {
       method: 'POST',
-      body: JSON.stringify({ 
-        fromUserId, 
-        toUserId, 
+      body: JSON.stringify({
+        fromUserId,
+        toUserId,
         content,
         type,
         attachments,
-        metadata
+        metadata,
+        replyToId,
       }),
     });
   }
@@ -677,7 +880,9 @@ class ApiService {
     toUserId: string,
     messageType: 'image' | 'audio' | 'video' | 'file',
     content?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
+    replyToId?: string,
+    options?: UploadOptions
   ): Promise<Message> {
     const formData = new FormData();
     formData.append('file', file);
@@ -686,55 +891,59 @@ class ApiService {
     formData.append('messageType', messageType);
     if (content) formData.append('content', content);
     if (metadata) formData.append('metadata', JSON.stringify(metadata));
+    if (replyToId) formData.append('replyToId', replyToId);
 
-    try {
-      const url = `${this.baseUrl}/messages/upload`;
-      
-      // For file uploads, use longer timeout (60 seconds)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-        credentials: 'include',
-        headers: {
-          ...(this._getToken && this._getToken() ? { 'Authorization': `Bearer ${this._getToken()}` } : {}),
-        },
-      });
-      
-      clearTimeout(timeoutId);
+    // fetch жүктелу барысын бермейді — XHR арқылы жібереміз (onProgress үшін)
+    return new Promise<Message>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}/messages/upload`);
+      xhr.withCredentials = true;
+      xhr.timeout = 60000;
+      const token = this._getToken && this._getToken();
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-        let errorMessage = errorData.detail || tApi('apiErrors.uploadFailed');
-
-        if (response.status === 403) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) options?.onProgress?.(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        let data: any = null;
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch {
+          data = null;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data as Message);
+          return;
+        }
+        let errorMessage = data?.detail || tApi('apiErrors.uploadFailed');
+        if (xhr.status === 403) {
           if (errorMessage.includes('You can only message friends') || errorMessage.includes('Тек достарға')) {
             errorMessage = tApi('apiErrors.messageFriendsOnly');
           } else {
             errorMessage = tApi('apiErrors.messageForbidden');
           }
         }
+        reject(new Error(errorMessage));
+      };
+      xhr.onerror = () => reject(new Error(tApi('apiErrors.uploadConnectionFailed')));
+      xhr.ontimeout = () => reject(new Error(tApi('apiErrors.uploadTimeout')));
+      xhr.onabort = () => reject(new UploadAbortedError());
 
-        throw new Error(errorMessage);
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          reject(new UploadAbortedError());
+          return;
+        }
+        options.signal.addEventListener('abort', () => xhr.abort(), { once: true });
       }
+      xhr.send(formData);
+    });
+  }
 
-      return response.json();
-    } catch (error) {
-      if (error instanceof Error) {
-        // Check if it's a timeout error
-        if (error.name === 'AbortError' || error.message.includes('aborted')) {
-          throw new Error(tApi('apiErrors.uploadTimeout'));
-        }
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          throw new Error(tApi('apiErrors.uploadConnectionFailed'));
-        }
-        throw error;
-      }
-      throw new Error(tApi('apiErrors.uploadFailed'));
-    }
+  /** Дауыстық хабарламаны тыңдадым — жіберушіге «тыңдалды» белгісі */
+  async markListened(messageId: string, groupId?: string): Promise<Message> {
+    return this.request<Message>(`${this.messagePath(messageId, groupId)}/listened`, { method: 'POST' });
   }
 
   async markMessageAsRead(messageId: string): Promise<Message> {
@@ -839,6 +1048,174 @@ class ApiService {
     return this.request<{ success: boolean; message: string }>('/contact', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // ---------- Топтық чат ----------
+
+  async getGroups(): Promise<ChatGroupSummary[]> {
+    return this.request<ChatGroupSummary[]>('/groups');
+  }
+
+  async createGroup(name: string, memberIds: string[], description?: string): Promise<ChatGroupDetails> {
+    return this.request<ChatGroupDetails>('/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name, memberIds, description }),
+    });
+  }
+
+  async getGroup(groupId: string): Promise<ChatGroupDetails> {
+    return this.request<ChatGroupDetails>(`/groups/${encodeURIComponent(groupId)}`);
+  }
+
+  async updateGroup(groupId: string, data: { name?: string; description?: string }): Promise<ChatGroupDetails> {
+    return this.request<ChatGroupDetails>(`/groups/${encodeURIComponent(groupId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteGroup(groupId: string): Promise<void> {
+    await this.request(`/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' });
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<ChatGroupDetails> {
+    return this.request<ChatGroupDetails>(`/groups/${encodeURIComponent(groupId)}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
+  /** Мүшені шығару; memberId өзімнің id-м болса — топтан шығу */
+  async removeGroupMember(groupId: string, memberId: string): Promise<{ deleted: boolean }> {
+    return this.request<{ deleted: boolean }>(
+      `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
+      { method: 'DELETE' }
+    );
+  }
+
+  async setGroupMemberRole(groupId: string, memberId: string, role: 'admin' | 'member'): Promise<ChatGroupDetails> {
+    return this.request<ChatGroupDetails>(
+      `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
+      { method: 'PATCH', body: JSON.stringify({ role }) }
+    );
+  }
+
+  async getGroupMessages(groupId: string): Promise<Message[]> {
+    return this.request<Message[]>(`/groups/${encodeURIComponent(groupId)}/messages`);
+  }
+
+  async sendGroupMessage(
+    groupId: string,
+    content: string,
+    type: string = 'text',
+    attachments?: MessageAttachment[],
+    metadata?: Record<string, unknown>,
+    replyToId?: string
+  ): Promise<Message> {
+    return this.request<Message>(`/groups/${encodeURIComponent(groupId)}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content, type, attachments, metadata, replyToId }),
+    });
+  }
+
+  async uploadGroupFile(
+    groupId: string,
+    file: File,
+    messageType: 'image' | 'audio' | 'video' | 'file',
+    content?: string,
+    metadata?: Record<string, unknown>,
+    replyToId?: string
+  ): Promise<Message> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('messageType', messageType);
+    if (content) formData.append('content', content);
+    if (metadata) formData.append('metadata', JSON.stringify(metadata));
+    if (replyToId) formData.append('replyToId', replyToId);
+    return this.request<Message>(`/groups/${encodeURIComponent(groupId)}/messages/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async markGroupRead(groupId: string): Promise<void> {
+    await this.request(`/groups/${encodeURIComponent(groupId)}/read`, { method: 'PUT' });
+  }
+
+  // ---------- Хабарлама әрекеттері (жеке чат: groupId жоқ, топ: groupId бар) ----------
+
+  private messagePath(messageId: string, groupId?: string): string {
+    const id = encodeURIComponent(messageId);
+    return groupId ? `/groups/${encodeURIComponent(groupId)}/messages/${id}` : `/messages/${id}`;
+  }
+
+  async editMessage(messageId: string, content: string, groupId?: string): Promise<Message> {
+    return this.request<Message>(this.messagePath(messageId, groupId), {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async deleteMessage(messageId: string, scope: 'me' | 'all', groupId?: string): Promise<void> {
+    await this.request(`${this.messagePath(messageId, groupId)}?scope=${scope}`, { method: 'DELETE' });
+  }
+
+  async reactToMessage(messageId: string, emoji: string, groupId?: string): Promise<Message> {
+    return this.request<Message>(`${this.messagePath(messageId, groupId)}/reactions`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    });
+  }
+
+  async pinMessage(messageId: string, pinned: boolean, groupId?: string): Promise<Message> {
+    return this.request<Message>(`${this.messagePath(messageId, groupId)}/pin`, {
+      method: 'POST',
+      body: JSON.stringify({ pinned }),
+    });
+  }
+
+  async votePoll(messageId: string, optionIds: string[], groupId?: string): Promise<Message> {
+    return this.request<Message>(`${this.messagePath(messageId, groupId)}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ optionIds }),
+    });
+  }
+
+  async getChatPrefs(): Promise<ChatPref[]> {
+    return this.request<ChatPref[]>('/chat-prefs');
+  }
+
+  async updateChatPref(
+    kind: 'dm' | 'group',
+    id: string,
+    changes: Partial<{ pinned: boolean; muted: boolean; archived: boolean }>
+  ): Promise<ChatPref> {
+    return this.request<ChatPref>(`/chat-prefs/${kind}/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(changes),
+    });
+  }
+
+  /** Онлайн күйі: тек достар, хат жазысқандар және топтастар үшін қайтарылады */
+  async getPresence(userIds: string[]): Promise<Record<string, PresenceInfo>> {
+    if (userIds.length === 0) return {};
+    return this.request(`/presence?ids=${encodeURIComponent(userIds.join(','))}`);
+  }
+
+  async forwardMessage(
+    messageId: string,
+    targets: ForwardTarget[],
+    sourceGroupId?: string
+  ): Promise<{ results: Array<ForwardTarget & { ok: boolean; error?: string }> }> {
+    return this.request('/messages/forward', {
+      method: 'POST',
+      body: JSON.stringify({
+        sourceKind: sourceGroupId ? 'group' : 'dm',
+        sourceGroupId,
+        messageId,
+        targets,
+      }),
     });
   }
 

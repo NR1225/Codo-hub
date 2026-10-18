@@ -30,7 +30,7 @@
   .footer {
     background: linear-gradient(180deg, 
       transparent 0%, 
-      rgba(15, 23, 42, 0.98) 50%,
+      rgba(28, 28, 28, 0.98) 50%,
       var(--bg-secondary) 100%);
     box-shadow: var(--shadow-2xl),
                 0 -0.64px 0 0 rgba(251, 191, 36, 0.3);
@@ -40,7 +40,7 @@
 .dark-theme .footer {
   background: linear-gradient(180deg, 
     transparent 0%, 
-    rgba(15, 23, 42, 0.98) 50%,
+    rgba(28, 28, 28, 0.98) 50%,
     var(--bg-secondary) 100%);
   box-shadow: var(--shadow-2xl),
               0 -0.64px 0 0 rgba(251, 191, 36, 0.3);
@@ -211,14 +211,14 @@
 .dark-theme .footer-features-title:hover {
   background: linear-gradient(90deg, 
     rgba(251, 191, 36, 0.08) 0%, 
-    rgba(0, 153, 204, 0.05) 100%);
+    rgba(212, 212, 212, 0.05) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   .footer-features-title:hover {
     background: linear-gradient(90deg, 
       rgba(251, 191, 36, 0.08) 0%, 
-      rgba(0, 153, 204, 0.05) 100%);
+      rgba(212, 212, 212, 0.05) 100%);
   }
 }
 
@@ -286,14 +286,14 @@
 .dark-theme .footer-feature-item:hover {
   background: linear-gradient(90deg, 
     rgba(251, 191, 36, 0.08) 0%, 
-    rgba(0, 153, 204, 0.05) 100%);
+    rgba(212, 212, 212, 0.05) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   .footer-feature-item:hover {
     background: linear-gradient(90deg, 
       rgba(251, 191, 36, 0.08) 0%, 
-      rgba(0, 153, 204, 0.05) 100%);
+      rgba(212, 212, 212, 0.05) 100%);
   }
 }
 
@@ -384,14 +384,14 @@
 .dark-theme .footer-features-button {
   background: linear-gradient(135deg, 
     rgba(251, 191, 36, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.08) 100%);
   border-color: rgba(251, 191, 36, 0.3);
 }
 
 .dark-theme .footer-features-button:hover {
   background: linear-gradient(135deg, 
     rgba(251, 191, 36, 0.18) 0%, 
-    rgba(0, 153, 204, 0.12) 100%);
+    rgba(212, 212, 212, 0.12) 100%);
   border-color: rgba(251, 191, 36, 0.5);
 }
 
@@ -399,14 +399,14 @@
   .footer-features-button {
     background: linear-gradient(135deg, 
       rgba(251, 191, 36, 0.12) 0%, 
-      rgba(0, 153, 204, 0.08) 100%);
+      rgba(212, 212, 212, 0.08) 100%);
     border-color: rgba(251, 191, 36, 0.3);
   }
 
   .footer-features-button:hover {
     background: linear-gradient(135deg, 
       rgba(251, 191, 36, 0.18) 0%, 
-      rgba(0, 153, 204, 0.12) 100%);
+      rgba(212, 212, 212, 0.12) 100%);
     border-color: rgba(251, 191, 36, 0.5);
   }
 }
@@ -483,7 +483,7 @@
 .dark-theme .social-link {
   background: linear-gradient(135deg, 
     rgba(251, 191, 36, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.08) 100%);
   border: 0.96px solid rgba(251, 191, 36, 0.25);
 }
 
@@ -503,7 +503,7 @@
   box-shadow: var(--shadow-glow), 0 0 19.2px rgba(251, 191, 36, 0.4);
   background: linear-gradient(135deg, 
     rgba(251, 191, 36, 0.2) 0%, 
-    rgba(0, 153, 204, 0.15) 100%);
+    rgba(212, 212, 212, 0.15) 100%);
 }
 
 .social-icon {
@@ -625,14 +625,14 @@
 .dark-theme .footer-links li a:hover {
   background: linear-gradient(90deg, 
     rgba(251, 191, 36, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.08) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   .footer-links li a:hover {
     background: linear-gradient(90deg, 
       rgba(251, 191, 36, 0.12) 0%, 
-      rgba(0, 153, 204, 0.08) 100%);
+      rgba(212, 212, 212, 0.08) 100%);
   }
 }
 
@@ -720,14 +720,14 @@
 .dark-theme .footer-link-button:hover {
   background: linear-gradient(90deg, 
     rgba(251, 191, 36, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.08) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   .footer-link-button:hover {
     background: linear-gradient(90deg, 
       rgba(251, 191, 36, 0.12) 0%, 
-      rgba(0, 153, 204, 0.08) 100%);
+      rgba(212, 212, 212, 0.08) 100%);
   }
 }
 
@@ -817,7 +817,7 @@
 .dark-theme .badge {
   background: linear-gradient(135deg, 
     rgba(251, 191, 36, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.08) 100%);
   border: 0.96px solid rgba(251, 191, 36, 0.25);
 }
 
@@ -825,7 +825,7 @@
   box-shadow: var(--shadow-glow), 0 0 16px rgba(251, 191, 36, 0.3);
   background: linear-gradient(135deg, 
     rgba(251, 191, 36, 0.2) 0%, 
-    rgba(0, 153, 204, 0.15) 100%);
+    rgba(212, 212, 212, 0.15) 100%);
 }
 
 @media (max-width: 491.5px) {

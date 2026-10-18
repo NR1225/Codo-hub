@@ -6,6 +6,16 @@ type WebSocketMessageType =
   | 'message_read'
   | 'messages_read'
   | 'typing'
+  | 'presence'
+  | 'message_updated'
+  | 'message_deleted'
+  | 'group_message'
+  | 'group_message_updated'
+  | 'group_message_deleted'
+  | 'group_typing'
+  | 'group_updated'
+  | 'group_removed'
+  | 'chat_pref'
   | 'pong';
 
 export interface WebSocketMessage {
@@ -16,6 +26,7 @@ export interface WebSocketMessage {
   userId?: string;
   count?: number;
   isTyping?: boolean;
+  groupId?: string;
 }
 
 class WebSocketService {
@@ -27,6 +38,12 @@ class WebSocketService {
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
   private pingInterval: NodeJS.Timeout | null = null;
   private intentionalDisconnect = false;
+  // Backend токенсіз қосылымды жабады (4001) — әр қосылғанда жаңа токен аламыз
+  private getToken: (() => string | null) | null = null;
+
+  setTokenGetter(getter: () => string | null) {
+    this.getToken = getter;
+  }
 
   connect(userId: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -38,7 +55,8 @@ class WebSocketService {
       this.userId = userId;
       this.intentionalDisconnect = false;
       const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
-      const url = `${wsUrl}/ws/${userId}`;
+      const token = this.getToken?.();
+      const url = `${wsUrl}/ws/${userId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
       try {
         this.ws = new WebSocket(url);
@@ -149,6 +167,10 @@ class WebSocketService {
 
   markDelivered(messageId: string) {
     this.send({ type: 'mark_delivered', messageId });
+  }
+
+  sendGroupTyping(groupId: string, isTyping: boolean) {
+    this.send({ type: 'group_typing', groupId, isTyping });
   }
 
   sendTyping(recipientId: string, isTyping: boolean) {

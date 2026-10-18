@@ -321,7 +321,10 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
     finally:
         db.close()
 
+    from services import presence_service
+    was_online = manager.is_user_online(user_id)
     await manager.connect(websocket, user_id)
+    await presence_service.on_connected(user_id, was_online)
     try:
         while True:
             data = await websocket.receive_json()
@@ -346,11 +349,29 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
                         'userId': user_id,
                         'isTyping': data.get('isTyping', False)
                     }, recipient_id)
+            elif message_type == 'group_typing':
+                # Топта жазып жатқанын басқа мүшелерге жеткізу (тек мүше болса)
+                group_id = data.get('groupId')
+                if isinstance(group_id, str) and group_id:
+                    from services.group_service import GroupService
+                    tdb = SessionLocal()
+                    try:
+                        if GroupService.get_membership(tdb, group_id, user_id):
+                            await GroupService.broadcast(tdb, group_id, {
+                                'type': 'group_typing',
+                                'groupId': group_id,
+                                'userId': user_id,
+                                'isTyping': bool(data.get('isTyping', False)),
+                            }, exclude=user_id)
+                    finally:
+                        tdb.close()
     except WebSocketDisconnect:
         manager.disconnect(websocket, user_id)
+        await presence_service.on_disconnected(user_id)
     except Exception as e:
         print(f"WebSocket error for user {user_id}: {e}")
         manager.disconnect(websocket, user_id)
+        await presence_service.on_disconnected(user_id)
 
 
 # Terminal WebSocket endpoint for Vibecoding

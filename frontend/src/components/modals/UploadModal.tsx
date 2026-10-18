@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFolder, faTerminal } from '@fortawesome/free-solid-svg-icons';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { apiService } from '../../utils/api';
+import { CATEGORY_TAG_PREFIX } from '../../utils/codeCategories';
 import { API_BASE_URL } from '../../utils/constants';
 import Button from '../ui/Button';
 import './UploadModal.css';
@@ -100,6 +101,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess })
       await uploadFolder(selectedFiles, {
         title: title || 'folder',
         description: description.trim() || projectDescription || undefined,
+        // Таңдалған категория — Кодтар тізімі беті осы тег бойынша бөледі
+        tags: ['folder', `${CATEGORY_TAG_PREFIX}${projectDescription}`],
         language: language,
       });
       onSuccess?.();

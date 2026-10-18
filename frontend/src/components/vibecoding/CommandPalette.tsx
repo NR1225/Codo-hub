@@ -3,25 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faFileCode,
-  faFolderPlus,
-  faFileCirclePlus,
-  faFolderTree,
-  faTerminal,
-  faRobot,
-  faMoon,
-  faSun,
-  faFloppyDisk,
-  faXmark,
-  faRotate,
-  faSliders,
-  faCode,
-  faUpload,
-  faComments,
-  faHome,
-} from '@fortawesome/free-solid-svg-icons';
+  FileIcon,
+  FilePlusIcon,
+  FolderPlusIcon,
+  ExplorerIcon,
+  TerminalIcon,
+  SparkleIcon,
+  SunIcon,
+  MoonIcon,
+  SaveIcon,
+  CloseIcon,
+  WandIcon,
+  SettingsIcon,
+  UploadIcon,
+  ChatIcon,
+  HomeIcon,
+  SearchIcon,
+  CommandIcon,
+} from './icons';
+import { langColor } from './langColors';
 
 type Mode = 'files' | 'commands';
 
@@ -29,7 +30,7 @@ interface CommandDef {
   id: string;
   title: string;
   subtitle?: string;
-  icon: typeof faCode;
+  icon: React.ReactNode;
   shortcut?: string;
   run: () => void;
 }
@@ -101,7 +102,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
         id: 'new-file',
         title: t('vibecoding.commands.newFile', 'Жаңа файл жасау'),
         subtitle: activeProject?.name,
-        icon: faFileCirclePlus,
+        icon: <FilePlusIcon size={15} />,
         run: () => {
           if (!activeProject) {
             dispatch({ type: 'CREATE_PROJECT', payload: { name: 'Project 1' } });
@@ -115,47 +116,47 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
       {
         id: 'new-project',
         title: t('vibecoding.commands.newProject', 'Жаңа жоба жасау'),
-        icon: faFolderPlus,
+        icon: <FolderPlusIcon size={15} />,
         run: () => dispatch({ type: 'CREATE_PROJECT', payload: { name: `Project ${state.projects.length + 1}` } }),
       },
       {
         id: 'toggle-explorer',
         title: t('vibecoding.commands.toggleExplorer', 'Эксплорерді көрсету/жасыру'),
-        icon: faFolderTree,
+        icon: <ExplorerIcon size={15} />,
         shortcut: 'Ctrl+B',
         run: () => dispatch({ type: 'TOGGLE_LEFT_PANEL' }),
       },
       {
         id: 'toggle-terminal',
         title: t('vibecoding.commands.toggleTerminal', 'Терминалды көрсету/жасыру'),
-        icon: faTerminal,
+        icon: <TerminalIcon size={15} />,
         shortcut: 'Ctrl+J',
         run: () => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' }),
       },
       {
         id: 'toggle-chat',
         title: t('vibecoding.commands.toggleChat', 'ЖИ панелін көрсету/жасыру'),
-        icon: faRobot,
+        icon: <SparkleIcon size={15} />,
         shortcut: 'Ctrl+I',
         run: () => dispatch({ type: 'TOGGLE_RIGHT_PANEL' }),
       },
       {
         id: 'save-all',
         title: t('vibecoding.commands.saveAll', 'Бәрін сақтау'),
-        icon: faFloppyDisk,
+        icon: <SaveIcon size={15} />,
         shortcut: 'Ctrl+S',
         run: () => dispatch({ type: 'SAVE_ALL' }),
       },
       {
         id: 'close-all',
         title: t('vibecoding.commands.closeAll', 'Барлық беттерді жабу'),
-        icon: faXmark,
+        icon: <CloseIcon size={15} />,
         run: () => dispatch({ type: 'CLOSE_ALL_FILES' }),
       },
       {
         id: 'format',
         title: t('vibecoding.commands.format', 'Құжатты форматтау'),
-        icon: faRotate,
+        icon: <WandIcon size={15} />,
         shortcut: 'Shift+Alt+F',
         run: () => {
           // Dispatch a custom event the editor listens to
@@ -165,31 +166,31 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
       {
         id: 'theme',
         title: t('vibecoding.commands.toggleTheme', 'Тақырыпты ауыстыру'),
-        icon: theme === 'dark' ? faSun : faMoon,
+        icon: theme === 'dark' ? <SunIcon size={15} /> : <MoonIcon size={15} />,
         run: toggleTheme,
       },
       {
         id: 'settings',
         title: t('vibecoding.commands.settings', 'Редактор баптаулары'),
-        icon: faSliders,
+        icon: <SettingsIcon size={15} />,
         run: () => window.dispatchEvent(new CustomEvent('vibecoding:open-settings')),
       },
       {
         id: 'go-upload',
         title: t('vibecoding.commands.upload', 'Жүктеу бетіне өту'),
-        icon: faUpload,
+        icon: <UploadIcon size={15} />,
         run: () => navigate('/upload'),
       },
       {
         id: 'go-chat',
         title: t('vibecoding.commands.chatPage', 'Чат бетіне өту'),
-        icon: faComments,
+        icon: <ChatIcon size={15} />,
         run: () => navigate('/chat'),
       },
       {
         id: 'go-home',
         title: t('vibecoding.commands.home', 'Басты бетке өту'),
-        icon: faHome,
+        icon: <HomeIcon size={15} />,
         run: () => navigate('/'),
       },
     ];
@@ -259,13 +260,14 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
     }
   };
 
-  const modeLabel = mode === 'files' ? '⌘P' : '⌘⇧P';
 
   return (
     <div className="vibe-cp-overlay" onMouseDown={onClose}>
       <div className="vibe-cp" onMouseDown={(e) => e.stopPropagation()}>
         <div className="vibe-cp-input-wrap">
-          <span className="vibe-cp-mode">{modeLabel}</span>
+          <span className="vibe-cp-mode">
+            {mode === 'files' ? <SearchIcon size={16} /> : <CommandIcon size={16} />}
+          </span>
           <input
             ref={inputRef}
             value={query}
@@ -299,15 +301,15 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
                   onMouseMove={() => setSelected(idx)}
                   onClick={() => execute(entry)}
                 >
-                  <span className="vibe-cp-item-icon">
-                    <FontAwesomeIcon icon={faFileCode} />
+                  <span className="vibe-cp-item-icon vibe-cp-item-icon--file" style={{ ['--lang' as string]: langColor(lang) }}>
+                    <FileIcon size={15} />
                   </span>
                   <div className="vibe-cp-item-label">
                     <div className="vibe-cp-item-title">{highlightMatch(entry.file.name, query)}</div>
                     <div className="vibe-cp-item-sub">{lang} · {entry.file.path}</div>
                   </div>
                   {entry.file.isDirty && (
-                    <span className="vibe-cp-item-kbd" style={{ background: 'var(--ide-accent-soft)', color: 'var(--ide-dirty)' }}>●</span>
+                    <span className="vibe-cp-item-dirty" aria-label="unsaved" />
                   )}
                 </div>
               );
@@ -322,7 +324,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
                 onClick={() => execute(entry)}
               >
                 <span className="vibe-cp-item-icon">
-                  <FontAwesomeIcon icon={c.icon} />
+                  {c.icon}
                 </span>
                 <div className="vibe-cp-item-label">
                   <div className="vibe-cp-item-title">{highlightMatch(c.title, query)}</div>
@@ -335,9 +337,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
         </div>
 
         <div className="vibe-cp-hint">
-          <span>↑↓ {t('vibecoding.palette.navigate', 'навигация')}</span>
-          <span>↵ {t('vibecoding.palette.open', 'таңдау')}</span>
-          <span>esc {t('vibecoding.palette.close', 'жабу')}</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> {t('vibecoding.palette.navigate', 'навигация')}</span>
+          <span><kbd>↵</kbd> {t('vibecoding.palette.open', 'таңдау')}</span>
+          <span><kbd>esc</kbd> {t('vibecoding.palette.close', 'жабу')}</span>
         </div>
       </div>
     </div>

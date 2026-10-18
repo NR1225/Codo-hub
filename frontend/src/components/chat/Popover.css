@@ -1,0 +1,188 @@
+/* Ортақ қалқыма (Popover.tsx): мәзірлер, эмодзи, контекстік мәзір.
+   transform-origin — ашқан батырманың ортасы, сондықтан қалқыма батырмадан «өсіп» шығады */
+
+.cht-pop {
+  position: fixed;
+  z-index: 10002;
+  min-width: 232px;
+  max-width: calc(100vw - 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px;
+  box-sizing: border-box;
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
+    rgba(18, 18, 18, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    0 28px 64px -16px rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  color: #f5f5f5;
+  animation: chtPopIn 0.36s cubic-bezier(0.2, 1.15, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.cht-pop.is-closing {
+  pointer-events: none;
+  animation: chtPopOut 0.17s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+@keyframes chtPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+    filter: blur(6px);
+  }
+  55% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes chtPopOut {
+  to {
+    opacity: 0;
+    transform: scale(0.4);
+    filter: blur(4px);
+  }
+}
+
+/* Ішіндегілер бірінен соң бірі шығады */
+.cht-pop > * {
+  animation: chtPopItem 0.32s var(--cht-ease, ease) backwards;
+}
+
+.cht-pop.is-bottom > * { --pop-dy: -6px; }
+.cht-pop.is-top > * { --pop-dy: 6px; }
+
+.cht-pop > :nth-child(1) { animation-delay: 30ms; }
+.cht-pop > :nth-child(2) { animation-delay: 55ms; }
+.cht-pop > :nth-child(3) { animation-delay: 80ms; }
+.cht-pop > :nth-child(4) { animation-delay: 105ms; }
+.cht-pop > :nth-child(5) { animation-delay: 130ms; }
+.cht-pop > :nth-child(6) { animation-delay: 150ms; }
+.cht-pop > :nth-child(7) { animation-delay: 170ms; }
+.cht-pop > :nth-child(n + 8) { animation-delay: 190ms; }
+
+@keyframes chtPopItem {
+  from {
+    opacity: 0;
+    transform: translateY(var(--pop-dy, -6px));
+  }
+}
+
+/* ── Мәзір элементтері (жеке/топ мәзірі және контекстік мәзір бірдей) ── */
+.cht-pop .cht-menu__item,
+.cht-pop .cht-ma-menu__item {
+  position: relative;
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 10px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #e8e8e8;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.cht-pop .cht-menu__item > svg,
+.cht-pop .cht-ma-menu__item > svg {
+  flex-shrink: 0;
+  color: #9a9a9a;
+  opacity: 1;
+  transition: color 0.14s ease, transform 0.25s var(--cht-spring, ease);
+}
+
+.cht-pop .cht-menu__item:hover,
+.cht-pop .cht-menu__item:focus-visible,
+.cht-pop .cht-ma-menu__item:hover,
+.cht-pop .cht-ma-menu__item:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.cht-pop .cht-menu__item:hover > svg,
+.cht-pop .cht-menu__item:focus-visible > svg,
+.cht-pop .cht-ma-menu__item:hover > svg,
+.cht-pop .cht-ma-menu__item:focus-visible > svg {
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.cht-pop .cht-menu__item:focus-visible,
+.cht-pop .cht-ma-menu__item:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.cht-pop .cht-menu__item:active,
+.cht-pop .cht-ma-menu__item:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cht-pop .cht-menu__item.is-danger,
+.cht-pop .cht-menu__item.is-danger > svg,
+.cht-pop .cht-ma-menu__item.is-danger,
+.cht-pop .cht-ma-menu__item.is-danger > svg {
+  color: var(--cht-danger, #f87171);
+}
+
+.cht-pop .cht-menu__item.is-danger:hover,
+.cht-pop .cht-menu__item.is-danger:focus-visible,
+.cht-pop .cht-ma-menu__item.is-danger:hover,
+.cht-pop .cht-ma-menu__item.is-danger:focus-visible {
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.cht-pop .cht-menu__sep,
+.cht-pop .cht-ma-menu__sep {
+  height: 1px;
+  margin: 5px 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Эмодзи панелі ── */
+.cht-pop--emoji {
+  width: min(344px, calc(100vw - 16px));
+  max-height: 288px;
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+
+.cht-pop--emoji .emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* animation: none емес — onAnimationEnd жабылуды аяқтауы үшін */
+  .cht-pop,
+  .cht-pop.is-closing,
+  .cht-pop > * {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}

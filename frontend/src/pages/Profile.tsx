@@ -1,15 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLaptop, faHeart, faComment, faEye, faFileAlt, faIdCard, faImage, faEdit, faCopy, faCheck, faArrowLeft, faUser, faPlus, faUpload } from '@fortawesome/free-solid-svg-icons';
+import {
+  faLaptop, faHeart, faComment, faEye, faFileAlt, faImage, faPen, faCopy, faCheck,
+  faArrowLeft, faPlus, faUpload, faGear, faTriangleExclamation,
+} from '@fortawesome/free-solid-svg-icons';
 import { User, CodeFile } from '../utils/api';
 import { apiService } from '../utils/api';
 import { ensureNumericId } from '../utils/idConverter';
 import { imageStorage } from '../utils/imageStorage';
-import CodeCard from '../components/CodeCard';
+import CodeTile from '../components/codes/CodeTile';
+import ViewToggle from '../components/codes/ViewToggle';
+import { ViewMode, readViewMode, saveViewMode } from '../components/codes/codeUtils';
+import { monogram } from '../components/home/monogram';
 import EditProfileModal from '../components/modals/EditProfileModal';
 import ChangeBackgroundModal from '../components/modals/ChangeBackgroundModal';
+// Код карталары (.cdx-card) мен тор/тізім ауыстырғышы (.cdx-seg) — кодтар бетінің стильдері
+import './CodesPage.css';
 import './Profile.css';
 
 // Модуль деңгейіндегі кэш: Profile-ға қайта оралғанда loading spinner
@@ -37,6 +45,53 @@ const computeStats = (filteredCodes: CodeFile[]) => {
   return { totalLikes, totalComments, totalViews };
 };
 
+interface ProfileBackground {
+  image: string | null;
+  position: { x: number; y: number };
+  zoom: number;
+}
+
+const DEFAULT_BACKGROUND: ProfileBackground = { image: null, position: { x: 50, y: 50 }, zoom: 100 };
+
+// Мұқаба суреті imageStorage-та, орны мен масштабы localStorage-та сақталады
+async function readProfileBackground(userId: string): Promise<ProfileBackground> {
+  try {
+    const image = (await imageStorage.getImage(`profile-bg-${userId}`)) || null;
+    let position = DEFAULT_BACKGROUND.position;
+    let zoom = DEFAULT_BACKGROUND.zoom;
+    try {
+      const savedPosition = localStorage.getItem(`profile-bg-position-${userId}`);
+      if (savedPosition) position = JSON.parse(savedPosition);
+    } catch {
+      // Бүлінген мән — әдепкі орын
+    }
+    const savedZoom = parseFloat(localStorage.getItem(`profile-bg-zoom-${userId}`) || '');
+    if (!Number.isNaN(savedZoom)) zoom = Math.max(50, Math.min(200, savedZoom));
+    return { image, position, zoom };
+  } catch (err) {
+    console.error('Failed to load background image:', err);
+    return DEFAULT_BACKGROUND;
+  }
+}
+
+// Аватар 'stored' белгісімен келсе — суреттің өзі imageStorage-та
+async function resolveAvatar<T extends { id?: string; avatar?: string }>(userData: T): Promise<T> {
+  if (!userData.id) return userData;
+  try {
+    const avatarFromStorage = await imageStorage.getImage(`avatar-${userData.id}`);
+    if (avatarFromStorage) {
+      userData.avatar = avatarFromStorage;
+    } else if (userData.avatar === 'stored') {
+      userData.avatar = undefined;
+    }
+  } catch {
+    if (userData.avatar === 'stored') {
+      userData.avatar = undefined;
+    }
+  }
+  return userData;
+}
+
 const Profile: React.FC = () => {
   const { t } = useTranslation();
   const { username: urlUsername } = useParams<{ username?: string }>();
@@ -48,19 +103,15 @@ const Profile: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangeBackgroundModalOpen, setIsChangeBackgroundModalOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-  const [backgroundPosition, setBackgroundPosition] = useState({ x: 50, y: 50 });
-  const [backgroundZoom, setBackgroundZoom] = useState(100);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const menuDropdownRef = useRef<HTMLDivElement>(null);
-  const [stats, setStats] = useState({
+  const [background, setBackground] = useState<ProfileBackground>(DEFAULT_BACKGROUND);
+  const [stats, setStats] = useState(_cached?.stats ?? {
     totalLikes: 0,
     totalComments: 0,
     totalViews: 0,
   });
   const [isIdCopied, setIsIdCopied] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [view, setView] = useState<ViewMode>(readViewMode);
 
   useEffect(() => {
     // Кэш бар болса — фонда жаңартамыз (silent), әйтпесе толық жүктеу.
@@ -70,23 +121,7 @@ const Profile: React.FC = () => {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         try {
-          const userData = JSON.parse(storedUser);
-          // Load avatar from imageStorage if it exists
-          if (userData.id) {
-            try {
-              const avatarFromStorage = await imageStorage.getImage(`avatar-${userData.id}`);
-              if (avatarFromStorage) {
-                userData.avatar = avatarFromStorage;
-              } else if (userData.avatar === 'stored') {
-                userData.avatar = undefined;
-              }
-            } catch (err) {
-              if (userData.avatar === 'stored') {
-                userData.avatar = undefined;
-              }
-            }
-          }
-          setCurrentUser(userData);
+          setCurrentUser(await resolveAvatar(JSON.parse(storedUser)));
         } catch (err) {
           console.error('Failed to parse stored user:', err);
         }
@@ -94,13 +129,6 @@ const Profile: React.FC = () => {
     };
     loadCurrentUser();
   }, [urlUsername]);
-
-  // Close menu when modal opens
-  useEffect(() => {
-    if (isEditModalOpen) {
-      setIsMenuOpen(false);
-    }
-  }, [isEditModalOpen]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -112,7 +140,7 @@ const Profile: React.FC = () => {
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
-      
+
       return () => {
         // Restore scroll when modal closes
         document.body.style.position = '';
@@ -124,127 +152,17 @@ const Profile: React.FC = () => {
     }
   }, [isEditModalOpen, isChangeBackgroundModalOpen]);
 
-  useEffect(() => {
-    // Load background image and position from storage
-    if (user?.id) {
-      const loadBackground = async () => {
-        try {
-          const savedBg = await imageStorage.getImage(`profile-bg-${user.id}`);
-          if (savedBg) {
-            setBackgroundImage(savedBg);
-          } else {
-            setBackgroundImage(null);
-          }
-          
-          // Load saved position
-          const savedPosition = localStorage.getItem(`profile-bg-position-${user.id}`);
-          if (savedPosition) {
-            try {
-              const position = JSON.parse(savedPosition);
-              setBackgroundPosition(position);
-            } catch (e) {
-              setBackgroundPosition({ x: 50, y: 50 });
-            }
-          } else {
-            setBackgroundPosition({ x: 50, y: 50 });
-          }
-          
-          // Load saved zoom
-          const savedZoom = localStorage.getItem(`profile-bg-zoom-${user.id}`);
-          if (savedZoom) {
-            try {
-              const zoom = parseFloat(savedZoom);
-              setBackgroundZoom(Math.max(50, Math.min(200, zoom)));
-            } catch (e) {
-              setBackgroundZoom(100);
-            }
-          } else {
-            setBackgroundZoom(100);
-          }
-        } catch (err) {
-          console.error('Failed to load background image:', err);
-          setBackgroundImage(null);
-          setBackgroundPosition({ x: 50, y: 50 });
-          setBackgroundZoom(100);
-        }
-      };
-      loadBackground();
-    }
+  const reloadBackground = useCallback(async () => {
+    if (!user?.id) return;
+    setBackground(await readProfileBackground(user.id));
   }, [user?.id]);
 
+  // Мұқабаны жүктеу және басқа жерде өзгерсе — жаңарту
   useEffect(() => {
-    // Listen for background update events
-    const handleBackgroundUpdate = async () => {
-      if (user?.id) {
-        try {
-          const savedBg = await imageStorage.getImage(`profile-bg-${user.id}`);
-          if (savedBg) {
-            setBackgroundImage(savedBg);
-          } else {
-            setBackgroundImage(null);
-          }
-          
-          // Load saved position
-          const savedPosition = localStorage.getItem(`profile-bg-position-${user.id}`);
-          if (savedPosition) {
-            try {
-              const position = JSON.parse(savedPosition);
-              setBackgroundPosition(position);
-            } catch (e) {
-              setBackgroundPosition({ x: 50, y: 50 });
-            }
-          } else {
-            setBackgroundPosition({ x: 50, y: 50 });
-          }
-          
-          // Load saved zoom
-          const savedZoom = localStorage.getItem(`profile-bg-zoom-${user.id}`);
-          if (savedZoom) {
-            try {
-              const zoom = parseFloat(savedZoom);
-              setBackgroundZoom(Math.max(50, Math.min(200, zoom)));
-            } catch (e) {
-              setBackgroundZoom(100);
-            }
-          } else {
-            setBackgroundZoom(100);
-          }
-        } catch (err) {
-          console.error('Failed to load background image:', err);
-          setBackgroundImage(null);
-          setBackgroundPosition({ x: 50, y: 50 });
-          setBackgroundZoom(100);
-        }
-      }
-    };
-
-    window.addEventListener('profileBackgroundUpdated', handleBackgroundUpdate);
-    return () => {
-      window.removeEventListener('profileBackgroundUpdated', handleBackgroundUpdate);
-    };
-  }, [user?.id]);
-
-  useEffect(() => {
-    // Handle click outside to close menu
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        menuDropdownRef.current &&
-        !menuDropdownRef.current.contains(event.target as Node) &&
-        menuButtonRef.current &&
-        !menuButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsMenuOpen(false);
-      }
-    };
-
-    if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isMenuOpen]);
+    reloadBackground();
+    window.addEventListener('profileBackgroundUpdated', reloadBackground);
+    return () => window.removeEventListener('profileBackgroundUpdated', reloadBackground);
+  }, [reloadBackground]);
 
   const copyId = async () => {
     if (user?.id) {
@@ -259,9 +177,9 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleChangeBackgroundClick = () => {
-    setIsMenuOpen(false);
-    setIsChangeBackgroundModalOpen(true);
+  const changeView = (value: ViewMode) => {
+    setView(value);
+    saveViewMode(value);
   };
 
   const loadProfile = async (silent: boolean = false) => {
@@ -314,23 +232,7 @@ const Profile: React.FC = () => {
         }
       }
 
-      // Load avatar from imageStorage if it exists
-      if (userData.id) {
-        try {
-          const avatarFromStorage = await imageStorage.getImage(`avatar-${userData.id}`);
-          if (avatarFromStorage) {
-            userData.avatar = avatarFromStorage;
-          } else if (userData.avatar === 'stored') {
-            // Avatar flag exists but image not found in storage
-            userData.avatar = undefined;
-          }
-        } catch (err) {
-          // If avatar not found or error loading, keep original avatar or set to undefined
-          if (userData.avatar === 'stored') {
-            userData.avatar = undefined;
-          }
-        }
-      }
+      userData = await resolveAvatar(userData);
 
       const codesResponse = await apiService.getCodeFiles(undefined, 1000, 0, false);
       setUser(userData);
@@ -360,208 +262,176 @@ const Profile: React.FC = () => {
     }
   };
 
-
-  // Loading spinner толығымен алынып тасталды — кэштелген дерек бірден
-  // көрінеді, алғашқы жүктеуде spinner орнына бос контейнер шығып, дерек
-  // келгенде мазмұн қосылады.
+  // Loading spinner жоқ — кэштелген дерек бірден көрінеді, алғашқы жүктеуде
+  // қара бос бет шығып, дерек келгенде мазмұн қосылады.
   if (error && !user) {
     return (
-      <div className="profile-container">
-        <div className="error-state">
-          <p className="error-icon">❌</p>
-          <p className="error-title">{t('profile.errorTitle')}</p>
-          <p className="error-message">{error}</p>
+      <div className="profile-page">
+        <div className="prf-error" role="alert">
+          <span className="prf-error__icon">
+            <FontAwesomeIcon icon={faTriangleExclamation} />
+          </span>
+          <p className="prf-error__title">{t('profile.errorTitle')}</p>
+          <p className="prf-error__text">{error}</p>
+          <button type="button" className="prf-btn prf-btn--ghost" onClick={() => navigate(-1)}>
+            <FontAwesomeIcon icon={faArrowLeft} />
+            {t('common.back')}
+          </button>
         </div>
       </div>
     );
   }
 
   if (!user) {
-    return <div className="profile-container" />;
+    return <div className="profile-page" />;
   }
 
+  const isOwnProfile = !!currentUser && currentUser.username === user.username;
+  const statItems = [
+    { key: 'codes', icon: faLaptop, value: userCodes.length, label: t('profile.codeFiles') },
+    { key: 'likes', icon: faHeart, value: stats.totalLikes, label: t('profile.likes') },
+    { key: 'comments', icon: faComment, value: stats.totalComments, label: t('profile.comments') },
+    { key: 'views', icon: faEye, value: stats.totalViews, label: t('profile.views') },
+  ];
+
+  // Басты беттің дизайн тілінде: сол жақта профиль панелі, оң жақта кодтар панелі
+  // Модалдар .profile-page-тен тыс — беттің қара палитра айнымалылары оларға әсер етпесін
   return (
-    <div className="profile-container">
-      {/* Артқа қайту батырмасы - тек басқа адамның профилінде */}
-      {currentUser && user && currentUser.username !== user.username && (
-        <button
-          className="profile-back-button"
-          onClick={() => navigate(-1)}
-          title={t('profile.back')}
-        >
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
-      )}
-      <div 
-        className={`profile-header${backgroundImage ? ' profile-header--has-bg' : ''}`}
-        style={backgroundImage ? { 
-          backgroundImage: `url(${backgroundImage})`, 
-          backgroundSize: `${backgroundZoom}%`, 
-          backgroundPosition: `${backgroundPosition.x}% ${backgroundPosition.y}%` 
-        } : {}}
-      >
-        {backgroundImage && <div className="profile-header-overlay"></div>}
-        {currentUser && user && currentUser.username === user.username && (
-        <div className="profile-menu-wrapper">
-          <button 
-            ref={menuButtonRef}
-            className="profile-menu-button"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            title={t('profile.editProfile')}
-          >
-            <span className="menu-icon">
-              <span className="menu-line"></span>
-              <span className="menu-line"></span>
-              <span className="menu-line"></span>
-            </span>
-          </button>
-          {isMenuOpen && !isEditModalOpen && (
-            <div ref={menuDropdownRef} className="profile-menu-dropdown">
-              <button
-                className="profile-menu-item"
-                onClick={() => {
-                  setIsEditModalOpen(true);
-                  setIsMenuOpen(false);
-                }}
-              >
-                <FontAwesomeIcon icon={faEdit} />
-                <span>{t('profile.editProfile')}</span>
-              </button>
-              <button
-                className="profile-menu-item"
-                onClick={handleChangeBackgroundClick}
-              >
-                <FontAwesomeIcon icon={faImage} />
-                <span>{t('profile.changeBackground')}</span>
-              </button>
+    <>
+      <div className="profile-page">
+        <div className="prf-layout">
+          <aside className="prf-side" aria-label={user.username}>
+            <div
+              className={`prf-cover ${background.image ? 'has-image' : ''}`}
+              style={background.image ? {
+                backgroundImage: `url(${background.image})`,
+                backgroundSize: `${background.zoom}%`,
+                backgroundPosition: `${background.position.x}% ${background.position.y}%`,
+              } : undefined}
+            >
+              {currentUser && !isOwnProfile && (
+                <button
+                  type="button"
+                  className="prf-cover__btn prf-cover__btn--left"
+                  onClick={() => navigate(-1)}
+                  title={t('common.back')}
+                  aria-label={t('common.back')}
+                >
+                  <FontAwesomeIcon icon={faArrowLeft} />
+                </button>
+              )}
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  className="prf-cover__btn"
+                  onClick={() => setIsChangeBackgroundModalOpen(true)}
+                  title={t('profile.changeBackground')}
+                  aria-label={t('profile.changeBackground')}
+                >
+                  <FontAwesomeIcon icon={faImage} />
+                </button>
+              )}
             </div>
-          )}
-        </div>
-        )}
-        <div className="profile-avatar-wrapper">
-          <div className="profile-avatar">
-            {user.avatar ? (
-              <img src={user.avatar} alt={user.username} />
-            ) : (
-              <div className="avatar-placeholder">
-                {user.username.charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="profile-info">
-          <div className="profile-name-section">
-            <h1 className="profile-username">{user.username}</h1>
-          </div>
-          <div className="profile-contact">
-            <span className="contact-item contact-item-id">
-              <FontAwesomeIcon icon={faIdCard} /> ID: {ensureNumericId(user.id)}
-              <button 
-                className="copy-id-btn" 
+
+            <div className="prf-id">
+              <span className="prf-avatar">
+                {user.avatar ? <img src={user.avatar} alt={user.username} /> : monogram(user.username)}
+              </span>
+              <h1 className="prf-name">{user.username}</h1>
+              <button
+                type="button"
+                className={`prf-chip ${isIdCopied ? 'is-done' : ''}`}
                 onClick={copyId}
                 title={isIdCopied ? t('profile.copied') : t('profile.copyId')}
               >
+                ID {ensureNumericId(user.id)}
                 <FontAwesomeIcon icon={isIdCopied ? faCheck : faCopy} />
               </button>
-            </span>
-            {user.bio && user.bio.trim() && (
-              <span className="contact-item contact-item-bio">
-                <FontAwesomeIcon icon={faUser} />
-                <span className="bio-text">{user.bio}</span>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="profile-stats">
-        <div className="stat-card stat-primary">
-          <div className="stat-icon"><FontAwesomeIcon icon={faLaptop} /></div>
-          <div className="stat-content">
-            <div className="stat-value">{userCodes.length}</div>
-            <div className="stat-label">{t('profile.codeFiles')}</div>
-          </div>
-        </div>
-        <div className="stat-card stat-accent">
-          <div className="stat-icon"><FontAwesomeIcon icon={faHeart} /></div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.totalLikes}</div>
-            <div className="stat-label">{t('profile.likes')}</div>
-          </div>
-        </div>
-        <div className="stat-card stat-secondary">
-          <div className="stat-icon"><FontAwesomeIcon icon={faComment} /></div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.totalComments}</div>
-            <div className="stat-label">{t('profile.comments')}</div>
-          </div>
-        </div>
-        <div className="stat-card stat-info">
-          <div className="stat-icon"><FontAwesomeIcon icon={faEye} /></div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.totalViews}</div>
-            <div className="stat-label">{t('profile.views')}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="profile-codes">
-        <div className="section-header">
-          <h2 className="section-title">
-            <span className="section-icon"><FontAwesomeIcon icon={faLaptop} /></span>
-            {t('profile.myCodeFiles')}
-          </h2>
-        </div>
-        {userCodes.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon-wrapper">
-              <p className="empty-icon"><FontAwesomeIcon icon={faFileAlt} /></p>
+              {user.bio && user.bio.trim() && <p className="prf-bio">{user.bio}</p>}
             </div>
-            <p className="empty-title">{t('profile.noCodeFiles')}</p>
-            <p className="empty-description">
-              {t('profile.noCodeFilesDescription')}
-            </p>
-            {currentUser && user && currentUser.username === user.username && (
-              <div className="empty-state-actions">
-                <button
-                  className="empty-action-btn empty-action-btn--create"
-                  onClick={() => navigate('/upload')}
-                >
-                  <FontAwesomeIcon icon={faPlus} />
-                  <span>{t('profile.createNewProject')}</span>
-                </button>
-                <button
-                  className="empty-action-btn empty-action-btn--import"
-                  onClick={() => navigate('/upload')}
-                >
-                  <FontAwesomeIcon icon={faUpload} />
-                  <span>{t('profile.importCode')}</span>
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="codes-grid">
-            {userCodes.length > 0 ? (
-              userCodes.map((code) => (
-                <CodeCard key={code.id} code={code} />
-              ))
-            ) : (
-              <div className="empty-state">
-                <div className="empty-icon-wrapper">
-                  <p className="empty-icon"><FontAwesomeIcon icon={faFileAlt} /></p>
+
+            <div className="prf-stats">
+              {statItems.map((stat, i) => (
+                <div key={stat.key} className="prf-stat" style={{ '--d': i } as React.CSSProperties}>
+                  <span className="prf-stat__icon">
+                    <FontAwesomeIcon icon={stat.icon} />
+                  </span>
+                  <span className="prf-stat__value">{stat.value}</span>
+                  <span className="prf-stat__label">{stat.label}</span>
                 </div>
-                <p className="empty-title">{t('profile.noCodeFiles')}</p>
-                <p className="empty-description">
-                  {t('profile.noCodeFilesDescription')}
-                </p>
+              ))}
+            </div>
+
+            {isOwnProfile && (
+              <div className="prf-actions">
+                <button type="button" className="prf-btn prf-btn--primary" onClick={() => setIsEditModalOpen(true)}>
+                  <FontAwesomeIcon icon={faPen} />
+                  {t('profile.editProfile')}
+                </button>
+                <button
+                  type="button"
+                  className="prf-btn prf-btn--ghost prf-btn--icon"
+                  onClick={() => navigate('/settings')}
+                  title={t('common.settings')}
+                  aria-label={t('common.settings')}
+                >
+                  <FontAwesomeIcon icon={faGear} />
+                </button>
               </div>
             )}
-          </div>
-        )}
+          </aside>
+
+          <main className="prf-main">
+            <header className="prf-main__head">
+              <h2 className="prf-main__title">
+                {isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
+                <span className="prf-main__count">{userCodes.length}</span>
+              </h2>
+              <div className="prf-main__tools">
+                {userCodes.length > 0 && <ViewToggle value={view} onChange={changeView} />}
+                {isOwnProfile && (
+                  <button type="button" className="prf-btn prf-btn--primary" onClick={() => navigate('/upload')}>
+                    <FontAwesomeIcon icon={faPlus} />
+                    <span className="prf-btn__text">{t('profile.createNewProject')}</span>
+                  </button>
+                )}
+              </div>
+            </header>
+
+            <div className="prf-main__body">
+              {userCodes.length === 0 ? (
+                <div className="prf-empty">
+                  <span className="prf-empty__icon">
+                    <FontAwesomeIcon icon={faFileAlt} />
+                  </span>
+                  <p className="prf-empty__title">{t('profile.noCodeFiles')}</p>
+                  <p className="prf-empty__text">{t('profile.noCodeFilesDescription')}</p>
+                  {isOwnProfile && (
+                    <div className="prf-empty__actions">
+                      <button type="button" className="prf-btn prf-btn--primary" onClick={() => navigate('/upload')}>
+                        <FontAwesomeIcon icon={faPlus} />
+                        {t('profile.createNewProject')}
+                      </button>
+                      <button type="button" className="prf-btn prf-btn--ghost" onClick={() => navigate('/upload')}>
+                        <FontAwesomeIcon icon={faUpload} />
+                        {t('profile.importCode')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={`cdx-grid cdx-grid--${view}`}>
+                  {userCodes.map((code, i) => (
+                    <CodeTile key={code.id} code={code} index={i} view={view} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
 
-      {user && currentUser && currentUser.username === user.username && (
+      {isOwnProfile && (
         <>
           <EditProfileModal
             isOpen={isEditModalOpen}
@@ -591,44 +461,17 @@ const Profile: React.FC = () => {
           />
           <ChangeBackgroundModal
             isOpen={isChangeBackgroundModalOpen}
-            onClose={() => {
-              setIsChangeBackgroundModalOpen(false);
-            }}
+            onClose={() => setIsChangeBackgroundModalOpen(false)}
             user={user}
             onUpdate={async () => {
-              // Reload background image and position after update
-              if (user?.id) {
-                try {
-                  const savedBg = await imageStorage.getImage(`profile-bg-${user.id}`);
-                  setBackgroundImage(savedBg || null);
-                  
-                  // Load saved position
-                  const savedPosition = localStorage.getItem(`profile-bg-position-${user.id}`);
-                  if (savedPosition) {
-                    try {
-                      const position = JSON.parse(savedPosition);
-                      setBackgroundPosition(position);
-                    } catch (e) {
-                      setBackgroundPosition({ x: 50, y: 50 });
-                    }
-                  } else {
-                    setBackgroundPosition({ x: 50, y: 50 });
-                  }
-                } catch (err) {
-                  console.error('Failed to load background image:', err);
-                  setBackgroundImage(null);
-                  setBackgroundPosition({ x: 50, y: 50 });
-                }
-              }
+              await reloadBackground();
               setIsChangeBackgroundModalOpen(false);
             }}
           />
         </>
       )}
-
-    </div>
+    </>
   );
 };
 
 export default Profile;
-

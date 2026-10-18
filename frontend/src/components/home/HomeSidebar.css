@@ -1,0 +1,631 @@
+/* Басты беттің жобалар sidebar-ы — қалқымалы панель.
+   Ені .home-layout торында өзгереді (Home.css), мұнда тек ішкі көрініс. */
+
+.hsb {
+  --hsb-pad: 8px;
+  --hsb-item: 40px;
+  --hsb-radius: 12px;
+  --hsb-dur: 0.34s;
+  --hsb-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --hsb-line: #1f1f1f;
+  --hsb-hover: #1a1a1a;
+  --hsb-muted: #8f8f8f;
+  /* Серіппе: жолдар «секіріп» орнына түседі */
+  --hsb-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Әр жолдың кешігуі — реттік нөміріне қарай (толқын әсері) */
+  --hsb-step: 28ms;
+
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  margin: 12px 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--hsb-pad);
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--hsb-line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  /* Атаулары әртүрлі — класс ауысқанда анимация қайта басталады */
+  animation: hsbGlowOpen 0.9s ease-out;
+}
+
+.hsb.is-collapsed {
+  animation-name: hsbGlowClose;
+}
+
+/* Панель бетінен өтетін жарық сызығы */
+.hsb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 150% 0;
+  opacity: 0;
+  animation: hsbSheenOpen 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hsb.is-collapsed::after {
+  animation-name: hsbSheenClose;
+}
+
+@keyframes hsbGlowOpen {
+  0%, 100% {
+    border-color: var(--hsb-line);
+  }
+  30% {
+    border-color: #3d3d3d;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 48px -6px rgba(255, 255, 255, 0.14),
+      0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  }
+}
+
+@keyframes hsbGlowClose {
+  0%, 100% {
+    border-color: var(--hsb-line);
+  }
+  30% {
+    border-color: #3d3d3d;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 32px -6px rgba(255, 255, 255, 0.12),
+      0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  }
+}
+
+@keyframes hsbSheenOpen {
+  0% {
+    opacity: 1;
+    background-position: 150% 0;
+  }
+  100% {
+    opacity: 1;
+    background-position: -50% 0;
+  }
+}
+
+@keyframes hsbSheenClose {
+  0% {
+    opacity: 1;
+    background-position: -50% 0;
+  }
+  100% {
+    opacity: 1;
+    background-position: 150% 0;
+  }
+}
+
+/* ---------- Бірыңғай жол: 40px ұяшық + мәтін ---------- */
+
+.hsb__row {
+  position: relative;
+  width: 100%;
+  height: var(--hsb-item);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--hsb-radius);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.hsb__row:hover {
+  background: var(--hsb-hover);
+}
+
+/* Жолдар толқын тәрізді кезекпен «секіреді»: ашылғанда үлкейіп шығады,
+   жабылғанда қысылып барып орнына түседі */
+.hsb__row,
+.hsb__divider {
+  animation: hsbPopOpen 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--d, 0) * var(--hsb-step));
+}
+
+.hsb.is-collapsed .hsb__row,
+.hsb.is-collapsed .hsb__divider {
+  animation-name: hsbPopClose;
+  animation-duration: 0.5s;
+}
+
+/* Белгіше айналып, үлкейіп шығады */
+.hsb__slot > svg,
+.hsb__mono {
+  animation: hsbIconOpen 0.7s var(--hsb-spring) backwards;
+  animation-delay: calc(var(--d, 0) * var(--hsb-step) + 40ms);
+}
+
+.hsb.is-collapsed .hsb__slot > svg,
+.hsb.is-collapsed .hsb__mono {
+  animation-name: hsbIconClose;
+}
+
+/* Ашылу: қысылған күйден шығып, сәл үлкейіп барып орнына түседі */
+@keyframes hsbPopOpen {
+  0% {
+    opacity: 0.4;
+    transform: translateX(-12px) scale(0.84);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hsbPopClose {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: scale(0.86);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes hsbIconOpen {
+  0% {
+    transform: rotate(-90deg) scale(0.4);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes hsbIconClose {
+  0% {
+    transform: rotate(90deg) scale(0.5);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.hsb__row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.hsb__row:active {
+  transform: scale(0.97);
+}
+
+.hsb__slot {
+  width: var(--hsb-item);
+  height: var(--hsb-item);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--hsb-muted);
+  transition: color 0.15s ease;
+}
+
+.hsb__row:hover .hsb__slot,
+.hsb__row:focus-visible .hsb__slot {
+  color: var(--text-primary);
+}
+
+/* Мәтін: ашылғанда ен кеңейгеннен кейін сырғып шығады, жабылғанда бірден жоғалады */
+.hsb__label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-right: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  /* Мәтін бұлдырдан анықталып, сырғып шығады — жолдармен бірге толқынмен */
+  transition:
+    opacity 0.3s ease calc(120ms + var(--d, 0) * var(--hsb-step)),
+    filter 0.4s ease calc(120ms + var(--d, 0) * var(--hsb-step)),
+    transform 0.5s var(--hsb-spring) calc(90ms + var(--d, 0) * var(--hsb-step));
+}
+
+/* ---------- Тақырып жолы ---------- */
+
+.hsb__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.hsb__toggle {
+  width: var(--hsb-item);
+}
+
+.hsb__panel-fill {
+  opacity: 0.4;
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition: transform var(--hsb-dur) var(--hsb-ease), opacity var(--hsb-dur) ease;
+}
+
+.hsb__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 6px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.hsb__count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #1e1e1e;
+  color: var(--hsb-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ---------- Әрекеттер ---------- */
+
+.hsb__body,
+.hsb__inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hsb__inner {
+  gap: 6px;
+}
+
+.hsb__row--primary {
+  background: var(--home-accent);
+  color: var(--home-on-accent);
+}
+
+.hsb__row--primary .hsb__slot,
+.hsb__row--primary:hover .hsb__slot {
+  color: inherit;
+}
+
+.hsb__row--primary:hover {
+  background: var(--primary-hover);
+}
+
+.hsb__search {
+  cursor: text;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px var(--hsb-line);
+}
+
+.hsb__search:hover {
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px #333;
+}
+
+.hsb__search:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.hsb__search:focus-within .hsb__slot {
+  color: var(--text-primary);
+}
+
+.hsb__input {
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.hsb__input::placeholder {
+  color: #6b6b6b;
+}
+
+.hsb__divider {
+  height: 1px;
+  flex-shrink: 0;
+  margin: 6px 4px;
+  background: var(--hsb-line);
+}
+
+/* ---------- Жобалар тізімі ---------- */
+
+.hsb__list {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Фокус жиегі кесілмеуі үшін */
+  margin: 0 calc(-1 * var(--hsb-pad));
+  padding: 0 var(--hsb-pad) 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+  transition: gap var(--hsb-dur) var(--hsb-ease);
+}
+
+.hsb__item .hsb__label {
+  font-weight: 500;
+  color: #d9d9d9;
+}
+
+.hsb__item:hover .hsb__label {
+  color: var(--text-primary);
+}
+
+/* Жоба белгішесі — атауының бірінші әрпі */
+.hsb__mono {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #2c2c2c, #191919);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  color: #ededed;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.2s var(--hsb-ease);
+}
+
+.hsb__item:hover .hsb__mono,
+.hsb__item:focus-visible .hsb__mono {
+  background: var(--home-accent);
+  color: var(--home-on-accent);
+}
+
+.hsb__skeleton {
+  height: var(--hsb-item);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.hsb__skeleton span {
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%) 0 0 / 200% 100%,
+    #181818;
+  animation: hsbShimmer 1.4s ease-in-out infinite;
+}
+
+.hsb__skeleton span:first-child {
+  width: 28px;
+  height: 28px;
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+.hsb__skeleton span:last-child {
+  height: 12px;
+  flex: 1;
+  margin-right: 24px;
+}
+
+@keyframes hsbShimmer {
+  from { background-position: 150% 0, 0 0; }
+  to { background-position: -50% 0, 0 0; }
+}
+
+.hsb__empty {
+  margin: 1.25rem 0.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--hsb-muted);
+}
+
+.hsb__error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--hsb-radius);
+  background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+.hsb__error button {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--error-color, #ef4444);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- Жабық күй (десктоп): бірдей 40px шаршылардан тұратын жолақ ---------- */
+
+@media (min-width: 901px) {
+  .hsb.is-collapsed .hsb__label {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateX(-14px);
+    pointer-events: none;
+    /* Жабылғанда мәтін бірден жоғалмайды — панель жиналып жатқанда көрініп тұрып,
+       соңына қарай бұлдырап сөнеді */
+    transition:
+      opacity 0.3s ease calc(80ms + var(--d, 0) * 12ms),
+      filter 0.3s ease calc(80ms + var(--d, 0) * 12ms),
+      transform 0.38s cubic-bezier(0.7, 0, 0.2, 1) calc(40ms + var(--d, 0) * 12ms);
+  }
+
+  .hsb.is-collapsed .hsb__panel-fill {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+
+  /* Барлық белгіше бір стильде: ашу/жабу, қосу, іздеу және жобалар —
+     бірдей шаршы, бірдей фон мен жиек, бірдей түс */
+  .hsb.is-collapsed .hsb__row {
+    background: #161616;
+    box-shadow: inset 0 0 0 1px #262626;
+    color: #d4d4d4;
+  }
+
+  .hsb.is-collapsed .hsb__slot {
+    color: #d4d4d4;
+  }
+
+  .hsb.is-collapsed .hsb__row:hover {
+    background: #222;
+    box-shadow: inset 0 0 0 1px #3a3a3a;
+  }
+
+  .hsb.is-collapsed .hsb__row:hover .hsb__slot {
+    color: #fff;
+  }
+
+  .hsb.is-collapsed .hsb__row:focus-visible {
+    box-shadow: inset 0 0 0 1.5px var(--home-accent);
+  }
+
+  /* Жоба әрпі — бөлек қорапсыз, басқа белгішелер сияқты тек таңба */
+  .hsb.is-collapsed .hsb__mono,
+  .hsb.is-collapsed .hsb__item:hover .hsb__mono,
+  .hsb.is-collapsed .hsb__item:focus-visible .hsb__mono {
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font-size: 0.92rem;
+  }
+
+  /* Аралықтар бірдей — 6px */
+  .hsb.is-collapsed .hsb__list {
+    gap: 6px;
+  }
+
+  .hsb.is-collapsed .hsb__search {
+    cursor: pointer;
+  }
+
+  .hsb.is-collapsed .hsb__list {
+    scrollbar-width: none;
+  }
+
+  .hsb.is-collapsed .hsb__list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hsb.is-collapsed .hsb__empty,
+  .hsb.is-collapsed .hsb__error {
+    display: none;
+  }
+}
+
+/* Жабық күйдегі қалқымалы кеңес (document.body-ге шығарылады) */
+.hsb-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #0a0a0a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transform: translateY(-50%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: hsbTipIn 0.14s ease-out;
+}
+
+@keyframes hsbTipIn {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
+}
+
+/* ---------- Телефон: жоғарыда панель, жабылғанда тек тақырып жолы ---------- */
+
+@media (max-width: 900px) {
+  .hsb {
+    margin: 12px 12px 0;
+  }
+
+  .hsb__head {
+    margin-bottom: 0;
+  }
+
+  /* Биіктік 1fr → 0fr арқылы тегіс жиналады */
+  .hsb__body {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--hsb-dur) var(--hsb-ease), opacity 0.2s ease, visibility 0s;
+  }
+
+  .hsb__inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .hsb__inner > :first-child {
+    margin-top: 6px;
+  }
+
+  /* visibility — жабық кезде ішіндегі батырмаларға Tab арқылы өтпеу үшін */
+  .hsb.is-collapsed .hsb__body {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    transition: grid-template-rows var(--hsb-dur) var(--hsb-ease), opacity 0.15s ease,
+      visibility 0s linear var(--hsb-dur);
+  }
+
+  .hsb.is-collapsed .hsb__panel-fill {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+
+  .hsb__list {
+    flex: none;
+    max-height: 260px;
+  }
+
+  /* iOS-та фокус кезінде үлкейтпеу үшін */
+  .hsb__input {
+    font-size: 16px;
+  }
+}

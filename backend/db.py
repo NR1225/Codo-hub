@@ -26,6 +26,7 @@ class User(Base):
     id = Column(String(12), primary_key=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(20), unique=True, nullable=True, index=True)  # E.164, verified by SMS at registration
     password_hash = Column(String(255), nullable=True)  # Nullable for backward compatibility
     avatar = Column(String(500), nullable=True)
     bio = Column(String(500), nullable=True)
@@ -36,6 +37,7 @@ class User(Base):
     recovery_codes = Column(Text, nullable=True)
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)  # Соңғы WebSocket қосылымы жабылған уақыт
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -44,6 +46,8 @@ def init_db():
     """Initialize database - create all tables"""
     Base.metadata.create_all(bind=engine)
     _ensure_user_columns()
+    _ensure_vibecoding_columns()
+    _ensure_group_message_columns()
     print(f"Database initialized at {DB_PATH}")
 
 
@@ -70,6 +74,40 @@ def _ensure_user_columns():
             )
         if "locked_until" not in existing:
             conn.execute(text("ALTER TABLE users ADD COLUMN locked_until DATETIME"))
+        if "phone" not in existing:
+            # SQLite can't ADD COLUMN ... UNIQUE, so uniqueness comes from the index.
+            conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(20)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_phone ON users (phone)"))
+        if "last_seen_at" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN last_seen_at DATETIME"))
+
+
+def _ensure_vibecoding_columns():
+    """`vibecoding_projects` кестесіне кейін қосылған бағандарды қосу (идемпотентті)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "vibecoding_projects" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("vibecoding_projects")}
+    with engine.begin() as conn:
+        if "folders" not in existing:
+            conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN folders TEXT NOT NULL DEFAULT '[]'"))
+
+
+def _ensure_group_message_columns():
+    """`chat_group_messages` кестесіне кейін қосылған бағандарды қосу (идемпотентті)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "chat_group_messages" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("chat_group_messages")}
+    with engine.begin() as conn:
+        if "extra" not in existing:
+            conn.execute(text("ALTER TABLE chat_group_messages ADD COLUMN extra TEXT NOT NULL DEFAULT '{}'"))
 
 
 def get_db():
@@ -93,4 +131,83 @@ class PasswordReset(Base):
     used = Column(Boolean, default=False)
 
 
+class SmsVerification(Base):
+    """SMS code sent to a phone during registration (only the hash is stored)"""
+    __tablename__ = "sms_verifications"
 
+    id = Column(String(36), primary_key=True)
+    phone = Column(String(20), nullable=False, index=True)
+    code_hash = Column(String(255), nullable=False)
+    attempts = Column(Integer, default=0)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    expires_at = Column(DateTime, nullable=False)
+
+
+
+
+
+class VibecodingProject(Base):
+    """Vibecoding бетінде жасалған жоба — тек иесіне көрінеді"""
+    __tablename__ = "vibecoding_projects"
+
+    id = Column(String(64), primary_key=True)
+    owner_id = Column(String(12), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    files = Column(Text, nullable=False, default="[]")  # JSON: [{id, name, path, content, language}]
+    folders = Column(Text, nullable=False, default="[]")  # JSON: ["src", "src/utils"] — бос папкалар да сақталады
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChatGroup(Base):
+    """Топтық чат"""
+    __tablename__ = "chat_groups"
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(String(500), nullable=True)
+    avatar = Column(String(500), nullable=True)
+    owner_id = Column(String(12), nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChatGroupMember(Base):
+    """Топ мүшесі: рөлі (owner | admin | member) және соңғы оқыған уақыты"""
+    __tablename__ = "chat_group_members"
+
+    group_id = Column(String(36), primary_key=True)
+    user_id = Column(String(12), primary_key=True, index=True)
+    role = Column(String(16), nullable=False, default="member")
+    joined_at = Column(DateTime, default=func.now())
+    last_read_at = Column(DateTime, nullable=True)
+
+
+class ChatGroupMessage(Base):
+    """Топ хабарламасы. type='system' — мүше қосылды/шықты сияқты оқиғалар (metadata.event)"""
+    __tablename__ = "chat_group_messages"
+
+    id = Column(String(36), primary_key=True)
+    group_id = Column(String(36), nullable=False, index=True)
+    from_user_id = Column(String(12), nullable=False)
+    content = Column(Text, nullable=False, default="")
+    type = Column(String(20), nullable=False, default="text")
+    attachments = Column(Text, nullable=False, default="[]")  # JSON
+    meta = Column("metadata", Text, nullable=False, default="{}")  # JSON
+    # JSON: replyTo, forwardedFrom, editedAt, reactions, pinned, deletedFor (services/message_extras.py)
+    extra = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=func.now(), index=True)
+
+
+class ChatPref(Base):
+    """Қолданушының чатқа қойған белгілері: бекітілген, дыбысы өшірілген, мұрағатталған.
+    chat_kind: 'dm' (chat_id — досының id-і) | 'group' (chat_id — топ id-і)"""
+    __tablename__ = "chat_prefs"
+
+    user_id = Column(String(12), primary_key=True)
+    chat_kind = Column(String(8), primary_key=True)
+    chat_id = Column(String(64), primary_key=True)
+    pinned_at = Column(DateTime, nullable=True)
+    muted = Column(Boolean, nullable=False, default=False)
+    archived = Column(Boolean, nullable=False, default=False)

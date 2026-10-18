@@ -95,28 +95,6 @@
     right: -3px !important;
   }
   
-  .header-btn-vibecoding {
-  position: relative;
-  overflow: visible;
-}
-
-.header-btn-vibecoding::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(0, 175, 202, 0.5), rgba(157, 123, 255, 0.35));
-  opacity: 0.6;
-  filter: blur(8px);
-  z-index: -1;
-  transition: opacity 0.3s ease;
-}
-
-.header-btn-vibecoding:hover::before {
-  opacity: 1;
-  filter: blur(12px);
-}
-
 /* Button order: Upload (1), Chat (2), Vibecoding (2.5), Profile (3) */
   .header-btn-upload {
     order: 1;
@@ -200,4 +178,83 @@
       min-width: 40px;
     }
   }
+}
+
+/* Қараңғы режимде хедер фоны — қара */
+.dark-theme .site-header::before {
+  background: #000;
+  opacity: 0.95;
+}
+
+/* Хедердің 3 батырмасы (Кодтар, Чат, Vibecoding) — қара карталар
+   (radius 12px, ақ мәтін). Ховерде хедер астындағы сызық түсіндей, сәл
+   қанығырақ толық жиек (stroke) пайда болады. Хедердің өз сызығына тиіспейміз. */
+header .btn.header-nav-btn {
+  --nav-stroke: color-mix(in srgb, var(--border-color) 70%, var(--primary-color));
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  filter: none;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+header .btn.header-nav-btn .btn-icon,
+header .btn.header-nav-btn .btn-text {
+  color: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+/* Базалық .btn-secondary жылтыр эффектін өшіреміз */
+header .btn.header-nav-btn::before {
+  content: none;
+}
+
+/* Ховердегі толық stroke */
+header .btn.header-nav-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--nav-stroke);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+header .btn.header-nav-btn:hover:not(:disabled) {
+  background: #000;
+  color: #fff;
+  box-shadow: none;
+  filter: none;
+  transform: translateY(-1.3px);
+}
+
+header .btn.header-nav-btn:hover:not(:disabled)::after {
+  opacity: 1;
+}
+
+.light-theme header .btn.header-nav-btn,
+.light-theme header .btn.header-nav-btn:hover:not(:disabled) {
+  background: #000;
+}
+
+/* Хедердегі көк неон — сайт монохром болса да, хедерде бұрынғы көк түстер
+   сақталады. ProfileModal хедер ішінде рендерленеді, сондықтан айнымалылар
+   тек батырмалар жолына (> div) беріледі, ал астыңғы сызық тікелей боялады. */
+.dark-theme .site-header {
+  border-bottom-color: #1a3a55;
+}
+.dark-theme .site-header > div {
+  --border-color: #1a3a55;
+  --primary-color: #00AFCA;
+  --primary-hover: #0099CC;
+  --accent-gradient: linear-gradient(135deg, #00AFCA 0%, #0099CC 25%, #FFD700 50%, #FCD116 75%, #FFC700 100%);
 }

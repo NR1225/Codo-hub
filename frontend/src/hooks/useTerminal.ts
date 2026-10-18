@@ -35,18 +35,19 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
 
     const term = new Terminal({
       theme: {
-        background: '#1a1a2e',
-        foreground: '#d4d4d4',
-        cursor: '#00AFCA',
-        cursorAccent: '#1a1a2e',
-        selectionBackground: 'rgba(0, 175, 202, 0.3)',
+        // Vibecoding бетінің қара монохром палитрасы
+        background: '#0a0a0a',
+        foreground: '#e5e5e5',
+        cursor: '#fafafa',
+        cursorAccent: '#0a0a0a',
+        selectionBackground: 'rgba(255, 255, 255, 0.18)',
         black: '#000000',
         red: '#ff6b6b',
         green: '#51cf66',
         yellow: '#ffd43b',
         blue: '#339af0',
         magenta: '#cc5de8',
-        cyan: '#00AFCA',
+        cyan: '#67e8f9',
         white: '#d4d4d4',
         brightBlack: '#6b6b6b',
         brightRed: '#ff8787',

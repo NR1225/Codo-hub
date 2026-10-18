@@ -1,17 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useToast } from '../contexts/ToastContext';
 import {
-  faPaperPlane,
-  faImage,
-  faVideo,
-  faFile,
-  faMicrophone,
-  faMapMarkerAlt,
-  faSmile,
-  faPaperclip,
-  faTimes
-} from '@fortawesome/free-solid-svg-icons';
+  ArrowUpIcon,
+  CloseIcon,
+  LayersIcon,
+  PlusIcon,
+  SmileIcon,
+} from './home/icons';
+import { FileIcon, ImageIcon, MapPinIcon, MicIcon, PaperclipIcon, PollIcon, VideoIcon } from './chat/MediaIcons';
+import { FormatKind, formatFromShortcut, toggleFormat } from './chat/formatText';
+import { loadDraft, saveDraft } from './chat/ChatComfort';
+import { CreatePollModal, useVoiceRecorder, VoiceRecorderBar } from './chat/ChatExtras';
+import Popover from './chat/Popover';
 import './MessageInput.css';
 
 interface MessageInputProps {
@@ -19,19 +20,45 @@ interface MessageInputProps {
   onUploadFile: (file: File, type: string, content?: string, metadata?: any) => Promise<void>;
   disabled?: boolean;
   placeholder?: string;
+  /** Жазып жатқанын хабарлау: true — жаза бастады, false — тоқтады/жіберді */
+  onTyping?: (isTyping: boolean) => void;
+  /** Берілсе — құралдар қатарында «Жоба бөлісу» батырмасы шығады */
+  onShareProject?: () => void;
+  /** Жазу өрісінің үстіндегі жолақ (жауап беру / өңдеу) */
+  banner?: React.ReactNode;
+  /** key өзгерген сайын мәтін осы text-ке ауысып, өріске фокус түседі (өңдеу режимі) */
+  prefill?: { text: string; key: number };
+  /** key өзгерген сайын өріске фокус түседі (жауап беру басталғанда) */
+  focusKey?: number;
+  /** Өрісте Esc басылды — жауапты/өңдеуді болдырмау */
+  onEscape?: () => void;
+  /** Берілсе — жазылып біткен жоқ мәтін осы кілтпен браузерде сақталады (черновик) */
+  draftKey?: string;
+  /** Берілсе — құралдар қатарында «Сауалнама» батырмасы шығады */
+  onCreatePoll?: (poll: { question: string; options: string[]; multiple: boolean }) => Promise<void>;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,
   onUploadFile,
   disabled = false,
-  placeholder = undefined
+  placeholder = undefined,
+  onTyping,
+  onShareProject,
+  banner,
+  prefill,
+  focusKey,
+  onEscape,
+  draftKey,
+  onCreatePoll,
 }) => {
   const { t } = useTranslation();
-  const [message, setMessage] = useState('');
+  const toast = useToast();
+  const [message, setMessage] = useState(() => (draftKey ? loadDraft(draftKey) : ''));
+  // Өңдеу кезінде черновик уақытша осында тұрады, өңдеу біткенде қайтарылады
+  const stashRef = useRef<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
+  const [showPoll, setShowPoll] = useState(false);
   const [previewFiles, setPreviewFiles] = useState<Array<{ file: File; type: string; preview?: string }>>([]);
   const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null);
   
@@ -39,9 +66,130 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const emojiBtnRef = useRef<HTMLButtonElement>(null);
+  const attachBtnRef = useRef<HTMLButtonElement>(null);
+  const [showAttach, setShowAttach] = useState(false);
+  const typingRef = useRef(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onTypingRef = useRef(onTyping);
+  onTypingRef.current = onTyping;
+
+  // Чат ауысқанда/жабылғанда — «жазуда» күйін тоқтату
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (typingRef.current) onTypingRef.current?.(false);
+    };
+  }, []);
+
+  // Өңдеу басталды — мәтінді өріске қойып, курсорды соңына қоямыз
+  useEffect(() => {
+    if (!prefill) return;
+    if (prefill.text) {
+      if (stashRef.current === null) stashRef.current = message;
+      setMessage(prefill.text);
+    } else {
+      // Өңдеу бітті/болдырылмады — бұрынғы черновикті қайтарамыз
+      setMessage(stashRef.current ?? '');
+      stashRef.current = null;
+    }
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+      adjustTextareaHeight();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.key]);
+
+  useEffect(() => {
+    if (focusKey) textareaRef.current?.focus();
+  }, [focusKey]);
+
+  // Чат ашылғанда өріс бірден белсенді (сенсорлы экранда емес — пернетақта өздігінен шықпасын)
+  useEffect(() => {
+    if (disabled || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Telegram сияқты: реакция басқаннан, сурет қарағаннан кейін де пернені бассаң — мәтін өріске жазылады
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = textareaRef.current;
+      if (!el || el.disabled || e.defaultPrevented || e.isComposing) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active === el) return;
+      // Басқа жазу өрісінде (іздеу, модал т.б.) отырса — тимейміз
+      if (active && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName))) return;
+      // Батырмада тұрғанда Space оны басу үшін қалсын
+      if (e.key === ' ' && active && active !== document.body) return;
+      // Фокусты keydown кезінде ауыстырсақ, браузер таңбаны жаңа өріске жазады
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // Черновикті сақтау (өңдеу кезінде емес)
+  useEffect(() => {
+    if (!draftKey || stashRef.current !== null) return;
+    const timer = setTimeout(() => saveDraft(draftKey, message), 300);
+    return () => clearTimeout(timer);
+  }, [draftKey, message]);
+
+  // Черновик бар болса — биіктігін мәтінге сай қою
+  useEffect(() => {
+    if (message) requestAnimationFrame(() => adjustTextareaHeight());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Чат жабылғанда соңғы мәтін сақталып қалсын
+  const latestRef = useRef(message);
+  latestRef.current = stashRef.current ?? message;
+  useEffect(() => {
+    return () => {
+      if (draftKey) saveDraft(draftKey, latestRef.current);
+    };
+  }, [draftKey]);
+
+  // Белгіленген мәтінді **қалың** / __курсив__ т.б. ету
+  const applyFormat = (kind: FormatKind) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const next = toggleFormat(message, el.selectionStart, el.selectionEnd, kind);
+    setMessage(next.value);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(next.start, next.end);
+    });
+  };
+
+  // Жазу басталғанда бір рет true, 2.5 секунд тыныштықтан кейін false жібереміз
+  const stopTyping = () => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = null;
+    if (typingRef.current) {
+      typingRef.current = false;
+      onTyping?.(false);
+    }
+  };
+
+  const notifyTyping = () => {
+    if (!onTyping) return;
+    if (!typingRef.current) {
+      typingRef.current = true;
+      onTyping(true);
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(stopTyping, 2500);
+  };
 
   // Common emojis
   const commonEmojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
@@ -57,11 +205,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
     adjustTextareaHeight();
+    if (e.target.value.trim()) notifyTyping();
+    else stopTyping();
   };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (disabled || (!message.trim() && previewFiles.length === 0 && !location)) return;
+    stopTyping();
 
     // Send files first if any
     if (previewFiles.length > 0) {
@@ -172,7 +323,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   const getLocation = () => {
     if (!navigator.geolocation) {
-      alert(t('messageInput.geolocationNotSupported'));
+      toast.error(t('messageInput.geolocationNotSupported'));
       return;
     }
 
@@ -195,71 +346,46 @@ const MessageInput: React.FC<MessageInputProps> = ({
         setLocation({ lat: latitude, lng: longitude, address });
       },
       (error) => {
-        alert(t('messageInput.locationError') + ': ' + error.message);
+        toast.error(t('messageInput.locationError') + ': ' + error.message);
       }
     );
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+  // Дауыстық хабарлама: жазу бітсе — файл толқын пішінімен бірге жіберіледі
+  const voice = useVoiceRecorder(
+    (file, meta) => {
+      onUploadFile(file, 'audio', undefined, meta).catch((err) => console.error('Failed to upload voice:', err));
+    },
+    (msg) => toast.error(msg),
+  );
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        try {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const audioFile = new File([audioBlob], `recording_${Date.now()}.webm`, { type: 'audio/webm' });
-
-          await onUploadFile(audioFile, 'audio');
-        } catch (err) {
-          console.error('Failed to upload audio:', err);
-        } finally {
-          // Stop all tracks
-          stream.getTracks().forEach(track => track.stop());
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Start timer
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error('Microphone access denied:', error);
-      alert(t('messageInput.microphonePermissionRequired'));
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
+  // Жазу кезінде: Enter — жіберу, Esc — бас тарту
+  useEffect(() => {
+    if (!voice.recording) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        voice.cancel();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        voice.finish();
       }
-      
-      setRecordingTime(0);
-    }
-  };
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [voice.recording, voice.cancel, voice.finish]);
 
-  const formatRecordingTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const canSend = !!message.trim() || previewFiles.length > 0 || !!location;
+
+  // Барлық тіркеме түрлері бір «+» мәзірінде
+  const attachItems = [
+    { key: 'image', icon: <ImageIcon size={20} />, label: t('messageInput.image'), onClick: () => imageInputRef.current?.click() },
+    { key: 'video', icon: <VideoIcon size={20} />, label: t('messageInput.video'), onClick: () => videoInputRef.current?.click() },
+    { key: 'file', icon: <PaperclipIcon size={20} />, label: t('messageInput.file'), onClick: () => fileInputRef.current?.click() },
+    ...(onShareProject ? [{ key: 'project', icon: <LayersIcon size={20} />, label: t('chat.project.toolbar'), onClick: onShareProject }] : []),
+    ...(onCreatePoll ? [{ key: 'poll', icon: <PollIcon size={20} />, label: t('chat.poll.create'), onClick: () => setShowPoll(true) }] : []),
+    { key: 'location', icon: <MapPinIcon size={20} />, label: t('messageInput.location'), onClick: getLocation },
+  ];
 
   return (
     <div className="message-input-container">
@@ -273,7 +399,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               )}
               {preview.type !== 'image' && (
                 <div className="message-preview-file">
-                  <FontAwesomeIcon icon={preview.type === 'video' ? faVideo : faFile} />
+                  {preview.type === 'video' ? <VideoIcon size={16} /> : <FileIcon size={16} />}
                   <span>{preview.file.name}</span>
                 </div>
               )}
@@ -282,7 +408,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 onClick={() => removePreview(index)}
                 type="button"
               >
-                <FontAwesomeIcon icon={faTimes} />
+                <CloseIcon size={12} />
               </button>
             </div>
           ))}
@@ -292,160 +418,149 @@ const MessageInput: React.FC<MessageInputProps> = ({
       {/* Location preview */}
       {location && (
         <div className="message-location-preview">
-          <FontAwesomeIcon icon={faMapMarkerAlt} />
+          <MapPinIcon size={18} />
           <span>{location.address || `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`}</span>
           <button
             className="message-preview-remove"
             onClick={() => setLocation(null)}
             type="button"
           >
-            <FontAwesomeIcon icon={faTimes} />
+            <CloseIcon size={12} />
           </button>
         </div>
       )}
 
-      {/* Emoji picker */}
-      {showEmojiPicker && (
-        <div className="emoji-picker">
-          <div className="emoji-picker-grid">
-            {commonEmojis.map((emoji, index) => (
-              <button
-                key={index}
-                className="emoji-item"
-                onClick={() => handleEmojiClick(emoji)}
-                type="button"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recording indicator */}
-      {isRecording && (
-        <div className="recording-indicator">
-          <div className="recording-dot"></div>
-          <span>{formatRecordingTime(recordingTime)}</span>
-          <button
-            className="recording-stop-btn"
-            onClick={stopRecording}
-            type="button"
-          >
-            {t('messageInput.stopRecording')}
+      {/* Тіркеу мәзірі — «+» батырмасынан шығады */}
+      <Popover
+        open={showAttach}
+        anchor={attachBtnRef}
+        onClose={() => setShowAttach(false)}
+        placement="top-start"
+        className="cht-pop--attach"
+        ariaLabel={t('messageInput.attach')}
+      >
+        {attachItems.map((item) => (
+          <button key={item.key} type="button" role="menuitem" className={`message-attach-item is-${item.key}`} onClick={item.onClick}>
+            <span className="message-attach-item__icon">{item.icon}</span>
+            <span className="message-attach-item__label">{item.label}</span>
           </button>
+        ))}
+      </Popover>
+
+      {/* Эмодзи панелі — смайлик батырмасынан шығады */}
+      <Popover
+        open={showEmojiPicker}
+        anchor={emojiBtnRef}
+        onClose={() => setShowEmojiPicker(false)}
+        placement="top-start"
+        className="cht-pop--emoji"
+        role="dialog"
+        ariaLabel={t('messageInput.emoji')}
+        focusFirst={false}
+        closeOnSelect={false}
+      >
+        <div className="emoji-picker-grid">
+          {commonEmojis.map((emoji, index) => (
+            <button key={index} className="emoji-item" onClick={() => handleEmojiClick(emoji)} type="button">
+              {emoji}
+            </button>
+          ))}
         </div>
-      )}
+      </Popover>
 
       <form className="message-input-form" onSubmit={handleSend}>
-        <div className="message-input-toolbar">
-          <button
-            type="button"
-            className="message-toolbar-btn"
-            onClick={() => imageInputRef.current?.click()}
-            title={t('messageInput.image')}
-          >
-            <FontAwesomeIcon icon={faImage} />
-          </button>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={(e) => handleFileSelect(e, 'image')}
-          />
+        {banner}
+        <input ref={imageInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => handleFileSelect(e, 'image')} />
+        <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={(e) => handleFileSelect(e, 'video')} />
+        <input ref={fileInputRef} type="file" hidden onChange={(e) => handleFileSelect(e, 'file')} />
 
-          <button
-            type="button"
-            className="message-toolbar-btn"
-            onClick={() => videoInputRef.current?.click()}
-            title={t('messageInput.video')}
-          >
-            <FontAwesomeIcon icon={faVideo} />
-          </button>
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept="video/*"
-            style={{ display: 'none' }}
-            onChange={(e) => handleFileSelect(e, 'video')}
-          />
+        {voice.recording ? (
+          <VoiceRecorderBar seconds={voice.seconds} levels={voice.levels} onCancel={voice.cancel} onSend={voice.finish} />
+        ) : (
+          <div className="message-input-row">
+            <button
+              ref={attachBtnRef}
+              type="button"
+              className={`message-attach-btn ${showAttach ? 'is-open' : ''}`}
+              onClick={() => setShowAttach((v) => !v)}
+              disabled={disabled}
+              title={t('messageInput.attach')}
+              aria-label={t('messageInput.attach')}
+              aria-haspopup="menu"
+              aria-expanded={showAttach}
+            >
+              <PlusIcon />
+            </button>
 
-          <button
-            type="button"
-            className="message-toolbar-btn"
-            onClick={() => fileInputRef.current?.click()}
-            title={t('messageInput.file')}
-          >
-            <FontAwesomeIcon icon={faPaperclip} />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            style={{ display: 'none' }}
-            onChange={(e) => handleFileSelect(e, 'file')}
-          />
+            <div className="message-input-wrapper">
+              <textarea
+                ref={textareaRef}
+                className="message-textarea"
+                value={message}
+                onChange={handleInputChange}
+                placeholder={placeholder || t('messageInput.placeholder')}
+                rows={1}
+                disabled={disabled}
+                onKeyDown={(e) => {
+                  const format = formatFromShortcut(e);
+                  if (format) {
+                    e.preventDefault();
+                    applyFormat(format);
+                    return;
+                  }
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  } else if (e.key === 'Escape' && onEscape) {
+                    e.preventDefault();
+                    onEscape();
+                  }
+                }}
+              />
+              <button
+                ref={emojiBtnRef}
+                type="button"
+                className={`message-emoji-btn ${showEmojiPicker ? 'is-open' : ''}`}
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                title={t('messageInput.emoji')}
+                aria-label={t('messageInput.emoji')}
+                aria-haspopup="dialog"
+                aria-expanded={showEmojiPicker}
+              >
+                <SmileIcon size={20} />
+              </button>
+            </div>
 
-          <button
-            type="button"
-            className={`message-toolbar-btn ${isRecording ? 'recording' : ''}`}
-            onClick={isRecording ? stopRecording : startRecording}
-            title={t('messageInput.audio')}
-            onMouseDown={(e) => {
-              if (!isRecording) {
-                e.preventDefault();
-                startRecording();
-              }
-            }}
-          >
-            <FontAwesomeIcon icon={faMicrophone} />
-          </button>
-
-          <button
-            type="button"
-            className="message-toolbar-btn"
-            onClick={getLocation}
-            title={t('messageInput.location')}
-          >
-            <FontAwesomeIcon icon={faMapMarkerAlt} />
-          </button>
-
-          <button
-            type="button"
-            className={`message-toolbar-btn ${showEmojiPicker ? 'active' : ''}`}
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            title={t('messageInput.emoji')}
-          >
-            <FontAwesomeIcon icon={faSmile} />
-          </button>
-        </div>
-
-        <div className="message-input-wrapper">
-          <textarea
-            ref={textareaRef}
-            className="message-textarea"
-            value={message}
-            onChange={handleInputChange}
-            placeholder={placeholder || t('messageInput.placeholder')}
-            rows={1}
-            disabled={disabled}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend(e);
-              }
-            }}
-          />
-          <button
-            type="submit"
-            className="message-send-btn"
-            disabled={disabled || (!message.trim() && previewFiles.length === 0 && !location)}
-            title={t('messageInput.send')}
-          >
-            <FontAwesomeIcon icon={faPaperPlane} />
-          </button>
-        </div>
+            {/* Жіберетін ештеңе жоқ болса — орнында микрофон (Telegram сияқты) */}
+            <span className="message-action-slot">
+              {canSend || disabled ? (
+                <button
+                  key="send"
+                  type="submit"
+                  className="message-send-btn"
+                  disabled={disabled || !canSend}
+                  title={t('messageInput.send')}
+                  aria-label={t('messageInput.send')}
+                >
+                  <ArrowUpIcon />
+                </button>
+              ) : (
+                <button
+                  key="mic"
+                  type="button"
+                  className="message-send-btn message-send-btn--mic"
+                  onClick={voice.start}
+                  title={t('chat.voice.record')}
+                  aria-label={t('chat.voice.record')}
+                >
+                  <MicIcon size={19} />
+                </button>
+              )}
+            </span>
+          </div>
+        )}
       </form>
+      {showPoll && onCreatePoll && <CreatePollModal onClose={() => setShowPoll(false)} onCreate={onCreatePoll} />}
     </div>
   );
 };

@@ -1341,7 +1341,7 @@ const ViewCode: React.FC = () => {
           <div
             className="bg-[var(--bg-secondary)] border-[1.5px] border-[var(--border-color)] rounded-2xl md:p-8 p-3 md:mt-8 mt-4 w-full max-w-[1100px] mx-auto md:h-[calc(100vh-120px)] h-auto md:max-h-[calc(100vh-120px)] max-h-none overflow-y-auto overflow-x-hidden flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] box-border flex-shrink-0 relative folder-comments-container"
             ref={commentsContainerRef}
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#00AFCA var(--bg-secondary)' }}
+            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d4d4d4 var(--bg-secondary)' }}
           >
             <div className="flex flex-col min-h-0 overflow-hidden w-full max-w-full box-border flex-1 h-auto">
               <div className="flex items-center gap-2 md:gap-4 mb-4 md:mb-8 pb-2 md:pb-4 border-b border-[var(--primary-color)]/20 flex-shrink-0">
@@ -1600,7 +1600,7 @@ const ViewCode: React.FC = () => {
           <div 
             className="bg-[var(--bg-secondary)] border-[1.5px] border-[var(--border-color)] rounded-2xl md:p-8 p-3 md:mt-8 mt-4 w-full max-w-[1100px] mx-auto md:h-[calc(100vh-120px)] h-auto md:max-h-[calc(100vh-120px)] max-h-none overflow-y-auto overflow-x-hidden flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] box-border col-span-full flex-shrink-0 relative folder-comments-container"
             ref={commentsContainerRef}
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#00AFCA var(--bg-secondary)' }}
+            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d4d4d4 var(--bg-secondary)' }}
           >
             {/* Пікірлер бөлімі */}
             <div className="flex flex-col min-h-0 overflow-hidden w-full max-w-full box-border flex-1 h-auto">

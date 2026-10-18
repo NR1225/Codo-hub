@@ -1,0 +1,464 @@
+/* Хабарлама әрекеттері (MessageActions.tsx) — Telegram сияқты, чат бетінің монохром стилінде.
+   Айнымалылар: .cht-page / .cht-ma-portal (ChatPage.css) */
+
+/* ⋯ батырмасы: тышқанмен көпіршік үстіне келгенде шығады */
+.cht-ma-more {
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #161616;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  color: #bdbdbd;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%) scale(0.85);
+  transition: opacity 0.15s ease, transform 0.2s var(--cht-spring), background-color 0.15s ease;
+}
+
+.chat-message.own .cht-ma-more { right: calc(100% + 6px); }
+.chat-message.other .cht-ma-more { left: calc(100% + 6px); }
+
+.chat-message:hover .cht-ma-more,
+.cht-ma-more:focus-visible {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.cht-ma-more:hover {
+  background: #222;
+  color: #fff;
+}
+
+/* Сенсорлы экранда ⋯ жоқ — ұзақ басу жеткілікті; мәтін белгіленіп кетпейді */
+@media (hover: none) {
+  .cht-ma-more { display: none; }
+
+  .chat-message {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Жауап үзіндісінен секіргенде хабарлама жарқырайды */
+.chat-message.is-flash {
+  animation: chtFlash 1.6s var(--cht-ease);
+}
+
+@keyframes chtFlash {
+  0%, 35% { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55), 0 0 30px rgba(255, 255, 255, 0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+.chat-message.other.is-flash {
+  animation-name: chtFlashOther;
+}
+
+@keyframes chtFlashOther {
+  0%, 35% { box-shadow: inset 0 0 0 1px #262626, 0 0 0 3px rgba(255, 255, 255, 0.5), 0 0 30px rgba(255, 255, 255, 0.2); }
+  100% { box-shadow: inset 0 0 0 1px #262626, 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* «Бағытталды: …» */
+.cht-ma-fwd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+/* ── Жауап үзіндісі ── */
+.cht-ma-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  margin: 2px 0;
+  padding: 5px 10px 6px;
+  border: 0;
+  border-left: 3px solid #e5e5e5;
+  border-radius: 6px 10px 10px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cht-ma-quote:hover { background: rgba(255, 255, 255, 0.1); }
+
+.chat-message.own .cht-ma-quote {
+  background: rgba(0, 0, 0, 0.07);
+  border-left-color: rgba(0, 0, 0, 0.55);
+}
+
+.chat-message.own .cht-ma-quote:hover { background: rgba(0, 0, 0, 0.12); }
+
+.cht-ma-quote__name {
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.cht-ma-quote__text {
+  overflow: hidden;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ── Реакциялар ── */
+.cht-ma-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.cht-ma-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  animation: chtPop 0.35s var(--cht-spring);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.cht-ma-reaction:active { transform: scale(0.92); }
+.cht-ma-reaction__emoji { font-size: 0.9rem; line-height: 1; }
+
+.chat-message.own .cht-ma-reaction { background: rgba(0, 0, 0, 0.08); }
+.chat-message.own .cht-ma-reaction:hover { background: rgba(0, 0, 0, 0.14); }
+.chat-message.own .cht-ma-reaction.is-mine { background: #0a0a0a; color: #fafafa; }
+.chat-message.other .cht-ma-reaction:hover { background: rgba(255, 255, 255, 0.13); }
+.chat-message.other .cht-ma-reaction.is-mine { background: var(--home-accent); color: var(--home-on-accent); }
+
+/* Көпіршіктің төменгі жолы: бекітілген / өңделді */
+.chat-message-edited { font-style: italic; }
+.chat-message-pin { display: inline-flex; }
+
+.cht-ma-menu__reactions {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px #232323;
+}
+
+.cht-ma-menu__emoji {
+  flex: 1;
+  min-width: 30px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  animation: chtEmojiIn 0.3s var(--cht-spring) backwards;
+  animation-delay: calc(var(--i, 0) * 22ms);
+  transition: transform 0.18s var(--cht-spring), background-color 0.15s ease;
+}
+
+@keyframes chtEmojiIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.6); }
+}
+
+.cht-ma-menu__emoji:hover,
+.cht-ma-menu__emoji:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.22);
+}
+
+.cht-ma-menu__emoji.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.cht-ma-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.cht-ma-menu__item svg { flex-shrink: 0; opacity: 0.8; }
+
+.cht-ma-menu__item:hover,
+.cht-ma-menu__item:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.cht-ma-menu__item.is-danger { color: var(--cht-danger); }
+
+.cht-ma-menu__item.is-danger:hover,
+.cht-ma-menu__item.is-danger:focus-visible {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.cht-ma-menu__sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: #262626;
+}
+
+/* ── Жазу өрісінің үстіндегі жауап / өңдеу жолағы ── */
+.cht-ma-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 2px 4px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px #262626;
+  animation: chtBannerIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes chtBannerIn {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+.cht-ma-banner__icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fafafa;
+}
+
+.cht-ma-banner.is-edit .cht-ma-banner__icon {
+  background: rgba(250, 204, 21, 0.14);
+  color: #facc15;
+}
+
+.cht-ma-banner__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 0 0 10px;
+  border: 0;
+  border-left: 2px solid #fafafa;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cht-ma-banner.is-edit .cht-ma-banner__body { border-left-color: #facc15; }
+
+.cht-ma-banner__title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #fafafa;
+}
+
+.cht-ma-banner.is-edit .cht-ma-banner__title { color: #facc15; }
+
+.cht-ma-banner__text {
+  overflow: hidden;
+  color: #a3a3a3;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cht-ma-banner__close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8f8f8f;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cht-ma-banner__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+/* ── Бекітілген хабарлама жолағы (чат тақырыбының астында) ── */
+.cht-ma-pinned {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px max(12px, calc((100% - 820px) / 2));
+  border-bottom: 1px solid var(--cht-line);
+  background: rgba(12, 12, 12, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: chtBannerIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cht-ma-pinned__track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: stretch;
+  padding: 2px 0;
+}
+
+.cht-ma-pinned__track span {
+  flex: 1;
+  width: 2px;
+  border-radius: 2px;
+  background: #333;
+  transition: background-color 0.2s ease;
+}
+
+.cht-ma-pinned__track span.is-active { background: #fafafa; }
+
+.cht-ma-pinned__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cht-ma-pinned__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fafafa;
+}
+
+.cht-ma-pinned__text {
+  overflow: hidden;
+  color: var(--cht-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ── Бағыттау терезесі ── */
+.cht-ma-fwdmodal__search {
+  margin: 12px 14px 4px;
+}
+
+.cht-ma-fwdmodal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 160px;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  padding: 6px 8px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+
+.cht-ma-fwdmodal__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--cht-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cht-ma-fwdmodal__item:hover { background: var(--cht-hover); }
+
+.cht-ma-fwdmodal__item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.cht-ma-fwdmodal__item.is-on { background: #1a1a1a; }
+
+.cht-ma-check {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px #3a3a3a;
+  color: var(--home-on-accent);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cht-ma-fwdmodal__item.is-on .cht-ma-check {
+  background: var(--home-accent);
+  box-shadow: none;
+  animation: chtPop 0.3s var(--cht-spring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cht-ma-menu__emoji,
+  .cht-ma-reaction,
+  .cht-ma-banner,
+  .cht-ma-pinned,
+  .chat-message.is-flash {
+    animation: none;
+  }
+}

@@ -2,16 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { useEditorMeta } from '../../contexts/EditorMetaContext';
-import { useTheme } from '../../contexts/ThemeContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faCodeBranch,
-  faCircleExclamation,
-  faCircleCheck,
-  faBell,
-  faMagnifyingGlassPlus,
-  faMagnifyingGlassMinus,
-} from '@fortawesome/free-solid-svg-icons';
+import { BranchIcon, CircleAlertIcon, CircleCheckIcon, CommandIcon, ZoomInIcon, ZoomOutIcon, SettingsIcon } from './icons';
 
 interface StatusBarProps {
   onOpenSettings?: () => void;
@@ -22,7 +13,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
   const { t } = useTranslation();
   const { dispatch, activeFile, activeProject, editorSettings } = useVibecoding();
   const { meta } = useEditorMeta();
-  const { theme, toggleTheme } = useTheme();
 
   const dirtyCount = activeProject ? activeProject.files.filter(f => f.isDirty).length : 0;
   const language = activeFile ? detectLanguage(activeFile.name) : 'plaintext';
@@ -39,7 +29,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
       <div className="vibe-statusbar-left">
         {/* Git branch (decorative — local editor) */}
         <span className="vibe-statusbar-item" title={t('vibecoding.status.branch', 'Бұтақ')}>
-          <FontAwesomeIcon icon={faCodeBranch} className="text-[10px]" />
+          <BranchIcon size={13} />
           <span>main</span>
         </span>
 
@@ -48,16 +38,16 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
         {/* Sync / save status */}
         {dirtyCount > 0 ? (
           <span
-            className="vibe-statusbar-item"
+            className="vibe-statusbar-item is-warn"
             onClick={handleSaveAll}
             title={t('vibecoding.status.saveAllHint', 'Бәрін сақтау')}
           >
-            <FontAwesomeIcon icon={faCircleExclamation} className="text-[10px]" />
+            <CircleAlertIcon size={13} />
             <span>{dirtyCount} {t('vibecoding.status.unsaved', 'сақталмаған')}</span>
           </span>
         ) : (
-          <span className="vibe-statusbar-item" title={t('vibecoding.status.saved', 'Бәрі сақталған')}>
-            <FontAwesomeIcon icon={faCircleCheck} className="text-[10px]" />
+          <span className="vibe-statusbar-item is-ok" title={t('vibecoding.status.saved', 'Бәрі сақталған')}>
+            <CircleCheckIcon size={13} />
             <span>{t('vibecoding.status.saved', 'Сақталды')}</span>
           </span>
         )}
@@ -101,6 +91,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
           onClick={onOpenSettings}
           title={t('vibecoding.status.language', 'Тіл режимі')}
         >
+          <span className="vibe-statusbar-lang" />
           {language.toUpperCase()}
         </span>
 
@@ -113,19 +104,19 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
 
         {/* Zoom */}
         <span className="vibe-statusbar-item" onClick={zoomOut} title={t('vibecoding.status.zoomOut', 'Кішірейту')}>
-          <FontAwesomeIcon icon={faMagnifyingGlassMinus} className="text-[10px]" />
+          <ZoomOutIcon size={13} />
         </span>
         <span className="vibe-statusbar-item" onClick={zoomIn} title={t('vibecoding.status.zoomIn', 'Үлкейту')}>
-          <FontAwesomeIcon icon={faMagnifyingGlassPlus} className="text-[10px]" />
+          <ZoomInIcon size={13} />
         </span>
 
-        {/* Theme */}
+        {/* Editor settings */}
         <span
           className="vibe-statusbar-item"
-          onClick={toggleTheme}
-          title={t('vibecoding.status.toggleTheme', 'Тақырып ауыстыру')}
+          onClick={onOpenSettings}
+          title={t('vibecoding.settings.title', 'Редактор баптаулары')}
         >
-          {theme === 'dark' ? 'Dark' : 'Light'}
+          <SettingsIcon size={13} />
         </span>
 
         {/* Command palette */}
@@ -134,7 +125,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
           onClick={onTogglePalette}
           title={t('vibecoding.status.commandPalette', 'Командалар палитрасы (Ctrl+Shift+P)')}
         >
-          <FontAwesomeIcon icon={faBell} className="text-[10px]" />
+          <CommandIcon size={13} />
         </span>
       </div>
     </div>

@@ -1,314 +1,465 @@
+/* Хабарлама жазу жолы — Бүркіттің (SiteAI.css) енгізу жолы сияқты қалқымалы қорап.
+   Тек чат бетінде (.cht-page) қолданылады, түстер сол беттің айнымалыларынан. */
+
 .message-input-container {
   position: relative;
-  background: var(--bg-primary);
-  border-top: 0.96px solid var(--border-color);
-  padding: 0.75rem;
+  z-index: 2;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 852px;
+  margin: 0 auto;
+  padding: 4px 16px 16px;
+  box-sizing: border-box;
 }
 
+/* Қорап: бір жолда «+» (тіркеу), мәтін өрісі, эмодзи және жіберу/микрофон */
+.message-input-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #161616 0%, #111 100%);
+  box-shadow:
+    inset 0 0 0 1px #2a2a2a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+  transition: box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.message-input-form:hover {
+  box-shadow:
+    inset 0 0 0 1px #363636,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+}
+
+.message-input-form:focus-within {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px transparent,
+    0 0 0 5px rgba(255, 255, 255, 0.04),
+    0 0 50px -10px rgba(255, 255, 255, 0.12),
+    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+}
+
+/* Фокус кезінде жиек бойымен айналатын жарық — басты беттегі ЖИ өрісімен бірдей (SiteAI.css .sai__box) */
+@property --cht-stroke-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.message-input-form {
+  position: relative;
+  isolation: isolate;
+}
+
+.message-input-form::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  padding: 1.5px;
+  border-radius: 25px;
+  background: conic-gradient(
+    from var(--cht-stroke-angle),
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.95) 10%,
+    rgba(255, 255, 255, 0.15) 25%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.95) 60%,
+    rgba(255, 255, 255, 0.15) 75%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: chtStrokeSpin 3.5s linear infinite;
+}
+
+.message-input-form:focus-within::before {
+  opacity: 1;
+}
+
+@keyframes chtStrokeSpin {
+  to {
+    --cht-stroke-angle: 360deg;
+  }
+}
+
+.message-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.message-input-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+/* «+» — барлық тіркеме түрлерінің мәзірін ашады */
+.message-attach-btn,
+.message-emoji-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #8f8f8f;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.message-attach-btn {
+  color: #a3a3a3;
+}
+
+.message-attach-btn svg {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-attach-btn:hover:not(:disabled),
+.message-emoji-btn:hover {
+  background: #262626;
+  color: var(--text-primary, #f5f5f5);
+}
+
+.message-attach-btn.is-open {
+  background: #1f1f1f;
+  color: var(--text-primary, #f5f5f5);
+}
+
+.message-attach-btn.is-open svg {
+  transform: rotate(45deg);
+}
+
+.message-emoji-btn.is-open {
+  color: var(--text-primary, #f5f5f5);
+}
+
+.message-attach-btn:active:not(:disabled),
+.message-emoji-btn:active {
+  transform: scale(0.9);
+}
+
+.message-attach-btn:focus-visible,
+.message-emoji-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--home-accent, #fafafa);
+}
+
+.message-attach-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Тіркеу мәзірі (Popover): белгішелі плиткалар торы */
+.cht-pop.cht-pop--attach {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  width: 300px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.message-attach-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 4px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: #d9d9d9;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.message-attach-item__icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #1f1f1f;
+  box-shadow: inset 0 0 0 1px #2e2e2e;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-attach-item__label {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.message-attach-item:hover,
+.message-attach-item:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.message-attach-item:hover .message-attach-item__icon,
+.message-attach-item:focus-visible .message-attach-item__icon {
+  background: var(--home-accent, #fafafa);
+  box-shadow: none;
+  color: var(--home-on-accent, #0a0a0a);
+  transform: translateY(-2px) scale(1.06);
+}
+
+.message-attach-item:active .message-attach-item__icon {
+  transform: scale(0.92);
+}
+
+/* Жіберу ⇄ микрофон ауысқанда батырма «секіріп» шығады */
+.message-action-slot {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.message-action-slot > .message-send-btn {
+  animation: msgSwap 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes msgSwap {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-30deg);
+  }
+}
+
+.message-send-btn--mic {
+  background: transparent;
+  box-shadow: none;
+  color: #a3a3a3;
+}
+
+.message-send-btn--mic:hover:not(:disabled) {
+  background: #262626;
+  color: var(--text-primary, #f5f5f5);
+  transform: none;
+}
+
+.message-send-btn--mic:hover:not(:disabled) svg {
+  transform: none;
+}
+
+.message-textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  max-height: 160px;
+  margin: 0;
+  padding: 8px 4px 8px 6px;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text-primary, #f5f5f5);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 22px;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+
+.message-textarea::placeholder {
+  color: #6b6b6b;
+}
+
+.message-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message-send-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--home-accent, #fafafa);
+  color: var(--home-on-accent, #0a0a0a);
+  cursor: pointer;
+  box-shadow: 0 4px 14px -4px rgba(255, 255, 255, 0.35);
+  transition: background-color 0.15s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-send-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.message-send-btn:hover:not(:disabled) {
+  background: var(--primary-hover, #d4d4d4);
+  transform: scale(1.06);
+}
+
+.message-send-btn:hover:not(:disabled) svg {
+  transform: translateY(-2px);
+}
+
+.message-send-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.message-send-btn:focus-visible {
+  outline: 2px solid var(--home-accent, #fafafa);
+  outline-offset: 2px;
+}
+
+.message-send-btn:disabled {
+  background: #222;
+  color: #555;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Тіркемелер алдын ала көрінісі */
 .message-preview-files {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
   flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 4px 10px;
+  animation: msgIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .message-preview-item {
   position: relative;
-  display: inline-block;
 }
 
 .message-preview-item img {
-  max-width: 150px;
-  max-height: 150px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  display: block;
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
   object-fit: cover;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
 }
 
 .message-preview-file {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 0.85rem;
+  gap: 8px;
+  max-width: 240px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: #141414;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  color: var(--text-primary, #f5f5f5);
+  font-size: 0.82rem;
+}
+
+.message-preview-file span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .message-preview-remove {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  background: var(--error-color, #ff4444);
-  color: white;
-  border: none;
+  top: -7px;
+  right: -7px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--home-accent, #fafafa);
+  color: var(--home-on-accent, #0a0a0a);
   cursor: pointer;
-  font-size: 0.8rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
+  box-shadow: 0 0 0 2px #0b0b0b;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .message-preview-remove:hover {
-  opacity: 0.9;
-  transform: scale(1.1);
+  transform: scale(1.12);
 }
 
 .message-location-preview {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
-  color: var(--text-primary);
-  font-size: 0.85rem;
+  gap: 10px;
+  margin: 8px 4px 10px;
+  padding: 10px 40px 10px 12px;
+  border-radius: 12px;
+  background: #141414;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  color: var(--text-primary, #f5f5f5);
+  font-size: 0.84rem;
+  animation: msgIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.message-location-preview svg {
-  color: var(--accent-color);
+.message-location-preview .message-preview-remove {
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  box-shadow: none;
 }
 
-.message-input-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.message-input-toolbar {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.message-toolbar-btn {
-  background: var(--bg-secondary);
-  border: 0.64px solid var(--border-color);
-  border-radius: 5.1px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.message-toolbar-btn:hover {
-  background: var(--bg-primary);
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-}
-
-.message-toolbar-btn.active {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: white;
-}
-
-.message-toolbar-btn.recording {
-  background: var(--error-color, #ff4444);
-  border-color: var(--error-color, #ff4444);
-  color: white;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.message-input-wrapper {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-
-.message-textarea {
-  flex: 1;
-  padding: 0.75rem;
-  border: 0.64px solid var(--border-color);
-  border-radius: 5.1px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  font-family: inherit;
-  resize: none;
-  outline: none;
-  transition: border-color 0.2s;
-  min-height: 2.5rem;
-  max-height: 120px;
-  overflow-y: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-.message-textarea::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}
-
-.message-textarea:focus {
-  border-color: var(--accent-color);
-}
-
-.message-textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.message-send-btn {
-  padding: 0.75rem;
-  background: #3b82f6; /* Көк түс */
-  color: white;
-  border: none;
-  border-radius: 5.1px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: opacity 0.2s, transform 0.1s, background 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.5rem;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex-shrink: 0;
-}
-
-.message-send-btn:hover:not(:disabled) {
-  background: #2563eb; /* Көк түстің қараңғы нұсқасы */
-  transform: translateY(-0.64px);
-}
-
-.message-send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.emoji-picker {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  background: var(--bg-primary);
-  border: 0.96px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  max-height: 200px;
-  overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-}
-
-.emoji-picker-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 0.25rem;
-}
-
+/* Эмодзи тақтасы — енгізу жолының үстінде қалқып шығады */
 .emoji-item {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
   background: transparent;
-  border: none;
-  padding: 0.5rem;
+  font-size: 1.3rem;
   cursor: pointer;
-  border-radius: 4px;
-  font-size: 1.2rem;
-  transition: background 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: background-color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .emoji-item:hover {
-  background: var(--bg-secondary);
+  background: #222;
+  transform: scale(1.18);
 }
 
-.recording-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--error-color, rgba(255, 68, 68, 0.1));
-  border: 1px solid var(--error-color, #ff4444);
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
-  color: var(--error-color, #ff4444);
-  font-weight: 500;
-}
-
-.recording-dot {
-  width: 12px;
-  height: 12px;
-  background: var(--error-color, #ff4444);
-  border-radius: 50%;
-  animation: pulse 1s infinite;
-}
-
-.recording-stop-btn {
-  margin-left: auto;
-  padding: 0.25rem 0.75rem;
-  background: var(--error-color, #ff4444);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: opacity 0.2s;
-}
-
-.recording-stop-btn:hover {
-  opacity: 0.9;
-}
-
-/* Scrollbar for emoji picker */
-.emoji-picker::-webkit-scrollbar {
-  width: 6px;
-}
-
-.emoji-picker::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 3px;
-}
-
-.emoji-picker::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.emoji-picker::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-color);
-}
-
-@media (max-width: 480px) {
-  .emoji-picker-grid {
-    grid-template-columns: repeat(6, 1fr);
+@keyframes msgIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }
 
-@media (max-width: 768px) {
-  .message-toolbar-btn,
-  .message-send-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
+@media (max-width: 900px) {
+  .message-input-container {
+    padding: 4px 10px 10px;
+  }
+
+  /* iOS-та фокус кезінде үлкейтпеу үшін */
+  .message-textarea {
+    font-size: 16px;
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .message-preview-files,
+  .message-location-preview,
+  .message-action-slot > .message-send-btn {
+    animation: none;
+  }
+}

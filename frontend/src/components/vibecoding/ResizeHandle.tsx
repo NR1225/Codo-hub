@@ -12,9 +12,9 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({ type, onMouseDown, onDouble
   return (
     <div
       className={`${
-        isVertical ? 'w-[3px] cursor-col-resize' : 'h-[3px] cursor-row-resize'
+        isVertical ? 'w-[10px] cursor-col-resize' : 'h-[3px] cursor-row-resize'
       } flex-shrink-0 group relative transition-all duration-200 ease-in-out`}
-      style={{ backgroundColor: 'var(--ide-border)' }}
+      style={{ backgroundColor: isVertical ? 'transparent' : 'var(--ide-border)' }}
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
@@ -45,7 +45,7 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({ type, onMouseDown, onDouble
       <div
         className={`absolute transition-all duration-200 ${
           isVertical
-            ? 'left-0 top-0 bottom-0 w-[3px] group-hover:w-[3px] opacity-0 group-hover:opacity-100'
+            ? 'left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] rounded-full group-hover:w-[3px] opacity-0 group-hover:opacity-100'
             : 'top-0 left-0 right-0 h-[3px] group-hover:h-[3px] opacity-0 group-hover:opacity-100'
         }`}
         style={{ backgroundColor: 'var(--ide-accent)' }}

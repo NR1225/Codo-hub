@@ -1,14 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faComment, faSearch, faTimes, faUserPlus, 
-  faClock, faCheck, faCheckDouble, faCheckCircle,
-  faFile, faMapMarkerAlt, faEllipsisVertical, faTrash, faSearch as faSearchIcon,
-  faUser, faEdit, faVideo, faMusic, faDownload, faAlignLeft, faChevronLeft
-} from '@fortawesome/free-solid-svg-icons';
-import { User, Message, FriendRequest, Chat, MessageAttachment } from '../utils/api';
+import { faComments } from '@fortawesome/free-regular-svg-icons';
+import { useToast, useConfirm } from '../contexts/ToastContext';
+import {
+  ArrowLeftIcon,
+  ChatIcon,
+  CheckDoubleIcon,
+  CheckSmallIcon,
+  ClockIcon,
+  CloseIcon,
+  DownloadIcon,
+  EditIcon,
+  InboxIcon,
+  LinkIcon,
+  MoreIcon,
+  RefreshIcon,
+  SearchIcon,
+  TextIcon,
+  TrashIcon,
+  UserIcon,
+  UserPlusIcon,
+  UsersIcon,
+} from '../components/home/icons';
+import { monogram } from '../components/home/monogram';
+import { User, Message, FriendRequest, Chat, MessageAttachment, ChatGroupSummary, GroupUser, ChatPref, VoiceMeta, UploadOptions, UploadAbortedError } from '../utils/api';
 import { apiService } from '../utils/api';
 import { websocketService, WebSocketMessage } from '../utils/websocket';
 import { formatDateTime } from '../utils/dateFormatter';
@@ -16,14 +33,150 @@ import { ensureNumericId, isNumericId } from '../utils/idConverter';
 import { API_BASE_URL } from '../utils/constants';
 import { useAuth } from '../contexts/AuthContext';
 import MessageInput from '../components/MessageInput';
-import '../components/Chat.css';
+import GroupChat, { GroupAvatar } from '../components/chat/GroupChat';
+import CreateGroupModal from '../components/chat/CreateGroupModal';
+import { groupEventText, groupSenderPrefix, messageBodyPreview } from '../components/chat/groupText';
+import ProjectCard from '../components/chat/ProjectCard';
+import ShareProjectModal, { ProjectShare } from '../components/chat/ShareProjectModal';
+import {
+  useMessageActions,
+  ForwardedLabel,
+  ReplyQuote,
+  ReactionBar,
+  MessageMoreButton,
+  PinnedBar,
+  ContextMenu,
+  MenuItem,
+} from '../components/chat/MessageActions';
+import { PinIcon, ArchiveIcon, BellIcon, BellOffIcon, MailOpenIcon } from '../components/home/icons';
+import { AlertIcon, FileIcon, MapPinIcon, MediaKindIcon } from '../components/chat/MediaIcons';
+import { FailedBar, UploadOverlay } from '../components/chat/DeliveryState';
+import { useDragScroll } from '../components/chat/useDragScroll';
+import { ChatsTabIcon, AddFriendTabIcon, RequestsTabIcon, SavedIcon, NewGroupIcon, SideToggleIcon } from '../components/chat/SideIcons';
+import {
+  ChatKind,
+  PollCard,
+  SavedAvatar,
+  SharedMedia,
+  useChatPrefs,
+  VoiceMessage,
+} from '../components/chat/ChatExtras';
+import DetailsPanel from '../components/chat/DetailsPanel';
+import Popover, { useLingering } from '../components/chat/Popover';
+import {
+  usePresence,
+  presenceText,
+  isNewDay,
+  DayDivider,
+  useStickToBottom,
+  JumpToBottom,
+  draftKeyFor,
+  loadDraft,
+  useDraftVersion,
+} from '../components/chat/ChatComfort';
+import { FormattedText, stripFormatting } from '../components/chat/formatText';
+import './ChatPage.css';
+
+/* Әр чаттың өз адресі: /chat/user/:id, /chat/group/:id, /chat/saved */
+type ChatRoute =
+  | { kind: 'none' }
+  | { kind: 'saved' }
+  | { kind: 'user'; id: string }
+  | { kind: 'group'; id: string };
+
+const parseChatPath = (pathname: string): ChatRoute => {
+  const rest = pathname.replace(/^\/chat\/?/, '').replace(/\/+$/, '');
+  if (rest === 'saved') return { kind: 'saved' };
+  const group = rest.match(/^group\/([^/]+)$/);
+  if (group) return { kind: 'group', id: decodeURIComponent(group[1]) };
+  const user = rest.match(/^user\/([^/]+)$/);
+  if (user) return { kind: 'user', id: decodeURIComponent(user[1]) };
+  return { kind: 'none' };
+};
+
+const userChatPath = (userId: string) => `/chat/user/${encodeURIComponent(userId)}`;
+const groupChatPath = (groupId: string) => `/chat/group/${encodeURIComponent(groupId)}`;
+
+// ---------- Тізім сүзгілері және жиналған тізім ----------
+
+const LIST_FILTER_KEY = 'kh-chat-filter';
+const LIST_COLLAPSED_KEY = 'kh-chat-list-collapsed';
+
+type ListFilterKey = 'all' | 'direct' | 'groups' | 'unread' | 'archived';
+
+type ListEntry =
+  | { kind: 'dm'; time: string; unread: number; pref: ChatPref; chat: Chat }
+  | { kind: 'group'; time: string; unread: number; pref: ChatPref; group: ChatGroupSummary };
+
+/** Жаңа сүзгі — осы тізімге бір жол қосу жеткілікті. Мұрағаттағы чаттар тек «Мұрағат» сүзгісінде */
+const LIST_FILTERS: { key: ListFilterKey; labelKey: string; match: (e: ListEntry) => boolean }[] = [
+  { key: 'all', labelKey: 'chat.filters.all', match: (e) => !e.pref.archived },
+  { key: 'direct', labelKey: 'chat.filters.direct', match: (e) => e.kind === 'dm' && !e.pref.archived },
+  { key: 'groups', labelKey: 'chat.filters.groups', match: (e) => e.kind === 'group' && !e.pref.archived },
+  { key: 'unread', labelKey: 'chat.filters.unread', match: (e) => e.unread > 0 && !e.pref.archived },
+  { key: 'archived', labelKey: 'chat.filters.archived', match: (e) => e.pref.archived },
+];
+
+function readStored(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStored(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // localStorage қолжетімсіз — елемеу
+  }
+}
+
+/** Тізімдегі өз соңғы хабарламаның күйі: оқылмаған ✓, оқылды ✓✓ */
+const ListStatusTick: React.FC<{ status?: Message['status'] }> = ({ status }) => (
+  <span className={`cht-item__tick ${status === 'read' ? 'is-read' : ''}`}>
+    {status === 'read' ? <CheckDoubleIcon size={15} /> : <CheckSmallIcon size={15} />}
+  </span>
+);
+
+/** Тізімдегі чат атауының жанындағы белгілер: дыбысы өшірілген, бекітілген */
+const ListFlags: React.FC<{ pref: ChatPref }> = ({ pref }) => {
+  const { t } = useTranslation();
+  if (!pref.muted && !pref.pinnedAt) return null;
+  return (
+    <span className="cht-item__flags">
+      {pref.muted && (
+        <span title={t('chat.list.muted')} aria-label={t('chat.list.muted')}>
+          <BellOffIcon size={12} />
+        </span>
+      )}
+      {pref.pinnedAt && (
+        <span title={t('chat.list.pinned')} aria-label={t('chat.list.pinned')}>
+          <PinIcon size={12} />
+        </span>
+      )}
+    </span>
+  );
+};
 
 const ChatPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Сүзгілер жолағын компьютерде тінтуірмен сүйреп айналдыру
+  const filtersRef = useDragScroll<HTMLDivElement>();
   const { i18n, t } = useTranslation();
+  const toast = useToast();
+  const confirm = useConfirm();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
+  // Топтық чаттар: тізім, ашық топ және «Жаңа топ» терезесі
+  const [groups, setGroups] = useState<ChatGroupSummary[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  // Жеке чатта жоба бөлісу терезесі
+  const [showShareProject, setShowShareProject] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +189,11 @@ const ChatPage: React.FC = () => {
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<FriendRequest[]>([]);
   const [searching, setSearching] = useState(false);
   const [friendsSearchQuery, setFriendsSearchQuery] = useState('');
+  const [listFilter, setListFilter] = useState<ListFilterKey>(() => readStored(LIST_FILTER_KEY, 'all') as ListFilterKey);
+  const [listCollapsed, setListCollapsed] = useState(() => readStored(LIST_COLLAPSED_KEY, '0') === '1');
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [clickedAddButtons, setClickedAddButtons] = useState<Set<string>>(new Set());
+  // Достық сұрау батырмаларының күйі: 'send:<userId>', 'accept:<id>', 'reject:<id>', 'cancel:<id>'
+  const [requestStatus, setRequestStatus] = useState<Record<string, 'loading' | 'error'>>({});
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
@@ -46,9 +202,17 @@ const ChatPage: React.FC = () => {
   const [editingFriendId, setEditingFriendId] = useState<string | null>(null);
   const [editDisplayName, setEditDisplayName] = useState<string>('');
   const [showProfileNameMenu, setShowProfileNameMenu] = useState(false);
-  const profileNameMenuRef = useRef<HTMLDivElement>(null);
+  const profileNameBtnRef = useRef<HTMLButtonElement>(null);
   const [selectedImage, setSelectedImage] = useState<{ url: string; filename: string } | null>(null);
   const [imageContextMenu, setImageContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Чаттар тізіміндегі мәзір: бекіту, дыбысын өшіру, мұрағаттау, оқылды деп белгілеу
+  const [listMenu, setListMenu] = useState<{ x: number; y: number; kind: ChatKind; id: string; unread: number } | null>(null);
+  const chatPrefs = useChatPrefs(!!currentUser?.id);
+  // Жабылу анимациясы ойнауы үшін мәзірлердің соңғы күйі сақталады
+  const [shownListMenu, listMenuOpen] = useLingering(listMenu);
+  const [shownImageMenu, imageMenuOpen] = useLingering(imageContextMenu);
+  // «Сақталған хабарламалар» — өзіммен чат
+  const isSavedChat = !!selectedFriend && selectedFriend.id === currentUser?.id;
 
   // Чатта көрсетілетін атын localStorage-тан жүктеу
   useEffect(() => {
@@ -74,7 +238,35 @@ const ChatPage: React.FC = () => {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const loadChatsRef = useRef<(() => Promise<void>) | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // Ашық тұрған чат — тізімде оған «оқылмаған» санауышы көрсетілмейді
+  const openChatRef = useRef<{ friendId?: string; groupId?: string | null }>({});
+  openChatRef.current = { friendId: selectedFriend?.id, groupId: selectedGroupId };
+  const chatMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const closeChatMenu = useCallback(() => setShowChatMenu(false), []);
+  const closeProfileNameMenu = useCallback(() => setShowProfileNameMenu(false), []);
+  const closeImageMenu = useCallback(() => setImageContextMenu(null), []);
+
+  // Хабарлама әрекеттері: жауап, өңдеу, жою, бағыттау, бекіту, реакциялар
+  const msgActions = useMessageActions({
+    currentUserId: currentUser?.id || '',
+    chatKey: selectedFriend?.id || '',
+    canDeleteForAll: (m) => m.fromUserId === currentUser?.id,
+    canPin: true,
+    senderName: () => (selectedFriend ? chatDisplayNames[selectedFriend.id] || selectedFriend.username : ''),
+    containerRef: messagesContainerRef,
+    onLocalUpdate: (m) => setMessages((prev) => prev.map((x) => (x.id === m.id ? m : x))),
+    onLocalRemove: (id) => {
+      setMessages((prev) => prev.filter((x) => x.id !== id));
+      loadChatsRef.current?.();
+    },
+  });
+  const forgetMessageRef = useRef(msgActions.forgetMessage);
+  forgetMessageRef.current = msgActions.forgetMessage;
+
+  // Онлайн күйі (тізімдегі достар + ашық чат), «төменге түсу» және черновиктер
+  const presence = usePresence([...chats.map((c) => c.partnerId), selectedFriend?.id || '']);
+  const stick = useStickToBottom(messagesContainerRef, messages, currentUser?.id || '', selectedFriend?.id || '');
+  useDraftVersion();
 
   const scrollToBottom = useCallback((instant: boolean = false) => {
     if (instant) {
@@ -145,9 +337,17 @@ const ChatPage: React.FC = () => {
 
   const loadChats = useCallback(async () => {
     if (!currentUser?.id) return;
+    // Ашық чатқа келген хабарламаны қолданушы көріп отыр: «оқылды» сұрауы серверге жеткенше
+    // тізім санауышы жыпылықтамасын. Басқа қойындыда отырса — санауыш шыға берсін
+    const isOpen = (kind: 'friendId' | 'groupId', id: string) =>
+      document.visibilityState === 'visible' && openChatRef.current[kind] === id;
+    apiService.getGroups().then(
+      (list) => setGroups(list.map((g) => (g.unreadCount && isOpen('groupId', g.id) ? { ...g, unreadCount: 0 } : g))),
+      (err) => console.error('Failed to load groups:', err),
+    );
     try {
       const chatsList = await apiService.getChats(currentUser.id);
-      setChats(chatsList);
+      setChats(chatsList.map((c) => (c.unreadCount && isOpen('friendId', c.partnerId) ? { ...c, unreadCount: 0 } : c)));
     } catch (err) {
       console.error('Failed to load chats:', err);
     } finally {
@@ -291,17 +491,42 @@ const ChatPage: React.FC = () => {
             if (prev.some(m => m.id === message.id)) {
               return prev;
             }
+            // Өз хабарламам («Сақталған»): жергілікті көшірмесін API жауабы ауыстырады
+            if (
+              message.fromUserId === currentUser.id &&
+              prev.some(m => m.localState === 'sending' && m.type === message.type && (m.content || '') === (message.content || ''))
+            ) {
+              return prev;
+            }
             return [...prev, message];
           });
-          scrollToBottom();
+          // Чат ашық әрі бет көрініп тұрса — досымның жаңа хабарламасы бірден оқылды
+          if (
+            message.fromUserId === selectedFriend.id &&
+            message.fromUserId !== currentUser.id &&
+            document.visibilityState === 'visible'
+          ) {
+            markConversationRead();
+          }
         }
-        
+
         // Update chats list
         loadChats();
       }
     };
 
+    // Тізімдегі соңғы хабарламаның ✓✓ белгісі де бірден жаңарсын
+    const markLastRead = (match: (chat: Chat) => boolean) =>
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.lastMessage && chat.lastMessage.status !== 'read' && match(chat)
+            ? { ...chat, lastMessage: { ...chat.lastMessage, status: 'read' } }
+            : chat,
+        ),
+      );
+
     const handleMessageRead = (data: WebSocketMessage) => {
+      if (data.messageId) markLastRead((chat) => chat.lastMessage?.id === data.messageId);
       if (data.messageId && selectedFriend) {
         setMessages(prev => prev.map(msg => 
           msg.id === data.messageId 
@@ -312,6 +537,7 @@ const ChatPage: React.FC = () => {
     };
 
     const handleMessagesRead = (data: WebSocketMessage) => {
+      if (data.userId) markLastRead((chat) => chat.partnerId === data.userId && chat.lastMessage?.fromUserId === currentUser.id);
       if (selectedFriend && data.userId === selectedFriend.id) {
         setMessages(prev => prev.map(msg => 
           msg.fromUserId === currentUser.id && msg.toUserId === selectedFriend.id
@@ -335,12 +561,42 @@ const ChatPage: React.FC = () => {
       }
     };
 
+    const handleGroupActivity = () => {
+      loadChatsRef.current?.();
+    };
+    const handleGroupRemoved = (data: WebSocketMessage) => {
+      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
+      setSelectedGroupId((current) => (current === data.groupId ? null : current));
+    };
+
+    websocketService.on('group_message', handleGroupActivity);
+    websocketService.on('group_updated', handleGroupActivity);
+    websocketService.on('group_removed', handleGroupRemoved);
     websocketService.on('new_message', handleNewMessage);
     websocketService.on('message_read', handleMessageRead);
     websocketService.on('messages_read', handleMessagesRead);
     websocketService.on('typing', handleTyping);
 
+    const handleMessageUpdated = (data: WebSocketMessage) => {
+      const updated = data.message as Message | undefined;
+      if (!updated) return;
+      setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+    };
+    const handleMessageDeleted = (data: WebSocketMessage) => {
+      if (!data.messageId) return;
+      setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      forgetMessageRef.current(data.messageId);
+      loadChatsRef.current?.();
+    };
+    websocketService.on('message_updated', handleMessageUpdated);
+    websocketService.on('message_deleted', handleMessageDeleted);
+
     return () => {
+      websocketService.off('message_updated', handleMessageUpdated);
+      websocketService.off('message_deleted', handleMessageDeleted);
+      websocketService.off('group_message', handleGroupActivity);
+      websocketService.off('group_updated', handleGroupActivity);
+      websocketService.off('group_removed', handleGroupRemoved);
       websocketService.off('new_message', handleNewMessage);
       websocketService.off('message_read', handleMessageRead);
       websocketService.off('messages_read', handleMessagesRead);
@@ -507,6 +763,18 @@ const ChatPage: React.FC = () => {
     }
   }, [currentUser?.id, selectedFriend?.id, loadMessages, markConversationRead]);
 
+  // Басқа қойындыдан оралғанда ашық чаттағы жаңа хабарламалар оқылды болсын
+  useEffect(() => {
+    if (!currentUser?.id || (!selectedFriend?.id && !selectedGroupId)) return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (selectedFriend?.id) markConversationRead();
+      else if (selectedGroupId) apiService.markGroupRead(selectedGroupId).then(() => loadChatsRef.current?.(), () => undefined);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [currentUser?.id, selectedFriend?.id, selectedGroupId, markConversationRead]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0) {
@@ -528,6 +796,95 @@ const ChatPage: React.FC = () => {
     };
   }, []);
 
+  /* ---------- Серверге әлі жетпеген хабарламалар ----------
+     Хабарлама бірден тізімге «жіберіліп жатыр» күйінде қосылады; сервер жауап бергенде
+     нағызымен ауыстырылады, қате болса — «жіберілмеді» (қайталау / жою). */
+  const pendingRef = useRef(new Map<string, { retry: () => void; abort: () => void; previewUrl?: string }>());
+
+  useEffect(() => {
+    const pending = pendingRef.current;
+    return () => {
+      pending.forEach((p) => {
+        p.abort();
+        if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+      });
+      pending.clear();
+    };
+  }, []);
+
+  const patchMessage = useCallback((id: string, patch: Partial<Message>) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  }, []);
+
+  const forgetLocal = (localId: string) => {
+    const p = pendingRef.current.get(localId);
+    if (p?.previewUrl) URL.revokeObjectURL(p.previewUrl);
+    pendingRef.current.delete(localId);
+  };
+
+  const sendLocal = (
+    draft: Pick<Message, 'type' | 'content' | 'attachments' | 'metadata' | 'uploadProgress'>,
+    send: (opts: UploadOptions) => Promise<Message>,
+    previewUrl?: string,
+  ) => {
+    if (!currentUser || !selectedFriend) return;
+    const localId = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const isUpload = draft.uploadProgress !== undefined;
+    setMessages((prev) => [
+      ...prev,
+      {
+        ...draft,
+        id: localId,
+        fromUserId: currentUser.id,
+        toUserId: selectedFriend.id,
+        createdAt: new Date().toISOString(),
+        read: false,
+        localState: 'sending',
+      },
+    ]);
+    scrollToBottom();
+
+    let controller: AbortController | null = null;
+    const attempt = () => {
+      controller = new AbortController();
+      patchMessage(localId, { localState: 'sending', localError: undefined, ...(isUpload ? { uploadProgress: 0 } : {}) });
+      send({ signal: controller.signal, onProgress: (ratio) => patchMessage(localId, { uploadProgress: ratio }) })
+        .then((sent) => {
+          // Сервердегі нұсқа (url, id, күйі) жергілікті көшірменің орнына келеді
+          setMessages((prev) =>
+            prev.some((m) => m.id === sent.id) ? prev.filter((m) => m.id !== localId) : prev.map((m) => (m.id === localId ? sent : m)),
+          );
+          forgetLocal(localId);
+          if (websocketService.isConnected()) websocketService.markDelivered(sent.id);
+          loadChats();
+        })
+        .catch((err: unknown) => {
+          if (err instanceof UploadAbortedError) return;
+          console.error('Failed to send message:', err);
+          const message = err instanceof Error && err.message ? err.message : t('chat.sendMessageError');
+          patchMessage(localId, { localState: 'failed', localError: message });
+        });
+    };
+    pendingRef.current.set(localId, { retry: attempt, abort: () => controller?.abort(), previewUrl });
+    attempt();
+  };
+
+  const retryLocal = (localId: string) => pendingRef.current.get(localId)?.retry();
+
+  /** Жүктеуді тоқтату не жіберілмеген хабарламаны жою */
+  const discardLocal = (localId: string) => {
+    pendingRef.current.get(localId)?.abort();
+    forgetLocal(localId);
+    setMessages((prev) => prev.filter((m) => m.id !== localId));
+  };
+
+  /** Дауыстық хабарламаны алушы алғаш тыңдағанда — жіберушіге «тыңдалды» */
+  const markVoiceListened = (message: Message) => {
+    // Топ хабарламасы GroupChat күйінде — оны group_message_updated жаңартады
+    if (!message.groupId) patchMessage(message.id, { listenedAt: new Date().toISOString() });
+    apiService.markListened(message.id, message.groupId).catch((err) => console.error('Failed to mark voice as listened:', err));
+  };
+
   const handleSendMessage = async (
     content: string,
     type: string = 'text',
@@ -535,38 +892,57 @@ const ChatPage: React.FC = () => {
     metadata?: any
   ) => {
     if (!currentUser || !selectedFriend) return;
-    
+
     // Clear typing indicator
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     websocketService.sendTyping(selectedFriend.id, false);
 
-    try {
-      const sentMessage = await apiService.sendMessage(
-        currentUser.id,
-        selectedFriend.id,
-        content,
-        type,
-        attachments,
-        metadata
-      );
-      
-      // Add message to list immediately
-      setMessages(prev => [...prev, sentMessage]);
-      scrollToBottom();
-      
-      // Mark as delivered if recipient is online
-      if (websocketService.isConnected()) {
-        websocketService.markDelivered(sentMessage.id);
-      }
-      
-      // Reload chats to update last message
-      loadChats();
-    } catch (err: any) {
-      console.error('Failed to send message:', err);
-      alert(err.message || t('chat.sendMessageError'));
-    }
+    // Өңдеу режимі: жаңа хабарлама емес, бұрынғысы өзгереді
+    if (type === 'text' && msgActions.submitEdit(content)) return;
+
+    const replyToId = msgActions.replyTo?.id;
+    msgActions.clearReply();
+    const fromId = currentUser.id;
+    const toId = selectedFriend.id;
+    sendLocal(
+      { type: type as Message['type'], content, attachments: attachments || [], metadata: metadata || {} },
+      () => apiService.sendMessage(fromId, toId, content, type, attachments, metadata, replyToId),
+    );
+  };
+
+  const handleShareProject = async (share: ProjectShare, comment: string) => {
+    if (!currentUser || !selectedFriend) return;
+    const sentMessage = await apiService.sendMessage(
+      currentUser.id,
+      selectedFriend.id,
+      comment,
+      'project',
+      undefined,
+      { ...share }
+    );
+    setMessages(prev => (prev.some(m => m.id === sentMessage.id) ? prev : [...prev, sentMessage]));
+    scrollToBottom();
+    loadChats();
+  };
+
+  const handleCreatePoll = async (poll: { question: string; options: string[]; multiple: boolean }) => {
+    if (!currentUser || !selectedFriend) return;
+    const replyToId = msgActions.replyTo?.id;
+    msgActions.clearReply();
+    const sentMessage = await apiService.sendMessage(
+      currentUser.id,
+      selectedFriend.id,
+      poll.question,
+      'poll',
+      undefined,
+      poll,
+      replyToId
+    );
+    setMessages(prev => (prev.some(m => m.id === sentMessage.id) ? prev : [...prev, sentMessage]));
+    scrollToBottom();
+    loadChats();
   };
 
   const handleUploadFile = async (
@@ -577,40 +953,24 @@ const ChatPage: React.FC = () => {
   ) => {
     if (!currentUser || !selectedFriend) return;
 
-    try {
-      const sentMessage = await apiService.uploadFile(
-        file,
-        currentUser.id,
-        selectedFriend.id,
-        type as 'image' | 'audio' | 'video' | 'file',
-        content,
-        metadata
-      );
-      
-      // Add message to list immediately
-      setMessages(prev => [...prev, sentMessage]);
-      scrollToBottom();
-      
-      // Mark as delivered if recipient is online
-      if (websocketService.isConnected()) {
-        websocketService.markDelivered(sentMessage.id);
-      }
-      
-      // Reload chats to update last message
-      loadChats();
-    } catch (err: any) {
-      console.error('Failed to upload file:', err);
-      let errorMessage = err.message || t('chat.uploadFileError');
-      
-      // Translate common error messages
-      if (errorMessage.includes('You can only message friends') || errorMessage.includes('Тек достарға')) {
-        errorMessage = t('chat.messageFriendsOnlyFull');
-      } else if (errorMessage.includes('403')) {
-        errorMessage = t('chat.messageForbiddenFull');
-      }
-      
-      alert(errorMessage);
-    }
+    const replyToId = msgActions.replyTo?.id;
+    msgActions.clearReply();
+    const fromId = currentUser.id;
+    const toId = selectedFriend.id;
+    // Жүктеліп жатқанда-ақ көрсету үшін файлдың жергілікті көшірмесі
+    const previewUrl = URL.createObjectURL(file);
+    sendLocal(
+      {
+        type: type as Message['type'],
+        content: content || '',
+        attachments: [{ filename: file.name, url: previewUrl, size: file.size, mimeType: file.type }],
+        metadata: metadata || {},
+        uploadProgress: 0,
+      },
+      (opts) =>
+        apiService.uploadFile(file, fromId, toId, type as 'image' | 'audio' | 'video' | 'file', content, metadata, replyToId, opts),
+      previewUrl,
+    );
   };
 
 
@@ -705,70 +1065,76 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  const handleSendFriendRequest = async (toUserId: string) => {
-    if (!currentUser) return;
-    // Батырма басылғанын белгілеу
-    setClickedAddButtons(prev => new Set(prev).add(toUserId));
+  // Нәтиже toast болып емес, батырманың өзінде көрінеді: жүктелу → (сәтті болса тізім жаңарады) / қате
+  const runRequestAction = async (key: string, action: () => Promise<void>) => {
+    setRequestStatus((prev) => ({ ...prev, [key]: 'loading' }));
+    const clear = () =>
+      setRequestStatus((prev) => {
+        const { [key]: _removed, ...rest } = prev;
+        return rest;
+      });
     try {
-      await apiService.sendFriendRequest(currentUser.id, toUserId);
-      await loadIncomingRequestCount();
-      await loadChats();
-      alert(t('chat.friendRequestSent'));
-    } catch (err: any) {
-      console.error('Failed to send friend request:', err);
-      const errorMsg = err.message || t('chat.sendMessageError');
-      if (errorMsg.includes('already exists') || errorMsg.includes('уже существует')) {
-        alert(t('chat.friendRequestAlreadySent'));
-      } else if (errorMsg.includes('Already friends')) {
-        await loadChats();
-        alert(t('chat.alreadyFriends'));
-      } else {
-        alert(errorMsg);
+      await action();
+      clear();
+    } catch (err) {
+      console.error(`Friend request action failed (${key}):`, err);
+      setRequestStatus((prev) => ({ ...prev, [key]: 'error' }));
+      setTimeout(clear, 3000);
+    }
+  };
+
+  const handleSendFriendRequest = (toUserId: string) => {
+    if (!currentUser) return;
+    return runRequestAction(`send:${toUserId}`, async () => {
+      try {
+        await apiService.sendFriendRequest(currentUser.id, toUserId);
+      } catch (err: any) {
+        const errorMsg: string = err?.message || '';
+        // Сұрау бұрыннан бар не дос болып қойған — қате емес, тізімді жаңарту жеткілікті
+        if (!/already exists|уже существует|Already friends/.test(errorMsg)) throw err;
       }
-    }
+      await Promise.all([loadFriendRequests(), loadIncomingRequestCount(), loadChats()]);
+    });
   };
 
-  const handleAcceptRequest = async (requestId: string) => {
-    try {
+  const handleAcceptRequest = (requestId: string) =>
+    runRequestAction(`accept:${requestId}`, async () => {
       await apiService.acceptFriendRequest(requestId);
-      await loadFriendRequests();
-      await loadIncomingRequestCount();
-      await loadChats();
-      alert(t('chat.requestAccepted'));
-    } catch (err) {
-      console.error('Failed to accept friend request:', err);
-      alert(t('chat.acceptRequestError'));
-    }
-  };
+      await Promise.all([loadFriendRequests(), loadIncomingRequestCount(), loadChats()]);
+    });
 
-  const handleRejectRequest = async (requestId: string) => {
-    try {
+  const handleRejectRequest = (requestId: string) =>
+    runRequestAction(`reject:${requestId}`, async () => {
       await apiService.rejectFriendRequest(requestId);
-      await loadFriendRequests();
-      await loadIncomingRequestCount();
-      alert(t('chat.requestRejected'));
-    } catch (err) {
-      console.error('Failed to reject friend request:', err);
-      alert(t('chat.rejectRequestError'));
-    }
+      await Promise.all([loadFriendRequests(), loadIncomingRequestCount()]);
+    });
+
+  const handleCancelRequest = (requestId: string) => {
+    if (!currentUser) return;
+    return runRequestAction(`cancel:${requestId}`, async () => {
+      await apiService.cancelFriendRequest(requestId, currentUser.id);
+      await Promise.all([loadFriendRequests(), loadIncomingRequestCount()]);
+    });
   };
 
-  const handleCancelRequest = async (requestId: string) => {
-    if (!currentUser) return;
-    try {
-      await apiService.cancelFriendRequest(requestId, currentUser.id);
-      await loadFriendRequests();
-      await loadIncomingRequestCount();
-      alert(t('chat.requestCancelled'));
-    } catch (err) {
-      console.error('Failed to cancel friend request:', err);
-      alert(t('chat.cancelRequestError'));
-    }
+  // Сұрау батырмасының белгішесі мен класы оның күйіне қарай
+  const requestBtn = (key: string, icon: React.ReactNode) => {
+    const status = requestStatus[key];
+    return {
+      className: status ? `is-${status}` : '',
+      disabled: status === 'loading',
+      content: status === 'loading'
+        ? <span className="cht-btn-spinner" aria-hidden="true" />
+        : status === 'error'
+          ? <span className="cht-btn-error" aria-hidden="true">!</span>
+          : icon,
+      errorTitle: status === 'error' ? t('chat.requestFailed') : undefined,
+    };
   };
 
   const handleClearMessages = async () => {
     if (!currentUser || !selectedFriend) return;
-    if (window.confirm(t('chat.clearMessagesConfirm'))) {
+    if (await confirm({ title: t('chat.clearMessagesConfirm'), confirmText: t('chat.clearMessagesInChat'), danger: true })) {
       try {
         await apiService.clearConversation(currentUser.id, selectedFriend.id);
         setMessages([]);
@@ -776,14 +1142,14 @@ const ChatPage: React.FC = () => {
         await loadChats();
       } catch (err: any) {
         console.error('Failed to clear messages:', err);
-        alert(err.message || t('chat.clearMessagesError'));
+        toast.error(err.message || t('chat.clearMessagesError'));
       }
     }
   };
 
   const handleDeleteChat = async () => {
     if (!currentUser || !selectedFriend) return;
-    if (window.confirm(t('chat.deleteChatConfirm'))) {
+    if (await confirm({ title: t('chat.deleteChatConfirm'), confirmText: t('chat.deleteChat'), danger: true })) {
       try {
         // Дос алып тастау - бұл дос тізімінен де жойады
         await apiService.removeFriend(currentUser.id, selectedFriend.id);
@@ -796,10 +1162,10 @@ const ChatPage: React.FC = () => {
         setMessages([]);
         setShowChatMenu(false);
         
-        alert(t('chat.chatDeleted'));
+        toast.success(t('chat.chatDeleted'));
       } catch (err) {
         console.error('Failed to delete chat:', err);
-        alert(t('chat.deleteChatError'));
+        toast.error(t('chat.deleteChatError'));
       }
     }
   };
@@ -809,38 +1175,20 @@ const ChatPage: React.FC = () => {
     setShowChatMenu(false);
   };
 
+  const toggleMessageSearch = () => {
+    if (!showMessageSearch) {
+      handleSearchMessages();
+      return;
+    }
+    setShowMessageSearch(false);
+    setMessageSearchQuery('');
+  };
+
   const filteredMessages = messageSearchQuery
     ? messages.filter(msg => 
         msg.content.toLowerCase().includes(messageSearchQuery.toLowerCase())
       )
     : messages;
-
-  // Менюден тыс жерге басқанда менюні жабу
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowChatMenu(false);
-      }
-      if (profileNameMenuRef.current && !profileNameMenuRef.current.contains(event.target as Node)) {
-        setShowProfileNameMenu(false);
-      }
-      // Контекст менюсін жабу (тек меню ішіндегі батырма басылмағанда)
-      if (imageContextMenu) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('.image-context-menu')) {
-          setImageContextMenu(null);
-        }
-      }
-    };
-
-    if (showChatMenu || showProfileNameMenu || imageContextMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showChatMenu, showProfileNameMenu, imageContextMenu]);
 
   const handleSaveDisplayName = () => {
     if (!currentUser || !selectedFriend) return;
@@ -850,32 +1198,6 @@ const ChatPage: React.FC = () => {
     setChatDisplayNames(prev => ({ ...prev, [selectedFriend.id]: nameToSave }));
     setEditingFriendId(null);
     setEditDisplayName('');
-  };
-
-  // Медиа файлдарды алу (суреттер, видео, аудио, файлдар)
-  const getChatMedia = () => {
-    if (!selectedFriend || !currentUser) return [];
-    
-    const mediaMessages = messages.filter(msg => 
-      msg.type === 'image' || msg.type === 'video' || msg.type === 'audio' || msg.type === 'file'
-    );
-    
-    const mediaItems: Array<{ type: string; url: string; filename: string; messageId: string }> = [];
-    
-    mediaMessages.forEach(msg => {
-      if (msg.attachments && msg.attachments.length > 0) {
-        msg.attachments.forEach(att => {
-          mediaItems.push({
-            type: msg.type || 'file',
-            url: att.url,
-            filename: att.filename,
-            messageId: msg.id
-          });
-        });
-      }
-    });
-    
-    return mediaItems;
   };
 
   const getFullUrl = (url: string) => {
@@ -1007,31 +1329,32 @@ const ChatPage: React.FC = () => {
       try {
         directDownload();
       } catch (fallbackError) {
-        alert(t('chat.imageUploadError'));
+        toast.error(t('chat.imageUploadError'));
       }
     }
   };
 
   const getMessageStatusIcon = (message: Message) => {
     if (message.status === 'read') {
-      return <FontAwesomeIcon icon={faCheckCircle} className="message-status read" />;
+      return <span className="message-status read"><CheckDoubleIcon size={14} /></span>;
     } else if (message.status === 'delivered') {
-      return <FontAwesomeIcon icon={faCheckDouble} className="message-status delivered" />;
+      return <span className="message-status delivered"><CheckSmallIcon size={14} /></span>;
     } else {
-      return <FontAwesomeIcon icon={faCheck} className="message-status sent" />;
+      return <span className="message-status sent"><CheckSmallIcon size={14} /></span>;
     }
   };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    
-    if (minutes < 1) return t('chat.timeNow');
-    if (minutes < 60) return `${minutes} ${t('chat.timeMinutesAgo')}`;
-    if (minutes < 1440) return `${Math.floor(minutes / 60)} ${t('chat.timeHoursAgo')}`;
-    
+    if (isNaN(date.getTime())) return '';
+
+    // Today: exact HH:MM; older: full date with time
+    if (date.toDateString() === new Date().toDateString()) {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+
     return formatDateTime(dateString, i18n.language);
   };
 
@@ -1040,7 +1363,7 @@ const ChatPage: React.FC = () => {
     
     // Helper to get full URL
     const getFullUrl = (url: string) => {
-      if (url.startsWith('http')) return url;
+      if (url.startsWith('http') || url.startsWith('blob:')) return url;
       // If URL already starts with /api, use API_BASE_URL directly
       // Browser will automatically encode special characters in the URL
       if (url.startsWith('/api')) return `${API_BASE_URL.replace('/api', '')}${url}`;
@@ -1077,7 +1400,7 @@ const ChatPage: React.FC = () => {
                   );
                 })}
                 {message.content && (
-                  <div className="chat-message-text">{message.content}</div>
+                  <div className="chat-message-text"><FormattedText text={message.content} /></div>
                 )}
               </div>
             </div>
@@ -1100,7 +1423,7 @@ const ChatPage: React.FC = () => {
                   </div>
                 ))}
                 {message.content && (
-                  <div className="chat-message-text">{message.content}</div>
+                  <div className="chat-message-text"><FormattedText text={message.content} /></div>
                 )}
               </div>
             </div>
@@ -1114,16 +1437,24 @@ const ChatPage: React.FC = () => {
             <div className="chat-message-content has-audio">
               <div className="chat-message-media">
                 {message.attachments.map((att, idx) => (
-                  <div key={idx} className="chat-message-audio-wrapper">
-                    <audio
-                      src={getFullUrl(att.url)}
-                      controls
-                      className="chat-message-audio"
-                    />
-                  </div>
+                  <VoiceMessage
+                    key={idx}
+                    url={att.url}
+                    meta={message.metadata as Partial<VoiceMeta>}
+                    filename={att.filename}
+                    unheard={!!message.metadata?.voice && !message.listenedAt && !message.localState && !isSavedChat}
+                    onPlayed={
+                      !message.listenedAt &&
+                      (message.groupId
+                        ? message.fromUserId !== currentUser?.id
+                        : message.toUserId === currentUser?.id && !isSavedChat)
+                        ? () => markVoiceListened(message)
+                        : undefined
+                    }
+                  />
                 ))}
                 {message.content && (
-                  <div className="chat-message-text">{message.content}</div>
+                  <div className="chat-message-text"><FormattedText text={message.content} /></div>
                 )}
               </div>
             </div>
@@ -1145,7 +1476,7 @@ const ChatPage: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <FontAwesomeIcon icon={faFile} />
+                    <span className="chat-message-file-icon"><FileIcon size={18} /></span>
                     <div className="chat-message-file-info">
                       <div className="chat-message-file-name">{att.filename}</div>
                       <div className="chat-message-file-size">
@@ -1155,7 +1486,7 @@ const ChatPage: React.FC = () => {
                   </a>
                 ))}
                 {message.content && (
-                  <div className="chat-message-text">{message.content}</div>
+                  <div className="chat-message-text"><FormattedText text={message.content} /></div>
                 )}
               </div>
             </div>
@@ -1177,7 +1508,7 @@ const ChatPage: React.FC = () => {
                   rel="noopener noreferrer"
                   className="chat-location-link"
                 >
-                  <FontAwesomeIcon icon={faMapMarkerAlt} />
+                  <span className="chat-location-icon"><MapPinIcon size={18} /></span>
                   <div className="chat-location-info">
                     <div className="chat-location-address">
                       {address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`}
@@ -1188,7 +1519,7 @@ const ChatPage: React.FC = () => {
                   </div>
                 </a>
                 {message.content && (
-                  <div className="chat-message-text">{message.content}</div>
+                  <div className="chat-message-text"><FormattedText text={message.content} /></div>
                 )}
               </div>
             </div>
@@ -1204,6 +1535,12 @@ const ChatPage: React.FC = () => {
             </div>
           </div>
         );
+
+      case 'project':
+        return <ProjectCard message={message} currentUserId={currentUser?.id} />;
+
+      case 'poll':
+        return <PollCard message={message} currentUserId={currentUser?.id || ''} />;
 
       case 'sticker':
         return (
@@ -1244,7 +1581,7 @@ const ChatPage: React.FC = () => {
                     );
                   })}
                   {message.content && (
-                    <div className="chat-message-text">{message.content}</div>
+                    <div className="chat-message-text"><FormattedText text={message.content} /></div>
                   )}
                 </div>
               </div>
@@ -1270,671 +1607,1192 @@ const ChatPage: React.FC = () => {
             </div>
           );
         }
-        return <span className="chat-message-text-content">{message.content}</span>;
+        return <span className="chat-message-text-content"><FormattedText text={message.content || ''} /></span>;
     }
 
     // Fallback to text
-    return <span className="chat-message-text-content">{message.content || ''}</span>;
+    return <span className="chat-message-text-content"><FormattedText text={message.content || ''} /></span>;
   };
 
-  const filteredChats = chats.filter(chat =>
-    chat.partner.username.toLowerCase().includes(friendsSearchQuery.toLowerCase()) ||
-    chat.partner.email.toLowerCase().includes(friendsSearchQuery.toLowerCase())
+  const listQuery = friendsSearchQuery.toLowerCase().trim();
+  const savedTitle = t('chat.saved.title');
+  // «Сақталған хабарламалар» әлі жазылмаса да тізімде тұрады
+  const chatsWithSaved: Chat[] =
+    currentUser && !chats.some((c) => c.partnerId === currentUser.id)
+      ? [...chats, { partnerId: currentUser.id, partner: currentUser, lastMessage: null as unknown as Message, unreadCount: 0, lastMessageTime: '' }]
+      : chats;
+  const filteredChats = chatsWithSaved.filter((chat) =>
+    chat.partnerId === currentUser?.id
+      ? savedTitle.toLowerCase().includes(listQuery)
+      : chat.partner.username.toLowerCase().includes(listQuery) ||
+        (chat.partner.email || '').toLowerCase().includes(listQuery)
   );
+  const filteredGroups = groups.filter((g) => g.name.toLowerCase().includes(listQuery));
 
-  const handleChatHeaderClick = () => {
+  // Жеке чаттар мен топтар бір тізімде: алдымен бекітілгендер (соңғы бекітілгені жоғарыда),
+  // сосын соңғы белсенділік бойынша; хабарламасыз достар соңында
+  const byTime = (a: ListEntry, b: ListEntry) =>
+    a.time === b.time ? 0 : !a.time ? 1 : !b.time ? -1 : a.time < b.time ? 1 : -1;
+  const allEntries: ListEntry[] = [
+    ...filteredGroups.map((group) => ({
+      kind: 'group' as const,
+      time: group.lastMessageTime || '',
+      unread: group.unreadCount || 0,
+      pref: chatPrefs.prefOf('group', group.id),
+      group,
+    })),
+    ...filteredChats.map((chat) => ({
+      kind: 'dm' as const,
+      time: chat.lastMessage ? chat.lastMessageTime || '' : '',
+      unread: chat.unreadCount || 0,
+      pref: chatPrefs.prefOf('dm', chat.partnerId),
+      chat,
+    })),
+  ].sort((a, b) => {
+    const pa = a.pref.pinnedAt || '';
+    const pb = b.pref.pinnedAt || '';
+    if (pa || pb) return pa === pb ? 0 : !pa ? 1 : !pb ? -1 : pa < pb ? 1 : -1;
+    return byTime(a, b);
+  });
+  const archivedCount = allEntries.filter((e) => e.pref.archived).length;
+  // «Мұрағат» сүзгісі тек мұрағатта чат болса көрінеді
+  const visibleFilters = LIST_FILTERS.filter((f) => f.key !== 'archived' || archivedCount > 0 || listFilter === 'archived');
+  const activeFilter = LIST_FILTERS.find((f) => f.key === listFilter) ?? LIST_FILTERS[0];
+  const listEntries = allEntries.filter(activeFilter.match);
+  const filterCounts = Object.fromEntries(
+    LIST_FILTERS.map((f) => [
+      f.key,
+      f.key === 'unread' ? allEntries.filter((e) => f.match(e) && !e.pref.muted).length : f.key === 'archived' ? archivedCount : 0,
+    ])
+  ) as Record<ListFilterKey, number>;
+
+  const openListMenu = (e: React.MouseEvent, kind: ChatKind, id: string, unread: number) => {
+    e.preventDefault();
+    setListMenu({ x: e.clientX, y: e.clientY, kind, id, unread });
+  };
+
+  const markChatRead = (kind: ChatKind, id: string) => {
+    if (!currentUser) return;
+    const request = kind === 'dm' ? apiService.markConversationRead(currentUser.id, id) : apiService.markGroupRead(id);
+    request.then(() => loadChatsRef.current?.()).catch(() => toast.error(t('chat.actions.failed')));
+  };
+
+  /** Чатқа қойылатын белгілер — тізім мәзірінде де, сөйлесу тақырыбындағы мәзірде де бірдей */
+  const prefMenuItems = (kind: ChatKind, id: string): MenuItem[] => {
+    const pref = chatPrefs.prefOf(kind, id);
+    return [
+      ...(!pref.archived
+        ? [{
+            key: 'pin',
+            icon: <PinIcon size={16} />,
+            label: t(pref.pinnedAt ? 'chat.list.unpin' : 'chat.list.pin'),
+            onClick: () => chatPrefs.update(kind, id, { pinned: !pref.pinnedAt }),
+          }]
+        : []),
+      {
+        key: 'mute',
+        icon: pref.muted ? <BellIcon size={16} /> : <BellOffIcon size={16} />,
+        label: t(pref.muted ? 'chat.list.unmute' : 'chat.list.mute'),
+        onClick: () => chatPrefs.update(kind, id, { muted: !pref.muted }),
+      },
+      {
+        key: 'archive',
+        icon: <ArchiveIcon size={16} />,
+        label: t(pref.archived ? 'chat.list.unarchive' : 'chat.list.archive'),
+        onClick: () => chatPrefs.update(kind, id, { archived: !pref.archived }),
+      },
+    ];
+  };
+
+  const listMenuItems: MenuItem[] = [];
+  if (shownListMenu) {
+    const target = shownListMenu;
+    const raw: MenuItem[] = [...prefMenuItems(target.kind, target.id)];
+    if (target.unread > 0) {
+      raw.push({ key: 'read', icon: <MailOpenIcon size={16} />, label: t('chat.list.markRead'), onClick: () => markChatRead(target.kind, target.id) });
+    }
+    // Таңдалғаннан кейін мәзір жабылады
+    raw.forEach((item) =>
+      listMenuItems.push(item.separator ? item : { ...item, onClick: () => { setListMenu(null); item.onClick(); } })
+    );
+  }
+  const closeListMenu = useCallback(() => setListMenu(null), []);
+
+  const chooseFilter = (key: ListFilterKey) => {
+    setListFilter(key);
+    writeStored(LIST_FILTER_KEY, key);
+  };
+
+  const toggleListCollapsed = useCallback(() => {
+    setListCollapsed((prev) => {
+      writeStored(LIST_COLLAPSED_KEY, prev ? '0' : '1');
+      return !prev;
+    });
+    setActiveTab('friends');
+  }, []);
+
+  // Топқа адам қосқанда — достар жылдам ұсыныс ретінде
+  const friendSuggestions: GroupUser[] = chats.map((c) => ({
+    id: c.partner.id,
+    username: c.partner.username,
+    avatar: c.partner.avatar,
+  }));
+
+  const selectDirectChat = (partner: User) => {
+    setSelectedGroupId(null);
+    setSelectedFriend(partner);
+  };
+
+  const selectGroup = (groupId: string) => {
     setSelectedFriend(null);
+    setMessages([]);
+    setShowChatProfileModal(false);
+    setShowMessageSearch(false);
+    setSelectedGroupId(groupId);
+  };
+
+  const clearSelection = () => {
+    setSelectedFriend(null);
+    setSelectedGroupId(null);
     setMessages([]);
     setShowChatProfileModal(false);
     setShowMessageSearch(false);
     setMessageSearchQuery('');
   };
 
-  return (
-    <div className="chat-page-container">
-      <div className="chat-header">
-        <h3 
-          onClick={handleChatHeaderClick}
-          style={{ cursor: 'pointer' }}
-          title={t('chat.backToHome')}
-        >
-          <FontAwesomeIcon icon={faComment} /> {t('chat.title')}
-        </h3>
-      </div>
+  const goTo = (path: string) => {
+    if (location.pathname !== path) navigate(path);
+  };
 
-      <div className="chat-content">
-        <div className="chat-friends-list">
-          <div className="chat-tabs">
+  const openDirectChat = (partner: User) => {
+    selectDirectChat(partner);
+    goTo(partner.id === currentUser?.id ? '/chat/saved' : userChatPath(String(partner.id)));
+  };
+
+  const openGroup = (groupId: string) => {
+    selectGroup(groupId);
+    goTo(groupChatPath(groupId));
+  };
+
+  // Адрес → ашық чат (бетті жаңарту, сілтеме, «Артқа/Алға» батырмалары)
+  useEffect(() => {
+    if (!currentUser) return;
+    const route = parseChatPath(location.pathname);
+    if (route.kind === 'none') {
+      if (selectedFriend || selectedGroupId) clearSelection();
+      return;
+    }
+    if (route.kind === 'group') {
+      if (selectedGroupId !== route.id) selectGroup(route.id);
+      return;
+    }
+    if (route.kind === 'saved') {
+      if (selectedFriend?.id !== currentUser.id) selectDirectChat(currentUser);
+      return;
+    }
+    if (String(selectedFriend?.id) === route.id) return;
+    const known = chats.find((c) => String(c.partner?.id) === route.id)?.partner;
+    if (known) {
+      selectDirectChat(known);
+      return;
+    }
+    let cancelled = false;
+    apiService.getUserProfile(route.id).then(
+      (user) => { if (!cancelled) selectDirectChat(user); },
+      () => { if (!cancelled) navigate('/chat', { replace: true }); },
+    );
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, currentUser?.id]);
+
+  // Чат басқа жолмен жабылса (жойылды, топтан шығарылды) — адрес /chat-қа оралады
+  const hadSelectionRef = useRef(false);
+  useEffect(() => {
+    const has = !!selectedFriend || !!selectedGroupId;
+    if (hadSelectionRef.current && !has && parseChatPath(location.pathname).kind !== 'none') {
+      navigate('/chat', { replace: true });
+    }
+    hadSelectionRef.current = has;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFriend, selectedGroupId]);
+
+  const closeGroup = useCallback(() => setSelectedGroupId(null), []);
+  const handleGroupRemoved = useCallback(() => {
+    setSelectedGroupId(null);
+    loadChatsRef.current?.();
+  }, []);
+  const refreshLists = useCallback(() => {
+    loadChatsRef.current?.();
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.repeat || e.code !== 'KeyB') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return;
+      e.preventDefault();
+      toggleListCollapsed();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [toggleListCollapsed]);
+
+  const handleChatHeaderClick = () => {
+    clearSelection();
+    goTo('/chat');
+  };
+
+  const avatarOf = (user?: { avatar?: string; username?: string } | null) =>
+    user?.avatar ? <img src={user.avatar} alt={user.username} /> : <span>{monogram(user?.username || '?')}</span>;
+
+  const tabs: { key: 'friends' | 'add' | 'requests'; label: string; icon: React.ReactNode; badge?: number }[] = [
+    {
+      key: 'friends',
+      label: t('chat.group.chatsTab'),
+      icon: <ChatsTabIcon size={17} />,
+      // Дыбысы өшірілген және мұрағаттағы чаттар жалпы санға кірмейді
+      badge: allEntries.reduce((sum, e) => sum + (e.pref.muted || e.pref.archived ? 0 : e.unread), 0),
+    },
+    { key: 'add', label: t('chat.addTab'), icon: <AddFriendTabIcon size={17} /> },
+    { key: 'requests', label: t('chat.requests'), icon: <RequestsTabIcon size={17} />, badge: friendRequests.length },
+  ];
+
+  // Бүкіл бетті мөлдірден шығармаймыз — қара фон тұман болып көрінбеуі үшін (Home.tsx сияқты)
+  return (
+    <div className="cht-page">
+      <div className={`cht-layout ${selectedFriend || selectedGroupId ? 'has-chat' : ''} ${listCollapsed ? 'is-collapsed' : ''}`}>
+        {/* ---------- Сол жақ: достар панелі ---------- */}
+        <aside className="cht-side" aria-label={t('chat.title')}>
+          <div className="cht-side__head">
             <button
-              className={`chat-tab ${activeTab === 'friends' ? 'active' : ''}`}
-              onClick={() => setActiveTab('friends')}
+              type="button"
+              className="cht-side__badge"
+              onClick={handleChatHeaderClick}
+              title={t('chat.backToHome')}
+              aria-label={t('chat.backToHome')}
             >
-              {t('chat.friends')} ({chats.length})
+              <FontAwesomeIcon icon={faComments} />
+            </button>
+            <h1 className="cht-side__title">{t('chat.title')}</h1>
+            <button
+              type="button"
+              className={`cht-icon-btn cht-side__saved ${isSavedChat ? 'is-open' : ''}`}
+              onClick={() => currentUser && openDirectChat(currentUser)}
+              title={t('chat.saved.title')}
+              aria-label={t('chat.saved.title')}
+            >
+              <SavedIcon size={17} />
             </button>
             <button
-              className={`chat-tab ${activeTab === 'add' ? 'active' : ''}`}
-              onClick={() => setActiveTab('add')}
+              type="button"
+              className="cht-icon-btn cht-side__collapse"
+              onClick={toggleListCollapsed}
+              title={`${listCollapsed ? t('chat.layout.expandList') : t('chat.layout.collapseList')} · Ctrl+B`}
+              aria-label={listCollapsed ? t('chat.layout.expandList') : t('chat.layout.collapseList')}
+              aria-expanded={!listCollapsed}
+              aria-keyshortcuts="Control+B"
             >
-              {t('chat.addTab')}
+              <SideToggleIcon />
             </button>
-            <button
-              className={`chat-tab ${activeTab === 'requests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('requests')}
-            >
-              {t('chat.requests')} {friendRequests.length > 0 && `(${friendRequests.length})`}
-            </button>
+          </div>
+
+          <div className="cht-tabs" role="tablist" aria-label={t('chat.title')}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                className={`cht-tab ${activeTab === tab.key ? 'is-active' : ''}`}
+                title={tab.label}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {!!tab.badge && <span className="cht-tab__badge">{tab.badge > 99 ? '99+' : tab.badge}</span>}
+              </button>
+            ))}
           </div>
 
           {activeTab === 'friends' && (
             <>
-              <div className="chat-friends-search">
-                <div className="chat-friends-search-box">
-                  <FontAwesomeIcon icon={faSearch} className="chat-search-icon" />
+              <div className="cht-toolrow">
+                <label className="cht-search">
+                  <SearchIcon />
                   <input
-                    type="text"
-                    className="chat-friends-search-input"
-                    placeholder={t('chat.searchFriends')}
+                    type="search"
+                    placeholder={t('chat.group.searchChats')}
                     value={friendsSearchQuery}
                     onChange={(e) => setFriendsSearchQuery(e.target.value)}
+                    aria-label={t('chat.group.searchChats')}
                   />
-                  {friendsSearchQuery && (
-                    <button
-                      className="chat-clear-search-btn"
-                      onClick={() => setFriendsSearchQuery('')}
-                    >
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              {loading ? (
-                <div className="chat-loading">{t('common.loading')}</div>
-              ) : filteredChats.length === 0 ? (
-                <div className="chat-empty">
-                  {friendsSearchQuery ? t('chat.friendNotFound') : t('chat.friendsListEmpty')}
-                </div>
-              ) : (
-                <div className="chat-friends-items">
-                  {filteredChats.map((chat) => (
-                    <div
-                      key={chat.partnerId}
-                      className={`chat-friend-item ${selectedFriend?.id === chat.partnerId ? 'active' : ''} ${chat.unreadCount > 0 ? 'has-unread' : ''}`}
-                      onClick={() => {
-                        if (chat.partner && chat.partner.id) {
-                          setSelectedFriend(chat.partner);
-                        } else {
-                          console.error('chat.partner is missing or invalid:', chat);
-                        }
-                      }}
-                    >
-                      <div 
-                        className="chat-friend-avatar"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/profile/${chat.partner.username}`);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {chat.partner.avatar ? (
-                          <img src={chat.partner.avatar} alt={chat.partner.username} />
-                        ) : (
-                          <span>{chat.partner.username.charAt(0).toUpperCase()}</span>
-                        )}
-                        {chat.unreadCount > 0 && (
-                          <span className="chat-unread-badge">
-                            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                      <div className="chat-friend-info">
-                        <div className="chat-friend-header">
-                          <div className="chat-friend-name">{chat.partner.username}</div>
-                        </div>
-                        {chat.lastMessage && (
-                          <div className="chat-friend-last-message">
-                            {chat.lastMessage.fromUserId === currentUser?.id ? t('chat.youPrefix') : ''}
-                            {(chat.lastMessage.content || '').length > 40
-                              ? (chat.lastMessage.content || '').substring(0, 40) + '...'
-                              : (chat.lastMessage.content || '')}
-                          </div>
-                        )}
-                        {chat.lastMessage && (
-                          <div className="chat-friend-time">
-                            {formatTime(chat.lastMessage.createdAt)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === 'add' && (
-            <div className="chat-add-friends">
-              <div className="chat-search-box">
-                <div className="chat-search-input-wrapper">
-                  <FontAwesomeIcon icon={faSearch} className="chat-search-icon" />
-                  <input
-                    type="text"
-                    className="chat-search-input"
-                    placeholder={t('chat.searchUsersPlaceholder')}
-                    value={searchQuery}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSearchQuery(value);
-                      
-                      if (searchTimeoutRef.current) {
-                        clearTimeout(searchTimeoutRef.current);
-                      }
-                      
-                      if (!value.trim()) {
-                        setSearchResults([]);
-                        setSearching(false);
-                        return;
-                      }
-                      
-                      searchTimeoutRef.current = setTimeout(() => {
-                        handleSearchUsers(value);
-                      }, 500);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (searchTimeoutRef.current) {
-                          clearTimeout(searchTimeoutRef.current);
-                        }
-                        handleSearchUsers(searchQuery);
-                      }
-                    }}
-                  />
-                  {searchQuery && (
-                    <button
-                      className="chat-clear-search-btn"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchResults([]);
-                        if (searchTimeoutRef.current) {
-                          clearTimeout(searchTimeoutRef.current);
-                        }
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              {!searchQuery && (
-                <div className="chat-add-info">
-                  <div className="chat-info-icon">
-                    <FontAwesomeIcon icon={faSearch} />
-                  </div>
-                  <p>{t('chat.addFriendInfo')}</p>
-                </div>
-              )}
-              {searching ? (
-                <div className="chat-loading">{t('chat.searching')}</div>
-              ) : searchResults.length === 0 && searchQuery ? (
-                <div className="chat-empty">{t('chat.userNotFound')}</div>
-              ) : (
-                <div className="chat-search-results">
-                  {searchResults.map((user) => {
-                    const isFriend = chats.some(chat => chat.partnerId === user.id);
-                    const hasRequest = friendRequests.some(req => req.fromUserId === user.id);
-                    
-                    return (
-                      <div key={user.id} className="chat-search-item">
-                        <div className="chat-friend-avatar">
-                          {user.avatar ? (
-                            <img src={user.avatar} alt={user.username} />
-                          ) : (
-                            <span>{user.username.charAt(0).toUpperCase()}</span>
-                          )}
-                        </div>
-                        <div className="chat-friend-info">
-                          <div className="chat-friend-name">{user.username}</div>
-                          <div className="chat-friend-email">{user.email}</div>
-                          <div className="chat-friend-id">ID: {ensureNumericId(user.id)}</div>
-                        </div>
-                        {isFriend ? (
-                          <button className="chat-add-btn chat-add-btn-pending" disabled>
-                            <FontAwesomeIcon icon={faCheck} className="chat-btn-icon" />
-                            {t('chat.friend')}
-                          </button>
-                        ) : hasRequest ? (
-                          <button className="chat-add-btn chat-add-btn-pending" disabled>
-                            <FontAwesomeIcon icon={faClock} className="chat-btn-icon" />
-                            {t('chat.pending')}
-                          </button>
-                        ) : (
-                          <button
-                            className="chat-add-btn"
-                            onClick={() => handleSendFriendRequest(user.id)}
-                            title={t('chat.sendFriendRequestTitle')}
-                          >
-                            <FontAwesomeIcon 
-                              icon={clickedAddButtons.has(user.id) ? faCheckCircle : faUserPlus} 
-                              className="chat-btn-icon" 
-                            />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'requests' && (
-            <div className="chat-requests">
-              {friendRequests.length === 0 && outgoingFriendRequests.length === 0 ? (
-                <div className="chat-empty">{t('chat.noRequests')}</div>
-              ) : (
-                <div className="chat-requests-items">
-                  {/* {t('chat.incomingRequests')} - бұл сізге келген сұраулар */}
-                  {friendRequests.length > 0 && (
-                    <>
-                      {outgoingFriendRequests.length > 0 && (
-                        <div className="chat-requests-section-title">{t('chat.incomingRequests')}</div>
-                      )}
-                      {friendRequests.map((request) => (
-                        <div key={request.id} className="chat-request-item">
-                          <div className="chat-friend-avatar">
-                            {request.fromUser?.avatar ? (
-                              <img src={request.fromUser.avatar} alt={request.fromUser.username} />
-                            ) : (
-                              <span>{request.fromUser?.username.charAt(0).toUpperCase()}</span>
-                            )}
-                          </div>
-                          <div className="chat-friend-info">
-                            <div className="chat-friend-name">{request.fromUser?.username}</div>
-                            <div className="chat-request-time">{formatTime(request.createdAt)}</div>
-                          </div>
-                          <div className="chat-request-actions">
-                            <button
-                              className="chat-accept-btn"
-                              onClick={() => handleAcceptRequest(request.id)}
-                            >
-                              ✓
-                            </button>
-                            <button
-                              className="chat-reject-btn"
-                              onClick={() => handleRejectRequest(request.id)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  
-                  {/* {t('chat.outgoingRequests')} - бұл сіз жіберген сұраулар */}
-                  {outgoingFriendRequests.length > 0 && (
-                    <>
-                      {friendRequests.length > 0 && (
-                        <div className="chat-requests-section-title">{t('chat.outgoingRequests')}</div>
-                      )}
-                      {outgoingFriendRequests.map((request) => (
-                        <div key={request.id} className="chat-request-item chat-request-item-outgoing">
-                          <div className="chat-friend-avatar">
-                            {request.toUser?.avatar ? (
-                              <img src={request.toUser.avatar} alt={request.toUser.username} />
-                            ) : (
-                              <span>{request.toUser?.username.charAt(0).toUpperCase()}</span>
-                            )}
-                          </div>
-                          <div className="chat-friend-info">
-                            <div className="chat-friend-name">{request.toUser?.username}</div>
-                            <div className="chat-request-time">{formatTime(request.createdAt)}</div>
-                          </div>
-                          <div className="chat-request-actions">
-                            <button
-                              className="chat-cancel-btn"
-                              onClick={() => handleCancelRequest(request.id)}
-                              title={t('chat.cancelRequest')}
-                            >
-                              <FontAwesomeIcon icon={faTimes} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="chat-messages-area">
-          {selectedFriend ? (
-            <>
-              <div className="chat-messages-header">
+                </label>
                 <button
                   type="button"
-                  className="chat-mobile-back-btn"
-                  onClick={handleChatHeaderClick}
-                  title={t('common.back')}
-                  aria-label={t('common.back')}
+                  className="cht-newgroup-btn"
+                  onClick={() => setShowCreateGroup(true)}
+                  title={t('chat.group.newGroup')}
+                  aria-label={t('chat.group.newGroup')}
                 >
-                  <FontAwesomeIcon icon={faChevronLeft} />
+                  <NewGroupIcon size={17} />
+                  <span>{t('chat.group.newGroup')}</span>
                 </button>
-                <div 
-                  className="chat-messages-friend"
-                  onClick={() => setShowChatProfileModal(true)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div 
-                    className="chat-friend-avatar small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowChatProfileModal(true);
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {selectedFriend.avatar ? (
-                      <img src={selectedFriend.avatar} alt={selectedFriend.username} />
-                    ) : (
-                      <span>{selectedFriend.username.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <span>{chatDisplayNames[selectedFriend.id] || selectedFriend.username}</span>
-                  {typingUsers.has(selectedFriend.id) && (
-                    <span className="typing-indicator">{t('chat.typing')}</span>
-                  )}
-                </div>
-                <div className="chat-menu-container" ref={menuRef}>
-                  <button
-                    className="chat-menu-btn"
-                    onClick={() => setShowChatMenu(!showChatMenu)}
-                    title={t('chat.menuTitle')}
-                  >
-                    <FontAwesomeIcon icon={faEllipsisVertical} />
-                  </button>
-                  {showChatMenu && (
-                    <div className="chat-menu-dropdown">
-                      <button
-                        className="chat-menu-item"
-                        onClick={handleSearchMessages}
-                      >
-                        <FontAwesomeIcon icon={faSearchIcon} />
-                        <span>{t('chat.searchMessagesInChat')}</span>
-                      </button>
-                      <button
-                        className="chat-menu-item"
-                        onClick={handleClearMessages}
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                        <span>{t('chat.clearMessagesInChat')}</span>
-                      </button>
-                      <button
-                        className="chat-menu-item chat-menu-item-danger"
-                        onClick={handleDeleteChat}
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                        <span>{t('chat.deleteChat')}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
-              {showMessageSearch && (
-                <div className="chat-message-search">
-                  <div className="chat-message-search-box">
-                    <FontAwesomeIcon icon={faSearchIcon} className="chat-search-icon" />
-                    <input
-                      type="text"
-                      className="chat-message-search-input"
-                      placeholder={t('chat.searchMessagesPlaceholder')}
-                      value={messageSearchQuery}
-                      onChange={(e) => setMessageSearchQuery(e.target.value)}
-                      autoFocus
-                    />
-                    <button
-                      className="chat-clear-search-btn"
-                      onClick={() => {
-                        setShowMessageSearch(false);
-                        setMessageSearchQuery('');
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                  </div>
-                  {messageSearchQuery && (
-                    <div className="chat-search-results-info">
-                      {t('chat.messagesFound', { count: filteredMessages.length })}
+
+              <div className="cht-filters" role="tablist" aria-label={t('chat.filters.label')} ref={filtersRef}>
+                {visibleFilters.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={listFilter === f.key}
+                    className={`cht-filter ${listFilter === f.key ? 'is-active' : ''}`}
+                    onClick={() => chooseFilter(f.key)}
+                  >
+                    {t(f.labelKey)}
+                    {filterCounts[f.key] > 0 && <span className="cht-filter__count">{filterCounts[f.key]}</span>}
+                  </button>
+                ))}
+              </div>
+
+              <div className="cht-list">
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="cht-skel">
+                      <span />
+                      <span />
                     </div>
-                  )}
-                </div>
-              )}
-              <div className="chat-messages-list" ref={messagesContainerRef}>
-                {loadingMessages ? (
-                  <div className="chat-no-messages">
-                    <div className="chat-no-messages-icon"><FontAwesomeIcon icon={faComment} /></div>
-                    <p>{t('chat.messagesLoading')}</p>
-                  </div>
-                ) : messagesError ? (
-                  <div className="chat-no-messages">
-                    <div className="chat-no-messages-icon"><FontAwesomeIcon icon={faComment} /></div>
-                    <p>{t('chat.errorWithMessage', { message: messagesError })}</p>
-                    <button 
-                      onClick={() => loadMessages()}
-                      className="chat-retry-btn"
-                      style={{
-                        marginTop: '1rem',
-                        padding: '0.5rem 1rem',
-                        background: 'var(--accent-color)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {t('common.retry')}
-                    </button>
-                  </div>
-                ) : filteredMessages.length === 0 ? (
-                  <div className="chat-no-messages">
-                    <div className="chat-no-messages-icon"><FontAwesomeIcon icon={faComment} /></div>
-                    <p>{t('chat.noMessages')}</p>
-                    <p className="chat-no-messages-hint">{t('chat.sendFirstMessage')}</p>
-                  </div>
+                  ))
+                ) : listEntries.length === 0 ? (
+                  <p className="cht-empty">
+                    {friendsSearchQuery
+                      ? t('chat.friendNotFound')
+                      : listFilter !== 'all' && allEntries.length > 0
+                        ? t('chat.filters.empty')
+                        : t('chat.group.listEmpty')}
+                  </p>
                 ) : (
-                  filteredMessages.map((message) => {
-                    const isOwn = message.fromUserId === currentUser?.id;
+                  listEntries.map((entry, i) => {
+                    if (entry.kind === 'group') {
+                      const group = entry.group;
+                      const isActive = selectedGroupId === group.id;
+                      return (
+                        <div
+                          key={`group-${group.id}`}
+                          role="button"
+                          tabIndex={0}
+                          className={`cht-item ${isActive ? 'is-active' : ''} ${group.unreadCount > 0 ? 'has-unread' : ''} ${entry.pref.pinnedAt ? 'is-pinned' : ''}`}
+                          style={{ '--d': Math.min(i, 10) } as React.CSSProperties}
+                          title={listCollapsed ? group.name : undefined}
+                          onClick={() => openGroup(group.id)}
+                          onContextMenu={(e) => openListMenu(e, 'group', group.id, group.unreadCount)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openGroup(group.id);
+                            }
+                          }}
+                        >
+                          <GroupAvatar name={group.name} />
+                          <div className="cht-item__body">
+                            <div className="cht-item__top">
+                              <span className="cht-item__name">
+                                <UsersIcon size={13} />
+                                {group.name}
+                              </span>
+                              <ListFlags pref={entry.pref} />
+                              {group.lastMessage && <span className="cht-item__time">{formatTime(group.lastMessage.createdAt)}</span>}
+                            </div>
+                            <div className="cht-item__bottom">
+                              <span className="cht-item__last">
+                                {(() => {
+                                  const draft = selectedGroupId !== group.id ? loadDraft(draftKeyFor('group', group.id)) : '';
+                                  return draft ? (
+                                    <>
+                                      <span className="cht-item__draft">{t('chat.draft')} </span>
+                                      {stripFormatting(draft)}
+                                    </>
+                                  ) : !group.lastMessage ? null : group.lastMessage.type === 'system' ? (
+                                    groupEventText(group.lastMessage, t, currentUser?.id)
+                                  ) : (
+                                    <>
+                                      <span className="cht-item__who">{groupSenderPrefix(group.lastMessage, t, currentUser?.id)}</span>
+                                      <MediaKindIcon type={group.lastMessage.type} />
+                                      <span className="cht-item__text">{messageBodyPreview(group.lastMessage, t)}</span>
+                                    </>
+                                  );
+                                })()}
+                              </span>
+                              {group.unreadCount > 0 && (
+                                <span className={`cht-unread ${entry.pref.muted ? 'is-muted' : ''}`}>{group.unreadCount > 99 ? '99+' : group.unreadCount}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    const chat = entry.chat;
+                    const isActive = selectedFriend?.id === chat.partnerId;
+                    const last = chat.lastMessage;
+                    const isSaved = chat.partnerId === currentUser?.id;
+                    const displayName = isSaved ? savedTitle : chatDisplayNames[chat.partnerId] || chat.partner.username;
                     return (
                       <div
-                        key={message.id}
-                        className={`chat-message ${isOwn ? 'own' : 'other'} ${message.type || 'text'}`}
+                        key={`dm-${chat.partnerId}`}
+                        role="button"
+                        tabIndex={0}
+                        className={`cht-item ${isActive ? 'is-active' : ''} ${chat.unreadCount > 0 ? 'has-unread' : ''} ${entry.pref.pinnedAt ? 'is-pinned' : ''}`}
+                        style={{ '--d': Math.min(i, 10) } as React.CSSProperties}
+                        title={listCollapsed ? displayName : undefined}
+                        onClick={() => chat.partner?.id && openDirectChat(chat.partner)}
+                        onContextMenu={(e) => openListMenu(e, 'dm', chat.partnerId, chat.unreadCount)}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ' ') && chat.partner?.id) {
+                            e.preventDefault();
+                            openDirectChat(chat.partner);
+                          }
+                        }}
                       >
-                        {renderMessageContent(message)}
-                        <div className="chat-message-footer">
-                          <div className="chat-message-time">
-                            {formatTime(message.createdAt)}
+                        {isSaved ? (
+                          <SavedAvatar />
+                        ) : (
+                          <button
+                            type="button"
+                            className={`cht-avatar ${presence[chat.partnerId]?.online ? 'is-online' : ''}`}
+                            onClick={(e) => {
+                              if (listCollapsed) return;
+                              e.stopPropagation();
+                              navigate(`/profile/${chat.partner.username}`);
+                            }}
+                            aria-label={chat.partner.username}
+                            tabIndex={-1}
+                          >
+                            {avatarOf(chat.partner)}
+                          </button>
+                        )}
+                        <div className="cht-item__body">
+                          <div className="cht-item__top">
+                            <span className="cht-item__name">{displayName}</span>
+                            <ListFlags pref={entry.pref} />
+                            {last && <span className="cht-item__time">{formatTime(last.createdAt)}</span>}
                           </div>
-                          {isOwn && (
-                            <div className="chat-message-status">
-                              {getMessageStatusIcon(message)}
-                            </div>
-                          )}
+                          <div className="cht-item__bottom">
+                            <span className="cht-item__last">
+                              {typingUsers.has(chat.partnerId) ? (
+                                <em>{t('chat.typing')}</em>
+                              ) : !isActive && loadDraft(draftKeyFor('dm', chat.partnerId)) ? (
+                                <>
+                                  <span className="cht-item__draft">{t('chat.draft')} </span>
+                                  {stripFormatting(loadDraft(draftKeyFor('dm', chat.partnerId)))}
+                                </>
+                              ) : last ? (
+                                <>
+                                  {last.fromUserId === currentUser?.id && !isSaved && <ListStatusTick status={last.status} />}
+                                  <MediaKindIcon type={last.type} />
+                                  <span className="cht-item__text">{messageBodyPreview(last, t)}</span>
+                                </>
+                              ) : isSaved ? (
+                                t('chat.saved.subtitle')
+                              ) : null}
+                            </span>
+                            {chat.unreadCount > 0 && (
+                              <span className={`cht-unread ${entry.pref.muted ? 'is-muted' : ''}`}>{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })
                 )}
-                <div ref={messagesEndRef} />
               </div>
+            </>
+          )}
+
+          {activeTab === 'add' && (
+            <>
+              <label className="cht-search">
+                <SearchIcon />
+                <input
+                  type="search"
+                  placeholder={t('chat.searchUsersPlaceholder')}
+                  value={searchQuery}
+                  aria-label={t('chat.searchUsersPlaceholder')}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchQuery(value);
+
+                    if (searchTimeoutRef.current) {
+                      clearTimeout(searchTimeoutRef.current);
+                    }
+
+                    if (!value.trim()) {
+                      setSearchResults([]);
+                      setSearching(false);
+                      return;
+                    }
+
+                    searchTimeoutRef.current = setTimeout(() => {
+                      handleSearchUsers(value);
+                    }, 500);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (searchTimeoutRef.current) {
+                        clearTimeout(searchTimeoutRef.current);
+                      }
+                      handleSearchUsers(searchQuery);
+                    }
+                  }}
+                />
+              </label>
+
+              <div className="cht-list">
+                {!searchQuery ? (
+                  <div className="cht-hint">
+                    <span className="cht-hint__icon">
+                      <UserPlusIcon size={20} />
+                    </span>
+                    <p>{t('chat.addFriendInfo')}</p>
+                  </div>
+                ) : searching ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="cht-skel">
+                      <span />
+                      <span />
+                    </div>
+                  ))
+                ) : searchResults.length === 0 ? (
+                  <p className="cht-empty">{t('chat.userNotFound')}</p>
+                ) : (
+                  searchResults.map((user, i) => {
+                    const isFriend = chats.some((chat) => chat.partnerId === user.id);
+                    const incomingRequest = friendRequests.find((req) => req.fromUserId === user.id);
+                    const outgoingRequest = outgoingFriendRequests.find((req) => req.toUserId === user.id);
+                    const sendKey = `send:${user.id}`;
+                    const sendStatus = requestStatus[sendKey];
+                    return (
+                      <div key={user.id} className="cht-item is-static" style={{ '--d': i } as React.CSSProperties}>
+                        <span className="cht-avatar">{avatarOf(user)}</span>
+                        <div className="cht-item__body">
+                          <span className="cht-item__name">{user.username}</span>
+                          <span className="cht-item__last">
+                            {user.email} · ID {ensureNumericId(user.id)}
+                          </span>
+                        </div>
+                        {isFriend ? (
+                          <span className="cht-chip">
+                            <CheckSmallIcon size={14} />
+                            {t('chat.friend')}
+                          </span>
+                        ) : incomingRequest ? (
+                          <div className="cht-item__actions">
+                            {(() => {
+                              const b = requestBtn(`accept:${incomingRequest.id}`, <CheckSmallIcon size={16} />);
+                              return (
+                                <button
+                                  type="button"
+                                  className={`cht-icon-btn cht-icon-btn--primary ${b.className}`}
+                                  onClick={() => handleAcceptRequest(incomingRequest.id)}
+                                  disabled={b.disabled}
+                                  title={b.errorTitle ?? t('chat.acceptTitle')}
+                                  aria-label={t('chat.acceptTitle')}
+                                >
+                                  {b.content}
+                                </button>
+                              );
+                            })()}
+                            {(() => {
+                              const b = requestBtn(`reject:${incomingRequest.id}`, <CloseIcon size={16} />);
+                              return (
+                                <button
+                                  type="button"
+                                  className={`cht-icon-btn ${b.className}`}
+                                  onClick={() => handleRejectRequest(incomingRequest.id)}
+                                  disabled={b.disabled}
+                                  title={b.errorTitle ?? t('chat.rejectTitle')}
+                                  aria-label={t('chat.rejectTitle')}
+                                >
+                                  {b.content}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        ) : outgoingRequest ? (
+                          <span className="cht-chip cht-chip--sent">
+                            <CheckSmallIcon size={14} />
+                            {t('chat.requestSentChip')}
+                          </span>
+                        ) : sendStatus === 'error' ? (
+                          <button
+                            type="button"
+                            className="cht-req-btn is-error"
+                            onClick={() => handleSendFriendRequest(user.id)}
+                            aria-live="polite"
+                          >
+                            <span className="cht-btn-error" aria-hidden="true">!</span>
+                            {t('chat.requestFailed')}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`cht-icon-btn cht-icon-btn--primary ${sendStatus ? `is-${sendStatus}` : ''}`}
+                            onClick={() => handleSendFriendRequest(user.id)}
+                            disabled={sendStatus === 'loading'}
+                            title={t('chat.sendFriendRequestTitle')}
+                            aria-label={t('chat.sendFriendRequestTitle')}
+                          >
+                            {sendStatus === 'loading'
+                              ? <span className="cht-btn-spinner" aria-hidden="true" />
+                              : <UserPlusIcon size={16} />}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'requests' && (
+            <div className="cht-list">
+              {friendRequests.length === 0 && outgoingFriendRequests.length === 0 ? (
+                <div className="cht-hint">
+                  <span className="cht-hint__icon">
+                    <InboxIcon size={20} />
+                  </span>
+                  <p>{t('chat.noRequests')}</p>
+                </div>
+              ) : (
+                <>
+                  {friendRequests.length > 0 && (
+                    <>
+                      <h2 className="cht-section">{t('chat.incomingRequests')}</h2>
+                      {friendRequests.map((request) => (
+                        <div key={request.id} className="cht-item is-static">
+                          <span className="cht-avatar">{avatarOf(request.fromUser)}</span>
+                          <div className="cht-item__body">
+                            <span className="cht-item__name">{request.fromUser?.username}</span>
+                            <span className="cht-item__last">{formatTime(request.createdAt)}</span>
+                          </div>
+                          <div className="cht-item__actions">
+                            {(() => {
+                              const b = requestBtn(`accept:${request.id}`, <CheckSmallIcon size={16} />);
+                              return (
+                                <button
+                                  type="button"
+                                  className={`cht-icon-btn cht-icon-btn--primary ${b.className}`}
+                                  onClick={() => handleAcceptRequest(request.id)}
+                                  disabled={b.disabled}
+                                  title={b.errorTitle ?? t('chat.acceptTitle')}
+                                  aria-label={t('chat.acceptTitle')}
+                                >
+                                  {b.content}
+                                </button>
+                              );
+                            })()}
+                            {(() => {
+                              const b = requestBtn(`reject:${request.id}`, <CloseIcon size={16} />);
+                              return (
+                                <button
+                                  type="button"
+                                  className={`cht-icon-btn ${b.className}`}
+                                  onClick={() => handleRejectRequest(request.id)}
+                                  disabled={b.disabled}
+                                  title={b.errorTitle ?? t('chat.rejectTitle')}
+                                  aria-label={t('chat.rejectTitle')}
+                                >
+                                  {b.content}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {outgoingFriendRequests.length > 0 && (
+                    <>
+                      <h2 className="cht-section">{t('chat.outgoingRequests')}</h2>
+                      {outgoingFriendRequests.map((request) => (
+                        <div key={request.id} className="cht-item is-static">
+                          <span className="cht-avatar">{avatarOf(request.toUser)}</span>
+                          <div className="cht-item__body">
+                            <span className="cht-item__name">{request.toUser?.username}</span>
+                            <span className="cht-item__last">
+                              <ClockIcon size={12} /> {formatTime(request.createdAt)}
+                            </span>
+                          </div>
+                          {(() => {
+                            const b = requestBtn(`cancel:${request.id}`, <CloseIcon size={16} />);
+                            return (
+                              <button
+                                type="button"
+                                className={`cht-icon-btn ${b.className}`}
+                                onClick={() => handleCancelRequest(request.id)}
+                                disabled={b.disabled}
+                                title={b.errorTitle ?? t('chat.cancelRequest')}
+                                aria-label={t('chat.cancelRequest')}
+                              >
+                                {b.content}
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </aside>
+
+        {/* ---------- Оң жақ: сөйлесу ---------- */}
+        <main className="cht-main">
+          {selectedGroupId && currentUser ? (
+            <GroupChat
+              groupId={selectedGroupId}
+              currentUser={currentUser}
+              suggestions={friendSuggestions}
+              renderMessageContent={renderMessageContent}
+              formatTime={formatTime}
+              onBack={closeGroup}
+              onRemoved={handleGroupRemoved}
+              onActivity={refreshLists}
+              prefMenuItems={prefMenuItems('group', selectedGroupId)}
+              muted={chatPrefs.prefOf('group', selectedGroupId).muted}
+              onOpenImage={(url, filename) => setSelectedImage({ url, filename })}
+            />
+          ) : selectedFriend ? (
+            <>
+              <div className="cht-conv">
+              <header className="cht-bar">
+                <button
+                  type="button"
+                  className="cht-icon-btn cht-bar__back"
+                  onClick={handleChatHeaderClick}
+                  title={t('common.back')}
+                  aria-label={t('common.back')}
+                >
+                  <ArrowLeftIcon />
+                </button>
+                <button
+                  type="button"
+                  className={`cht-bar__who ${showChatProfileModal ? 'is-open' : ''}`}
+                  onClick={() => setShowChatProfileModal((v) => !v)}
+                  aria-expanded={showChatProfileModal}
+                >
+                  {isSavedChat ? <SavedAvatar /> : <span className="cht-avatar">{avatarOf(selectedFriend)}</span>}
+                  <span className="cht-bar__names">
+                    <span className="cht-bar__name">
+                      {isSavedChat ? savedTitle : chatDisplayNames[selectedFriend.id] || selectedFriend.username}
+                      {chatPrefs.prefOf('dm', selectedFriend.id).muted && (
+                        <span className="cht-item__flags" title={t('chat.list.muted')}>
+                          <BellOffIcon size={12} />
+                        </span>
+                      )}
+                    </span>
+                    {isSavedChat ? (
+                      <span className="cht-bar__status">{t('chat.saved.subtitle')}</span>
+                    ) : (
+                    <span
+                      className={`cht-bar__status ${typingUsers.has(selectedFriend.id) ? 'is-typing' : presence[selectedFriend.id]?.online ? 'is-online' : ''}`}
+                    >
+                      {typingUsers.has(selectedFriend.id)
+                        ? t('chat.typing')
+                        : presenceText(presence[selectedFriend.id], t, i18n.language) || `@${selectedFriend.username}`}
+                    </span>
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`cht-icon-btn cht-bar__action ${showMessageSearch ? 'is-open' : ''}`}
+                  onClick={toggleMessageSearch}
+                  title={t('chat.searchMessagesInChat')}
+                  aria-label={t('chat.searchMessagesInChat')}
+                  aria-pressed={showMessageSearch}
+                >
+                  <SearchIcon />
+                </button>
+                <div className="cht-menu">
+                  <button
+                    ref={chatMenuBtnRef}
+                    type="button"
+                    className={`cht-icon-btn cht-bar__action ${showChatMenu ? 'is-open' : ''}`}
+                    onClick={() => setShowChatMenu(!showChatMenu)}
+                    title={t('chat.menuTitle')}
+                    aria-label={t('chat.menuTitle')}
+                    aria-haspopup="menu"
+                    aria-expanded={showChatMenu}
+                  >
+                    <MoreIcon />
+                  </button>
+                  <Popover open={showChatMenu} anchor={chatMenuBtnRef} onClose={closeChatMenu} placement="bottom-end" ariaLabel={t('chat.menuTitle')}>
+                      <button type="button" role="menuitem" className="cht-menu__item" onClick={handleSearchMessages}>
+                        <SearchIcon />
+                        <span>{t('chat.searchMessagesInChat')}</span>
+                      </button>
+                      {prefMenuItems('dm', selectedFriend.id).map((item) =>
+                        item.separator ? null : (
+                          <button
+                            key={item.key}
+                            type="button"
+                            role="menuitem"
+                            className="cht-menu__item"
+                            onClick={item.onClick}
+                          >
+                            {item.icon}
+                            <span>{item.label}</span>
+                          </button>
+                        )
+                      )}
+                      <div className="cht-menu__sep" role="separator" />
+                      <button type="button" role="menuitem" className="cht-menu__item" onClick={handleClearMessages}>
+                        <TrashIcon size={16} />
+                        <span>{t('chat.clearMessagesInChat')}</span>
+                      </button>
+                      {!isSavedChat && (
+                        <>
+                          <div className="cht-menu__sep" role="separator" />
+                          <button type="button" role="menuitem" className="cht-menu__item is-danger" onClick={handleDeleteChat}>
+                            <TrashIcon size={16} />
+                            <span>{t('chat.deleteChat')}</span>
+                          </button>
+                        </>
+                      )}
+                  </Popover>
+                </div>
+              </header>
+
+              {showMessageSearch && (
+                <div className="cht-msgsearch">
+                  <label className="cht-search">
+                    <SearchIcon />
+                    <input
+                      type="search"
+                      placeholder={t('chat.searchMessagesPlaceholder')}
+                      value={messageSearchQuery}
+                      onChange={(e) => setMessageSearchQuery(e.target.value)}
+                      aria-label={t('chat.searchMessagesPlaceholder')}
+                      autoFocus
+                    />
+                  </label>
+                  {messageSearchQuery && (
+                    <span className="cht-msgsearch__count">{t('chat.messagesFound', { count: filteredMessages.length })}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="cht-icon-btn"
+                    onClick={() => {
+                      setShowMessageSearch(false);
+                      setMessageSearchQuery('');
+                    }}
+                    aria-label={t('common.close')}
+                  >
+                    <CloseIcon size={16} />
+                  </button>
+                </div>
+              )}
+
+              <PinnedBar
+                messages={messages}
+                onJump={msgActions.jumpTo}
+                onUnpin={(m) => {
+                  apiService
+                    .pinMessage(m.id, false)
+                    .then((u) => setMessages((prev) => prev.map((x) => (x.id === u.id ? u : x))))
+                    .catch(() => toast.error(t('chat.actions.failed')));
+                }}
+              />
+
+              <div className="cht-messages" ref={messagesContainerRef}>
+                {loadingMessages ? (
+                  <div className="cht-state">
+                    <span className="cht-state__icon is-pulsing">
+                      <ChatIcon size={22} />
+                    </span>
+                    <p className="cht-state__text">{t('chat.messagesLoading')}</p>
+                  </div>
+                ) : messagesError ? (
+                  <div className="cht-state">
+                    <span className="cht-state__icon">
+                      <ChatIcon size={22} />
+                    </span>
+                    <p className="cht-state__text">{t('chat.errorWithMessage', { message: messagesError })}</p>
+                    <button type="button" className="cht-btn cht-btn--primary" onClick={() => loadMessages()}>
+                      <RefreshIcon />
+                      {t('common.retry')}
+                    </button>
+                  </div>
+                ) : filteredMessages.length === 0 ? (
+                  <div className="cht-state">
+                    <span className="cht-state__icon">
+                      <ChatIcon size={22} />
+                    </span>
+                    <p className="cht-state__title">{isSavedChat ? t('chat.saved.title') : t('chat.noMessages')}</p>
+                    <p className="cht-state__text">{isSavedChat ? t('chat.saved.empty') : t('chat.sendFirstMessage')}</p>
+                  </div>
+                ) : (
+                  filteredMessages.map((message, index) => {
+                    const isOwn = message.fromUserId === currentUser?.id;
+                    // Бір адамның қатарынан келген хабарламалары топталады
+                    const next = filteredMessages[index + 1];
+                    const isLastInGroup = !next || next.fromUserId !== message.fromUserId || isNewDay(next, message);
+                    // Серверге әлі жетпеген хабарламаға мәзір, реакция қолжетімсіз
+                    const isLocal = !!message.localState;
+                    const isUploading = message.localState === 'sending' && message.uploadProgress !== undefined;
+                    return (
+                      <React.Fragment key={message.id}>
+                      {isNewDay(message, filteredMessages[index - 1]) && <DayDivider date={message.createdAt} />}
+                      <div
+                        className={`chat-message ${isOwn ? 'own' : 'other'} ${message.type || 'text'} ${isLastInGroup ? 'is-last' : ''} ${message.localState ? `is-${message.localState}` : ''} ${isUploading ? 'is-uploading' : ''}`}
+                        {...(isLocal ? {} : msgActions.bind(message))}
+                      >
+                        {message.forwardedFrom && <ForwardedLabel from={message.forwardedFrom} />}
+                        {message.replyTo && (
+                          <ReplyQuote reply={message.replyTo} currentUserId={currentUser?.id || ''} onJump={msgActions.jumpTo} />
+                        )}
+                        {renderMessageContent(message)}
+                        {isUploading && <UploadOverlay progress={message.uploadProgress || 0} onCancel={() => discardLocal(message.id)} />}
+                        {/* Реакциялар — сол жақта мәтіннің астында, уақыт — сол қатардың оң жағында */}
+                        <div className="chat-message-bottom">
+                        {!isLocal && (
+                          <ReactionBar
+                            reactions={message.reactions}
+                            currentUserId={currentUser?.id || ''}
+                            onToggle={(emoji) => msgActions.react(message, emoji)}
+                          />
+                        )}
+                        <div className="chat-message-footer">
+                          {message.pinned && (
+                            <span className="chat-message-pin" title={t('chat.actions.pinned')}>
+                              <PinIcon size={11} />
+                            </span>
+                          )}
+                          {message.editedAt && <span className="chat-message-edited">{t('chat.actions.edited')}</span>}
+                          <span className="chat-message-time">{formatTime(message.createdAt)}</span>
+                          {isOwn && (
+                            <span className="chat-message-status">
+                              {message.localState === 'sending' ? (
+                                <span className="message-status sending" title={t('chat.delivery.sending')}><ClockIcon size={13} /></span>
+                              ) : message.localState === 'failed' ? (
+                                <span className="message-status failed" title={t('chat.delivery.failed')}><AlertIcon size={13} /></span>
+                              ) : (
+                                getMessageStatusIcon(message)
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        </div>
+                        {!isLocal && <MessageMoreButton onOpen={(x, y) => msgActions.openMenu(x, y, message)} />}
+                      </div>
+                      {message.localState === 'failed' && (
+                        <FailedBar error={message.localError} onRetry={() => retryLocal(message.id)} onDiscard={() => discardLocal(message.id)} />
+                      )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+                <div className="cht-jump-anchor">
+                  <JumpToBottom visible={stick.showButton} count={stick.newCount} onClick={() => stick.scrollToBottom(true)} />
+                </div>
+              </div>
+
               <MessageInput
+                key={selectedFriend.id}
+                draftKey={draftKeyFor('dm', selectedFriend.id)}
                 onSendMessage={handleSendMessage}
                 onUploadFile={handleUploadFile}
                 disabled={!selectedFriend}
+                onTyping={isSavedChat ? undefined : (isTyping) => websocketService.sendTyping(selectedFriend.id, isTyping)}
+                onShareProject={() => setShowShareProject(true)}
+                onCreatePoll={handleCreatePoll}
+                {...msgActions.inputProps}
               />
-            </>
-          ) : (
-            <div className="chat-no-selection">
-              <div className="chat-no-selection-icon"><FontAwesomeIcon icon={faComment} /></div>
-              <p>{t('chat.selectFriend')}</p>
-            </div>
-          )}
-        </div>
-      </div>
+              {msgActions.overlays}
+              </div>
 
-      {/* {t('chat.chatProfile')} модалы */}
-      {showChatProfileModal && selectedFriend && currentUser && (
-        <div className="chat-profile-modal-overlay" onClick={() => setShowChatProfileModal(false)}>
-          <div className="chat-profile-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="chat-profile-modal-header">
-              <h2>{t('chat.chatProfile')}</h2>
-              <button className="chat-profile-modal-close" onClick={() => setShowChatProfileModal(false)}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            </div>
-            <div className="chat-profile-modal-body">
-              <div className="chat-profile-avatar-section">
-                <div className="chat-profile-avatar-large">
-                  {selectedFriend.avatar ? (
-                    <img src={selectedFriend.avatar} alt={selectedFriend.username} />
-                  ) : (
-                    <span>{selectedFriend.username.charAt(0).toUpperCase()}</span>
-                  )}
+              {showChatProfileModal && currentUser && (
+                <DetailsPanel title={isSavedChat ? savedTitle : t('chat.chatProfile')} onClose={() => setShowChatProfileModal(false)}>
+              {isSavedChat ? (
+                <div className="cht-profile">
+                  <SavedAvatar className="cht-avatar--xl" size={34} />
+                  <p className="cht-profile__desc">{t('chat.saved.empty')}</p>
                 </div>
-                <div className="chat-profile-name-section">
-                  {editingFriendId === selectedFriend.id ? (
-                    <div className="chat-profile-edit-name">
-                      <input
-                        type="text"
-                        value={editDisplayName}
-                        onChange={(e) => setEditDisplayName(e.target.value)}
-                        className="chat-profile-name-input"
-                        placeholder={selectedFriend.username}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleSaveDisplayName();
-                          } else if (e.key === 'Escape') {
-                            setEditingFriendId(null);
-                            setEditDisplayName('');
-                          }
-                        }}
-                      />
-                      <button
-                        className="chat-profile-save-btn"
-                        onClick={handleSaveDisplayName}
-                        title={t('chat.saveTitle')}
-                      >
-                        <FontAwesomeIcon icon={faCheck} />
-                      </button>
-                      <button
-                        className="chat-profile-cancel-btn"
-                        onClick={() => {
+              ) : (
+              <>
+              <div className="cht-profile">
+                <span className="cht-avatar cht-avatar--xl">{avatarOf(selectedFriend)}</span>
+                {editingFriendId === selectedFriend.id ? (
+                  <div className="cht-profile__edit">
+                    <input
+                      type="text"
+                      value={editDisplayName}
+                      onChange={(e) => setEditDisplayName(e.target.value)}
+                      placeholder={selectedFriend.username}
+                      aria-label={t('chat.editDisplayName')}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSaveDisplayName();
+                        } else if (e.key === 'Escape') {
                           setEditingFriendId(null);
                           setEditDisplayName('');
-                        }}
-                        title={t('chat.cancelTitle')}
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="cht-icon-btn cht-icon-btn--primary"
+                      onClick={handleSaveDisplayName}
+                      title={t('chat.saveTitle')}
+                      aria-label={t('chat.saveTitle')}
+                    >
+                      <CheckSmallIcon size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="cht-icon-btn"
+                      onClick={() => {
+                        setEditingFriendId(null);
+                        setEditDisplayName('');
+                      }}
+                      title={t('chat.cancelTitle')}
+                      aria-label={t('chat.cancelTitle')}
+                    >
+                      <CloseIcon size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="cht-profile__name">
+                    <h3>{chatDisplayNames[selectedFriend.id] || selectedFriend.username}</h3>
+                    <div className="cht-menu">
+                      <button
+                        ref={profileNameBtnRef}
+                        type="button"
+                        className={`cht-icon-btn ${showProfileNameMenu ? 'is-open' : ''}`}
+                        onClick={() => setShowProfileNameMenu(!showProfileNameMenu)}
+                        title={t('chat.menuTitle')}
+                        aria-label={t('chat.menuTitle')}
+                        aria-haspopup="menu"
+                        aria-expanded={showProfileNameMenu}
                       >
-                        <FontAwesomeIcon icon={faTimes} />
+                        <MoreIcon />
                       </button>
+                      <Popover
+                        open={showProfileNameMenu}
+                        anchor={profileNameBtnRef}
+                        onClose={closeProfileNameMenu}
+                        placement="bottom-end"
+                        ariaLabel={t('chat.menuTitle')}
+                      >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="cht-menu__item"
+                            onClick={() => {
+                              setEditingFriendId(selectedFriend.id);
+                              setEditDisplayName(chatDisplayNames[selectedFriend.id] || selectedFriend.username);
+                            }}
+                          >
+                            <EditIcon size={16} />
+                            <span>{t('chat.editDisplayName')}</span>
+                          </button>
+                      </Popover>
                     </div>
-                  ) : (
-                    <div className="chat-profile-name-display">
-                      <h3>{chatDisplayNames[selectedFriend.id] || selectedFriend.username}</h3>
-                      <div className="chat-profile-name-menu-container" ref={profileNameMenuRef}>
-                        <button
-                          className="chat-profile-name-menu-btn"
-                          onClick={() => setShowProfileNameMenu(!showProfileNameMenu)}
-                          title={t('chat.menuTitle')}
-                        >
-                          <FontAwesomeIcon icon={faEllipsisVertical} />
-                        </button>
-                        {showProfileNameMenu && (
-                          <div className="chat-profile-name-menu-dropdown">
-                            <button
-                              className="chat-profile-name-menu-item"
-                              onClick={() => {
-                                setEditingFriendId(selectedFriend.id);
-                                setEditDisplayName(chatDisplayNames[selectedFriend.id] || selectedFriend.username);
-                                setShowProfileNameMenu(false);
-                              }}
-                            >
-                              <FontAwesomeIcon icon={faEdit} />
-                              <span>{t('chat.editDisplayName')}</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-              <div className="chat-profile-info">
-                <div className="chat-profile-info-item">
-                  <FontAwesomeIcon icon={faUser} className="chat-profile-info-icon" />
-                  <div className="chat-profile-info-content">
-                    <div className="chat-profile-info-label">{t('chat.username')}</div>
-                    <div className="chat-profile-info-value">{selectedFriend.username}</div>
+
+              <div className="cht-info">
+                <div className="cht-info__row">
+                  <span className="cht-info__icon">
+                    <UserIcon size={16} />
+                  </span>
+                  <div>
+                    <div className="cht-info__label">{t('chat.username')}</div>
+                    <div className="cht-info__value">{selectedFriend.username}</div>
                   </div>
                 </div>
                 {selectedFriend.bio && (
-                  <div className="chat-profile-info-item">
-                    <FontAwesomeIcon icon={faAlignLeft} className="chat-profile-info-icon" />
-                    <div className="chat-profile-info-content">
-                      <div className="chat-profile-info-label">{t('chat.bio')}</div>
-                      <div className="chat-profile-info-value chat-profile-bio">{selectedFriend.bio}</div>
+                  <div className="cht-info__row">
+                    <span className="cht-info__icon">
+                      <TextIcon size={16} />
+                    </span>
+                    <div>
+                      <div className="cht-info__label">{t('chat.bio')}</div>
+                      <div className="cht-info__value">{selectedFriend.bio}</div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Медиа бөлімі */}
-              <div className="chat-profile-media-section">
-                <h4 className="chat-profile-media-title">{t('chat.media')}</h4>
-                {getChatMedia().length === 0 ? (
-                  <div className="chat-profile-media-empty">
-                    {t('chat.noMediaFiles')}
-                  </div>
-                ) : (
-                  <div className="chat-profile-media-grid">
-                    {getChatMedia().map((media, index) => (
-                      <div key={`${media.messageId}-${index}`} className="chat-profile-media-item">
-                        {media.type === 'image' ? (
-                          <img
-                            src={getFullUrl(media.url)}
-                            alt={media.filename}
-                            className="chat-profile-media-image"
-                            onClick={() => window.open(getFullUrl(media.url), '_blank')}
-                          />
-                        ) : media.type === 'video' ? (
-                          <div className="chat-profile-media-video">
-                            <FontAwesomeIcon icon={faVideo} />
-                            <span>{media.filename}</span>
-                          </div>
-                        ) : media.type === 'audio' ? (
-                          <div className="chat-profile-media-audio">
-                            <FontAwesomeIcon icon={faMusic} />
-                            <span>{media.filename}</span>
-                          </div>
-                        ) : (
-                          <div className="chat-profile-media-file">
-                            <FontAwesomeIcon icon={faFile} />
-                            <span>{media.filename}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              </>
+              )}
+
+              <SharedMedia
+                messages={messages}
+                onOpenImage={(url, filename) => setSelectedImage({ url, filename })}
+                onJump={msgActions.jumpTo}
+              />
+                </DetailsPanel>
+              )}
+            </>
+          ) : (
+            <div className="cht-state cht-state--welcome">
+              <span className="cht-state__icon cht-state__icon--lg">
+                <ChatIcon size={28} />
+              </span>
+              <p className="cht-state__title">{t('chat.selectFriend')}</p>
+              <p className="cht-state__text">{t('chat.selectFriendHint')}</p>
+              <div className="cht-row-actions">
+                <button type="button" className="cht-btn cht-btn--primary" onClick={() => setShowCreateGroup(true)}>
+                  <UsersIcon size={16} />
+                  {t('chat.group.newGroup')}
+                </button>
+                <button type="button" className="cht-btn cht-btn--ghost" onClick={() => setActiveTab('add')}>
+                  <UserPlusIcon size={16} />
+                  {t('chat.addFriend')}
+                </button>
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </main>
+      </div>
+
+      {shownListMenu && <ContextMenu state={shownListMenu} open={listMenuOpen} items={listMenuItems} onClose={closeListMenu} />}
+
+      {showShareProject && currentUser && selectedFriend && (
+        <ShareProjectModal
+          username={currentUser.username}
+          onClose={() => setShowShareProject(false)}
+          onShare={handleShareProject}
+        />
       )}
 
-      {/* Сурет көрсету модалы */}
+      {showCreateGroup && currentUser && (
+        <CreateGroupModal
+          currentUserId={currentUser.id}
+          suggestions={friendSuggestions}
+          onClose={() => setShowCreateGroup(false)}
+          onCreated={(group) => {
+            setShowCreateGroup(false);
+            setActiveTab('friends');
+            loadChats();
+            openGroup(group.id);
+          }}
+        />
+      )}
+
+      {/* ---------- Сурет қарау ---------- */}
       {selectedImage && (
-        <div 
-          className="chat-image-viewer-overlay" 
+        <div
+          className="cht-viewer"
           onClick={() => {
             setSelectedImage(null);
             setImageContextMenu(null);
@@ -1944,66 +2802,66 @@ const ChatPage: React.FC = () => {
             setImageContextMenu({ x: e.clientX, y: e.clientY });
           }}
         >
-          <div className="chat-image-viewer-content" onClick={(e) => e.stopPropagation()}>
+          <div className="cht-viewer__bar" onClick={(e) => e.stopPropagation()}>
             <button
-              className="chat-image-viewer-download"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownloadImage(selectedImage.url, selectedImage.filename);
-              }}
-              title={t('chat.saveTitle')}
+              type="button"
+              className="cht-btn cht-btn--primary"
+              onClick={() => handleDownloadImage(selectedImage.url, selectedImage.filename)}
             >
-              <FontAwesomeIcon icon={faDownload} />
-              <span>{t('common.save')}</span>
+              <DownloadIcon size={16} />
+              {t('common.save')}
             </button>
-            <img 
-              src={selectedImage.url} 
-              alt={selectedImage.filename}
-              className="chat-image-viewer-image"
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setImageContextMenu({ x: e.clientX, y: e.clientY });
+            <button
+              type="button"
+              className="cht-icon-btn cht-icon-btn--glass"
+              onClick={() => {
+                setSelectedImage(null);
+                setImageContextMenu(null);
               }}
-            />
-            {imageContextMenu && (
-              <div
-                className="chat-image-context-menu"
-                style={{
-                  position: 'fixed',
-                  top: `${imageContextMenu.y}px`,
-                  left: `${imageContextMenu.x}px`,
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  className="chat-image-context-menu-item"
-                  onClick={() => {
-                    handleDownloadImage(selectedImage.url, selectedImage.filename);
-                    setImageContextMenu(null);
-                  }}
-                >
-                  <FontAwesomeIcon icon={faDownload} />
-                  <span>{t('chat.saveImage')}</span>
-                </button>
-                <button
-                  className="chat-image-context-menu-item"
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedImage.url).then(() => {
-                      alert(t('chat.imageLinkCopied'));
-                    }).catch(() => {
-                      alert(t('chat.copyError'));
-                    });
-                    setImageContextMenu(null);
-                  }}
-                >
-                  <FontAwesomeIcon icon={faFile} />
-                  <span>{t('chat.copyLink')}</span>
-                </button>
-              </div>
-            )}
+              aria-label={t('common.close')}
+            >
+              <CloseIcon size={18} />
+            </button>
           </div>
+          <img
+            src={selectedImage.url}
+            alt={selectedImage.filename}
+            className="cht-viewer__img"
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setImageContextMenu({ x: e.clientX, y: e.clientY });
+            }}
+          />
         </div>
+      )}
+      {selectedImage && shownImageMenu && (
+        <Popover open={imageMenuOpen} anchor={shownImageMenu} onClose={closeImageMenu} placement="bottom-start" ariaLabel={t('chat.saveImage')}>
+          <button
+            type="button"
+            role="menuitem"
+            className="cht-menu__item"
+            onClick={() => handleDownloadImage(selectedImage.url, selectedImage.filename)}
+          >
+            <DownloadIcon size={16} />
+            <span>{t('chat.saveImage')}</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="cht-menu__item"
+            onClick={() => {
+              navigator.clipboard
+                .writeText(selectedImage.url)
+                .then(() => toast.success(t('chat.imageLinkCopied')))
+                .catch(() => toast.error(t('chat.copyError')));
+            }}
+          >
+            <LinkIcon size={16} />
+            <span>{t('chat.copyLink')}</span>
+          </button>
+        </Popover>
       )}
     </div>
   );

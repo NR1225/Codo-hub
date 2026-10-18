@@ -68,7 +68,7 @@ const IDELayout: React.FC = () => {
     <EditorMetaProvider>
       <div
         ref={containerRef}
-        className="flex-1 flex flex-col overflow-hidden relative bg-[var(--ide-bg)]"
+        className="vibe-ide flex-1 flex flex-col overflow-hidden relative"
       >
         {/* Editor + Terminal Area */}
         <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
@@ -76,6 +76,7 @@ const IDELayout: React.FC = () => {
           {isDesktop && (
             <>
               <div
+                data-open={state.leftPanelVisible}
                 className="vibe-panel-left overflow-hidden transition-all duration-300 ease-in-out"
                 style={{
                   width: `${leftWidth}%`,
@@ -102,13 +103,12 @@ const IDELayout: React.FC = () => {
             <>
               {/* Backdrop */}
               <div
-                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fadeIn"
+                className="vibe-overlay-backdrop animate-fadeIn"
                 onClick={closeLeftOverlay}
               />
               {/* Sidebar overlay */}
               <div
-                className="fixed left-0 top-0 bottom-0 z-50 w-[85vw] max-w-[360px] shadow-2xl animate-slideInLeft"
-                style={{ backgroundColor: 'var(--ide-sidebar-bg)' }}
+                className="vibe-overlay vibe-overlay--left animate-slideInLeft"
               >
                 <FileExplorerPanel />
               </div>
@@ -116,7 +116,7 @@ const IDELayout: React.FC = () => {
           )}
 
           {/* Center - Editor + Terminal */}
-          <div className="flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+          <div className="vibe-panel-center flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
             {/* Editor */}
             <div style={{ height: editorHeight }} className="overflow-hidden">
               <EditorPanel />
@@ -155,6 +155,7 @@ const IDELayout: React.FC = () => {
                 />
               )}
               <div
+                data-open={state.rightPanelVisible}
                 className="vibe-panel-right overflow-hidden transition-all duration-300 ease-in-out"
                 style={{
                   width: `${rightWidth}%`,
@@ -173,13 +174,12 @@ const IDELayout: React.FC = () => {
             <>
               {/* Backdrop */}
               <div
-                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fadeIn"
+                className="vibe-overlay-backdrop animate-fadeIn"
                 onClick={closeRightOverlay}
               />
               {/* Chat overlay */}
               <div
-                className="fixed right-0 top-0 bottom-0 z-50 w-[90vw] max-w-[400px] shadow-2xl animate-slideInRight"
-                style={{ backgroundColor: 'var(--ide-sidebar-bg)' }}
+                className="vibe-overlay vibe-overlay--right animate-slideInRight"
               >
                 <ChatPanel />
               </div>

@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faLock, faUser, faComment, faCode } from '@fortawesome/free-solid-svg-icons';
-import UploadModal from '../modals/UploadModal';
+import { faLock, faUser, faLayerGroup, faLaptopCode } from '@fortawesome/free-solid-svg-icons';
+import { faComments } from '@fortawesome/free-regular-svg-icons';
 import ProfileModal from '../modals/ProfileModal';
-import Button from '../ui/Button';
+// Хедер батырмаларының (.btn-secondary) көрінісі осы стильдерге тәуелді —
+// UploadModal алынғанда да сақталуы үшін тікелей импорттаймыз.
+import '../modals/UploadModal.css';
 import LinkButton from '../ui/LinkButton';
 import { apiService, User } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,13 +16,29 @@ import './Header.css';
 
 const Header: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { user: authUser, isAuthenticated } = useAuth();
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [incomingRequestCount, setIncomingRequestCount] = useState(0);
   const [displayUser, setDisplayUser] = useState<User | null>(null);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Хедердің нақты биіктігін --header-h айнымалысына жазамыз: беттер «100vh − хедер»
+  // биіктігін дәл есептейді (қолмен жазылған 64px бөлшек пиксельге қате кетіріп,
+  // артық айналдыру жолағын шығаратын)
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const update = () => root.style.setProperty('--header-h', `${el.getBoundingClientRect().height}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--header-h');
+    };
+  }, []);
 
   // Load avatar from imageStorage for display
   const loadDisplayUser = useCallback(async () => {
@@ -119,7 +137,7 @@ const Header: React.FC = () => {
   }, [loadDisplayUser]);
 
   return (
-    <header className="relative border-b border-border py-[2.6px] sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10">
+    <header ref={headerRef} className="site-header relative border-b border-border py-[2.6px] sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10">
       <div className="w-full m-0 pr-4 pl-4 flex items-center justify-between gap-4 relative flex-nowrap max-[491.5px]:pr-3 max-[491.5px]:pl-3 min-h-[58px]">
         {/* Сайт атауы */}
         <Link
@@ -138,34 +156,27 @@ const Header: React.FC = () => {
         </Link>
         {/* Батырмалар - оң жақта */}
         <div className="flex gap-2 sm:gap-3 items-center flex-shrink-0 flex-nowrap flex-row">
-          {/* Upload батырмасы */}
-          <Button
-            variant="primary"
-            onClick={() => {
-              // Кірмеген қолданушыны логин бетіне өткізу
-              if (!isAuthenticated) {
-                navigate('/login');
-                return;
-              }
-              navigate('/');
-              setIsUploadModalOpen(true);
-            }}
-            icon={<FontAwesomeIcon icon={faUpload} />}
-            className="h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 header-btn-upload"
+          {/* Кодтар батырмасы — барлық жүктелген кодтар беті */}
+          <LinkButton
+            to="/codes"
+            variant="secondary"
+            className="h-[34px] sm:h-[38px] text-[13px] sm:text-[14px] px-3.5 sm:px-4 py-0 gap-2 header-btn-upload header-nav-btn"
+            title={t('header.codes')}
+            icon={<FontAwesomeIcon icon={faLayerGroup} />}
           >
-            <span className="max-[360px]:hidden">{t('common.upload')}</span>
-          </Button>
+            <span className="max-[360px]:hidden">{t('header.codes')}</span>
+          </LinkButton>
 
           {/* Chat батырмасы */}
           {isAuthenticated && (
             <LinkButton
               to="/chat"
               variant="secondary"
-              className="relative h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 min-w-[60px] sm:min-w-[80px] header-btn-chat"
+              className="relative h-[34px] sm:h-[38px] text-[13px] sm:text-[14px] px-3.5 sm:px-4 py-0 gap-2 header-btn-chat header-nav-btn"
               title={t('header.chat')}
               icon={
                 <>
-                  <FontAwesomeIcon icon={faComment} />
+                  <FontAwesomeIcon icon={faComments} />
                   {incomingRequestCount > 0 && (
                     <span className="absolute -top-[5.1px] -right-[5.1px] bg-error text-white rounded-full w-[12.8px] h-[12.8px] flex items-center justify-center text-[0.7rem] font-semibold border-[1.3px] border-bg-primary shadow-[0_1.3px_2.6px_rgba(0,0,0,0.2)]">
                       {incomingRequestCount > 99 ? '99+' : incomingRequestCount}
@@ -182,9 +193,9 @@ const Header: React.FC = () => {
           <LinkButton
             to="/vibecoding"
             variant="secondary"
-            className="h-[32px] sm:h-[36px] text-[12.5px] sm:text-[14.5px] px-2 sm:px-3 py-0.5 min-w-[60px] sm:min-w-[80px] header-btn-vibecoding"
+            className="h-[34px] sm:h-[38px] text-[13px] sm:text-[14px] px-3.5 sm:px-4 py-0 gap-2 header-btn-vibecoding header-nav-btn"
             title={t('vibecoding.title', 'Vibecoding')}
-            icon={<FontAwesomeIcon icon={faCode} />}
+            icon={<FontAwesomeIcon icon={faLaptopCode} />}
           >
             <span className="max-[360px]:hidden">{t('vibecoding.title', 'Vibecoding')}</span>
           </LinkButton>
@@ -196,7 +207,7 @@ const Header: React.FC = () => {
               onClick={() => setIsProfileModalOpen(!isProfileModalOpen)}
               className="flex items-center justify-center gap-0 p-0 rounded-full no-underline text-text-primary transition-all bg-transparent border-none relative overflow-visible cursor-pointer w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] box-border font-inherit text-inherit dark:bg-gradient-to-br dark:from-[rgba(0,153,204,0.08)] dark:to-[rgba(0,175,202,0.05)] hover:-translate-y-[1.3px] header-btn-profile"
             >
-              <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-full bg-accent-gradient flex items-center justify-center text-sm font-bold text-white flex-shrink-0 shadow-md drop-shadow-[0_0_12.8px_rgba(0,175,202,0.3)] transition-all overflow-hidden relative border-[1.3px] border-[rgba(0,175,202,0.3)] hover:shadow-lg hover:drop-shadow-[0_0_19.2px_rgba(0,175,202,0.5)] hover:border-primary hover:scale-105">
+              <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-full bg-[#0d0d0d] flex items-center justify-center text-[14px] font-semibold tracking-[0.02em] text-white flex-shrink-0 shadow-md drop-shadow-[0_0_12.8px_rgba(0,175,202,0.3)] transition-all overflow-hidden relative border-[1.3px] border-[rgba(0,175,202,0.3)] hover:shadow-lg hover:drop-shadow-[0_0_19.2px_rgba(0,175,202,0.5)] hover:border-primary hover:scale-105">
                 {displayUser.avatar ? (
                   <img
                     src={displayUser.avatar}
@@ -225,13 +236,6 @@ const Header: React.FC = () => {
           )}
         </div>
       </div>
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onSuccess={() => {
-          setIsUploadModalOpen(false);
-        }}
-      />
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}

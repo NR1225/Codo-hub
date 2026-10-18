@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SiteConfigProvider, useSiteConfig } from './contexts/SiteConfigContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { apiService } from './utils/api';
+import { websocketService } from './utils/websocket';
 import { initializeFirebase, isFirebaseInitialized } from './utils/firebase';
 import Header from './components/layout/Header';
 import ScrollToTop from './components/layout/ScrollToTop';
@@ -15,6 +17,8 @@ import './styles/theme.css';
 // Lazy load pages for better performance
 const Home = lazy(() => import('./pages/Home'));
 const Upload = lazy(() => import('./pages/Upload'));
+const CodesPage = lazy(() => import('./pages/CodesPage'));
+const CodesListPage = lazy(() => import('./pages/CodesListPage'));
 const ViewCode = lazy(() => import('./pages/ViewCode'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -35,6 +39,7 @@ const AuthBridge: React.FC = () => {
   const { getAccessToken } = useAuth();
   useEffect(() => {
     apiService.setTokenGetter(getAccessToken);
+    websocketService.setTokenGetter(getAccessToken);
   }, [getAccessToken]);
   return null;
 };
@@ -52,17 +57,25 @@ const FirebaseBridge: React.FC = () => {
 
 // Loading component — беттің қаңқасын (skeleton) көрсетіп, толық spinner
 // флешын азайтады; беттің ашылып жатқанын бірден көрсетеді.
-const PageLoader: React.FC = () => (
-  <div className="page-skeleton" aria-hidden="true">
-    <div className="page-skeleton-bar page-skeleton-bar--lg" />
-    <div className="page-skeleton-bar page-skeleton-bar--md" />
-    <div className="page-skeleton-grid">
-      <div className="page-skeleton-card" />
-      <div className="page-skeleton-card" />
-      <div className="page-skeleton-card" />
+const PageLoader: React.FC = () => {
+  const { pathname } = useLocation();
+  // Басты бет қара фонда — жүктелу кезінде де қара болсын, әйтпесе сұр қаңқа
+  // түсті body фонында жыпылықтап, содан кейін қара бетке ауысады
+  // Кодтар, Чат, Vibecoding, Баптаулар және Профиль беттері де басты беттің қара дизайнында
+  const isDarkPage = pathname === '/' || pathname === '/chat' || pathname.startsWith('/chat/') || pathname.startsWith('/codes') || pathname === '/vibecoding' || pathname.startsWith('/settings') || pathname.startsWith('/profile');
+  if (isDarkPage) return <div className="page-skeleton--home" aria-hidden="true" />;
+  return (
+    <div className="page-skeleton" aria-hidden="true">
+      <div className="page-skeleton-bar page-skeleton-bar--lg" />
+      <div className="page-skeleton-bar page-skeleton-bar--md" />
+      <div className="page-skeleton-grid">
+        <div className="page-skeleton-card" />
+        <div className="page-skeleton-card" />
+        <div className="page-skeleton-card" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AppContent: React.FC = () => {
   const { t } = useTranslation();
@@ -71,21 +84,21 @@ const AppContent: React.FC = () => {
   // Hide header and sidebar on auth pages (login, register, forgot/reset password)
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
     || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  const isVibecodingPage = location.pathname === '/vibecoding';
-  
   return (
     <div className="app">
-      {!isAuthPage && !isVibecodingPage && <Header />}
+      {!isAuthPage && <Header />}
       {!isAuthPage ? (
         <main className="app-main">
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/codes" element={<CodesPage />} />
+              <Route path="/codes/list" element={<CodesListPage />} />
               <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
               <Route path="/view/:id" element={<ProtectedRoute><ViewCode /></ProtectedRoute>} />
               <Route path="/profile/:username?" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+              <Route path="/settings/:tab?" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/chat/*" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
               <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
               <Route path="/features" element={<ProtectedRoute><FeaturesPage /></ProtectedRoute>} />
               <Route path="/terms" element={<ProtectedRoute><TermsPage /></ProtectedRoute>} />
@@ -124,12 +137,14 @@ const App: React.FC = () => {
     <ThemeProvider>
       <AuthProvider>
         <SiteConfigProvider>
-          <Router>
-            <AuthBridge />
-            <FirebaseBridge />
-            <ScrollToTop />
-            <AppContent />
-          </Router>
+          <ToastProvider>
+            <Router>
+              <AuthBridge />
+              <FirebaseBridge />
+              <ScrollToTop />
+              <AppContent />
+            </Router>
+          </ToastProvider>
         </SiteConfigProvider>
       </AuthProvider>
     </ThemeProvider>

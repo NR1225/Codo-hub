@@ -1,21 +1,47 @@
 import React, { useCallback, useRef, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '../../contexts/ThemeContext';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { useEditorMeta } from '../../contexts/EditorMetaContext';
 import EditorTabBar from './EditorTabBar';
-import Editor, { OnMount } from '@monaco-editor/react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faCode,
-  faFileAlt,
-  faFolderTree,
-  faChevronRight,
-} from '@fortawesome/free-solid-svg-icons';
+import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
+import { CodeIcon, ExplorerIcon, FilePlusIcon, ChevronIcon } from './icons';
+
+// Monaco тақырыбы — беттің қара монохром палитрасымен бірдей
+const KH_THEME = 'kh-dark';
+const defineTheme: BeforeMount = (monaco) => {
+  monaco.editor.defineTheme(KH_THEME, {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '6b6b6b', fontStyle: 'italic' },
+    ],
+    colors: {
+      'editor.background': '#0a0a0a',
+      'editor.foreground': '#e5e5e5',
+      'editorLineNumber.foreground': '#3a3a3a',
+      'editorLineNumber.activeForeground': '#d4d4d4',
+      'editor.lineHighlightBackground': '#141414',
+      'editor.lineHighlightBorder': '#00000000',
+      'editorCursor.foreground': '#fafafa',
+      'editor.selectionBackground': '#ffffff26',
+      'editor.inactiveSelectionBackground': '#ffffff14',
+      'editorIndentGuide.background1': '#1c1c1c',
+      'editorIndentGuide.activeBackground1': '#3a3a3a',
+      'editorWidget.background': '#111111',
+      'editorWidget.border': '#262626',
+      'editorSuggestWidget.background': '#111111',
+      'editorSuggestWidget.border': '#262626',
+      'editorSuggestWidget.selectedBackground': '#1f1f1f',
+      'scrollbarSlider.background': '#ffffff14',
+      'scrollbarSlider.hoverBackground': '#ffffff24',
+      'scrollbarSlider.activeBackground': '#ffffff33',
+      'minimap.background': '#0a0a0a',
+    },
+  });
+};
 
 const EditorPanel: React.FC = () => {
   const { t } = useTranslation();
-  const { theme } = useTheme();
   const { dispatch, activeFile, activeProject, editorSettings } = useVibecoding();
   const { setMeta } = useEditorMeta();
   const editorRef = useRef<any>(null);
@@ -119,56 +145,48 @@ const EditorPanel: React.FC = () => {
 
   if (!activeFile) {
     return (
-      <div className="h-full flex flex-col bg-[var(--ide-editor-bg)] relative">
+      <div className="vx-editor">
         <EditorTabBar />
-        <div className="flex-1 flex items-center justify-center text-[var(--ide-text-muted)] p-4">
-          <div className="vibe-empty-card vibe-glass animate-fadeIn">
-            <div className="vibe-holo-icon">
-              <FontAwesomeIcon
-                icon={faCode}
-                className="text-3xl"
-                style={{ color: 'var(--ide-accent)' }}
-              />
+        <div className="vx-editor__empty">
+          <div className="vx-welcome">
+            <div className="vx-orb vx-orb--spin">
+              <CodeIcon size={28} />
             </div>
 
-            <h3 className="text-lg font-bold text-[var(--ide-text)] mb-2 relative z-10">
+            <h3 className="vx-welcome__title">
               {t('vibecoding.editor.noFileOpen', 'Файл ашылмаған')}
             </h3>
-            <p className="text-xs opacity-70 max-w-[280px] mx-auto leading-relaxed mb-6 relative z-10">
+            <p className="vx-welcome__sub">
               {t('vibecoding.editor.noFileOpenHint', 'Эксплорерден файл таңдаңыз немесе жаңа файл жасаңыз')}
             </p>
 
-            <div className="flex items-center justify-center gap-3 flex-wrap relative z-10">
-              <button onClick={handleOpenExplorer} className="vibe-btn vibe-btn-secondary">
-                <FontAwesomeIcon icon={faFolderTree} className="text-[10px]" />
+            <div className="vx-welcome__actions">
+              <button type="button" onClick={handleOpenExplorer} className="vx-btn vx-btn--ghost">
+                <ExplorerIcon size={15} />
                 {t('vibecoding.editor.openFile', 'Файл таңдау')}
               </button>
-              <button onClick={handleCreateFile} className="vibe-btn">
-                <FontAwesomeIcon icon={faFileAlt} className="text-[10px]" />
+              <button type="button" onClick={handleCreateFile} className="vx-btn vx-btn--primary">
+                <FilePlusIcon size={15} />
                 {t('vibecoding.editor.newFile', 'Жаңа файл')}
               </button>
             </div>
 
-            {/* Keyboard shortcut hints */}
-            <div className="flex items-center justify-center gap-4 mt-7 text-[10px] opacity-50 relative z-10 flex-wrap">
-              <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--ide-hover)', color: 'var(--ide-text-muted)' }}>Ctrl</kbd>
-                <span>+</span>
-                <kbd className="px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--ide-hover)', color: 'var(--ide-text-muted)' }}>B</kbd>
-                <span className="ml-1">Эксплорер</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--ide-hover)', color: 'var(--ide-text-muted)' }}>Ctrl</kbd>
-                <span>+</span>
-                <kbd className="px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--ide-hover)', color: 'var(--ide-text-muted)' }}>J</kbd>
-                <span className="ml-1">Терминал</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--ide-hover)', color: 'var(--ide-text-muted)' }}>Ctrl</kbd>
-                <span>+</span>
-                <kbd className="px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--ide-hover)', color: 'var(--ide-text-muted)' }}>P</kbd>
-                <span className="ml-1">Палитра</span>
-              </div>
+            {/* Пернелер тіркесімі */}
+            <div className="vx-welcome__keys">
+              {[
+                ['B', 'Эксплорер'],
+                ['J', 'Терминал'],
+                ['I', 'ЖИ'],
+                ['P', 'Палитра'],
+              ].map(([key, label]) => (
+                <div key={key} className="vx-welcome__key">
+                  <span>{label}</span>
+                  <span className="vx-welcome__kbd">
+                    <kbd>Ctrl</kbd>
+                    <kbd>{key}</kbd>
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -177,16 +195,16 @@ const EditorPanel: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[var(--ide-editor-bg)]">
+    <div className="vx-editor">
       <EditorTabBar />
 
       {/* Breadcrumbs */}
       <div className="vibe-breadcrumbs">
         {breadcrumbs.map((bc, i) => (
           <React.Fragment key={i}>
-            {i > 0 && <FontAwesomeIcon icon={faChevronRight} className="vibe-breadcrumb-sep text-[8px]" />}
+            {i > 0 && <span className="vibe-breadcrumb-sep"><ChevronIcon size={11} /></span>}
             <span className="vibe-breadcrumb">
-              {i === 0 && <FontAwesomeIcon icon={faCode} className="text-[9px]" style={{ color: 'var(--ide-accent)' }} />}
+              {i === 0 && <CodeIcon size={12} />}
               <span style={i === breadcrumbs.length - 1 ? { color: 'var(--ide-text)' } : undefined}>
                 {bc.label}
               </span>
@@ -199,7 +217,8 @@ const EditorPanel: React.FC = () => {
         <Editor
           height="100%"
           language={editorLanguage}
-          theme={theme === 'dark' ? 'vs-dark' : 'light'}
+          theme={KH_THEME}
+          beforeMount={defineTheme}
           value={activeFile.content}
           onChange={handleEditorChange}
           onMount={handleEditorMount}
@@ -213,7 +232,7 @@ const EditorPanel: React.FC = () => {
             tabSize: editorSettings.tabSize,
             automaticLayout: true,
             scrollBeyondLastLine: false,
-            padding: { top: 8, bottom: 8 },
+            padding: { top: 12, bottom: 12 },
             suggestOnTriggerCharacters: true,
             lineNumbers: editorSettings.lineNumbers,
             renderLineHighlight: 'all',
@@ -242,11 +261,9 @@ const EditorPanel: React.FC = () => {
             fixedOverflowWidgets: true,
           }}
           loading={
-            <div className="flex items-center justify-center h-full bg-[var(--ide-editor-bg)] text-[var(--ide-text-muted)]">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 border-2 border-[var(--ide-accent)] border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">{t('vibecoding.editor.loading', 'Редактор жүктелуде...')}</span>
-              </div>
+            <div className="vx-editor__loading">
+              <span className="vx-spinner" />
+              <span>{t('vibecoding.editor.loading', 'Редактор жүктелуде...')}</span>
             </div>
           }
         />

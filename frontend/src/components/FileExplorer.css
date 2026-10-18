@@ -50,32 +50,32 @@
 }
 
 .file-explorer-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #00AFCA 0%, #00AFCA 50%, #fbbf24 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #fbbf24 100%);
   border-radius: 3.0px;
   border: 1.0px solid var(--bg-secondary);
   box-shadow: 0 1.0px 2.1px rgba(0, 0, 0, 0.1);
 }
 
 .file-explorer-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #0099CC 0%, #0099CC 50%, #f59e0b 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #f59e0b 100%);
   box-shadow: 0 2.1px 4.1px rgba(0, 0, 0, 0.15);
 }
 
 .dark-theme .file-explorer-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #00AFCA 0%, #00AFCA 50%, #0099CC 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
 .dark-theme .file-explorer-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #0099CC 0%, #0099CC 50%, #00AFCA 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   .file-explorer-content::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #00AFCA 0%, #00AFCA 50%, #0099CC 100%);
+    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
   }
 
   .file-explorer-content::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #0099CC 0%, #0099CC 50%, #00AFCA 100%);
+    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
   }
 }
 
@@ -155,7 +155,7 @@
 
 .file-item.selected {
   background: var(--primary-color);
-  color: white;
+  color: #0a0a0a;
 }
 
 .file-icon {

@@ -1,0 +1,635 @@
+/* 3-кезең (ChatExtras.tsx): дауыстық хабарлама, сауалнама, ортақ медиа, чат белгілері.
+   Көпіршік ішіндегі бөліктер currentColor арқылы боялады — өзімдікі (ақ) мен досымдікі (қара) екеуінде де көрінеді */
+
+/* ── Дауыс жазу жолағы (жазу өрісінің орнында) ── */
+.cht-rec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 4px 4px 6px;
+  border-radius: 14px;
+  background: #121212;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  animation: chtRecIn 0.25s var(--cht-ease, ease);
+}
+
+@keyframes chtRecIn {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+.cht-rec__cancel,
+.cht-rec__send {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.cht-rec__cancel {
+  background: transparent;
+  color: #a3a3a3;
+}
+
+.cht-rec__cancel:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.cht-rec__send {
+  background: #fafafa;
+  color: #0a0a0a;
+}
+
+.cht-rec__send:hover {
+  transform: scale(1.06);
+}
+
+.cht-rec__dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f87171;
+  animation: chtRecPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chtRecPulse {
+  50% { opacity: 0.25; }
+}
+
+.cht-rec__time {
+  min-width: 38px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f5f5f5;
+}
+
+.cht-rec__wave {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.cht-rec__wave span {
+  flex: 0 0 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: #d4d4d4;
+  transform-origin: center;
+  transition: transform 0.1s linear;
+}
+
+.cht-rec__hint {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: #6b6b6b;
+}
+
+@media (max-width: 520px) {
+  .cht-rec__hint { display: none; }
+}
+
+/* ── Дауыстық хабарлама ── */
+.cht-voice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 260px;
+  max-width: 100%;
+  padding: 2px 0;
+}
+
+.cht-voice audio { display: none; }
+
+.cht-voice__play {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+  transition: transform 0.18s var(--cht-spring, ease);
+}
+
+.cht-voice__play svg {
+  /* Түймедегі белгіше — көпіршіктің фон түсінде */
+  color: #fafafa;
+}
+
+.chat-message.own .cht-voice__play svg { color: #fafafa; }
+.chat-message.own .cht-voice__play { background: #0a0a0a; }
+.chat-message.other .cht-voice__play { background: #fafafa; }
+.chat-message.other .cht-voice__play svg { color: #0a0a0a; }
+
+.cht-voice__play:hover { transform: scale(1.07); }
+.cht-voice__play:active { transform: scale(0.95); }
+
+.cht-voice__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cht-voice__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cht-voice__wave {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.cht-voice__wave span {
+  flex: 1;
+  min-width: 2px;
+  max-width: 4px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+
+.cht-voice__wave span.is-played { opacity: 1; }
+
+.cht-voice__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* Тыңдалмаған дауыстық хабарлама — ұзақтығының жанындағы нүкте (Telegram сияқты) */
+.cht-voice__unheard {
+  width: 6px;
+  height: 6px;
+  margin: 0 auto 0 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: chtPop 0.35s var(--cht-spring);
+}
+
+.cht-voice__speed {
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  color: inherit;
+  font: inherit;
+  font-size: 0.66rem;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+/* ── Сауалнама ── */
+.cht-poll {
+  width: 280px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.cht-poll__question {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.cht-poll__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.cht-poll__options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.cht-poll__option,
+.cht-poll__result {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.cht-poll__option {
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.cht-poll__option:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.cht-poll__option:active:not(:disabled) { transform: scale(0.985); }
+
+.cht-poll__mark {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.cht-poll__mark.is-square { border-radius: 5px; }
+
+.cht-poll__option.is-on .cht-poll__mark {
+  background: currentColor;
+}
+
+.cht-poll__option.is-on .cht-poll__mark svg { color: #888; }
+.chat-message.own .cht-poll__option.is-on .cht-poll__mark svg { color: #fafafa; }
+.chat-message.other .cht-poll__option.is-on .cht-poll__mark svg { color: #0a0a0a; }
+
+.cht-poll__text {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cht-poll__bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  transition: width 0.5s var(--cht-ease, ease);
+}
+
+.cht-poll__result.is-mine .cht-poll__bar {
+  background: color-mix(in srgb, currentColor 24%, transparent);
+}
+
+.cht-poll__result.is-mine { font-weight: 700; }
+
+.cht-poll__percent {
+  position: relative;
+  min-width: 34px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cht-poll__result svg { position: relative; flex-shrink: 0; }
+
+.cht-poll__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.cht-poll__link {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.cht-poll__link:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── Сауалнама құру терезесі ── */
+.cht-pollmodal {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.cht-pollmodal__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 14px 0 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--cht-muted);
+}
+
+.cht-pollmodal__label:first-child { margin-top: 0; }
+
+.cht-pollmodal__label span {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--cht-faint);
+}
+
+.cht-pollmodal__options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.cht-pollmodal__option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: chtRecIn 0.2s var(--cht-ease, ease);
+}
+
+.cht-pollmodal__option .cht-field { flex: 1; }
+
+.cht-pollmodal__switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cht-pollmodal__switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cht-pollmodal__track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #2a2a2a;
+  transition: background-color 0.2s ease;
+}
+
+.cht-pollmodal__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a3a3a3;
+  transition: transform 0.22s var(--cht-spring, ease), background-color 0.2s ease;
+}
+
+.cht-pollmodal__switch input:checked + .cht-pollmodal__track { background: #fafafa; }
+
+.cht-pollmodal__switch input:checked + .cht-pollmodal__track::after {
+  transform: translateX(16px);
+  background: #0a0a0a;
+}
+
+.cht-pollmodal__switch input:focus-visible + .cht-pollmodal__track {
+  outline: 2px solid #fafafa;
+  outline-offset: 2px;
+}
+
+/* ── Ортақ медиа ── */
+.cht-shared {
+  margin-top: 18px;
+}
+
+.cht-shared__tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #101010;
+  box-shadow: inset 0 0 0 1px var(--cht-line);
+}
+
+.cht-shared__tab {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--cht-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cht-shared__tab span {
+  font-size: 0.66rem;
+  opacity: 0.7;
+}
+
+.cht-shared__tab:hover { color: var(--text-primary); }
+
+.cht-shared__tab.is-active {
+  background: #1f1f1f;
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px #2e2e2e;
+}
+
+.cht-media__item--video {
+  position: relative;
+}
+
+.cht-media__item--video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.cht-media__badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+}
+
+.cht-shared__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cht-shared__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cht-shared__row:hover { background: var(--cht-hover); }
+
+.cht-shared__icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #1a1a1a;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  color: #d4d4d4;
+}
+
+.cht-shared__info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cht-shared__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.cht-shared__sub {
+  font-size: 0.72rem;
+  color: var(--cht-faint);
+}
+
+/* ── Чаттар тізімі: бекітілген / дыбыссыз / мұрағат / сақталған ── */
+.cht-saved-avatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cht-avatar-bg);
+  box-shadow: inset 0 0 0 1px var(--cht-avatar-ring);
+  color: var(--cht-avatar-fg);
+}
+
+.cht-saved-avatar.cht-avatar--xl {
+  width: 84px;
+  height: 84px;
+}
+
+.cht-item__flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  color: var(--cht-faint);
+}
+
+.cht-unread.is-muted {
+  background: #3a3a3a;
+  color: #d4d4d4;
+}
+
+.cht-item.is-pinned {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.cht-bar__name .cht-item__flags {
+  margin-left: 6px;
+  vertical-align: -1px;
+}
+
+.cht-layout.is-collapsed .cht-item__flags {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cht-rec,
+  .cht-rec__dot,
+  .cht-pollmodal__option {
+    animation: none;
+  }
+}
+
+/* Тізім тақырыбындағы «Сақталған хабарламалар» батырмасы — жинау батырмасының алдында */
+.cht-side__saved {
+  margin-left: auto;
+}
+
+.cht-side__saved + .cht-side__collapse,
+.cht-layout.is-collapsed .cht-side__saved {
+  margin-left: 0;
+}

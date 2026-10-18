@@ -266,8 +266,8 @@
 
 .profile-nav-link:hover {
   background: linear-gradient(90deg, 
-    rgba(0, 175, 202, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
   color: var(--primary-color);
   border-color: var(--primary-color);
   transform: translateX(2.6px);
@@ -276,14 +276,14 @@
 
 .light-theme .profile-nav-link:hover {
   background: linear-gradient(90deg, 
-    rgba(59, 130, 246, 0.12) 0%, 
-    rgba(37, 99, 235, 0.08) 100%);
+    rgba(212, 212, 212, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
 }
 
 .profile-nav-link.active {
   background: linear-gradient(90deg, 
-    rgba(0, 175, 202, 0.15) 0%, 
-    rgba(0, 153, 204, 0.1) 100%);
+    rgba(212, 212, 212, 0.15) 0%, 
+    rgba(212, 212, 212, 0.1) 100%);
   color: var(--primary-color);
   border-color: var(--primary-color);
   font-weight: 700;
@@ -292,8 +292,8 @@
 
 .light-theme .profile-nav-link.active {
   background: linear-gradient(90deg, 
-    rgba(59, 130, 246, 0.15) 0%, 
-    rgba(37, 99, 235, 0.1) 100%);
+    rgba(212, 212, 212, 0.15) 0%, 
+    rgba(212, 212, 212, 0.1) 100%);
 }
 
 .profile-modal-theme-toggle {
@@ -323,8 +323,8 @@
 
 .profile-theme-toggle-btn:hover {
   background: linear-gradient(90deg, 
-    rgba(0, 175, 202, 0.12) 0%, 
-    rgba(0, 153, 204, 0.08) 100%);
+    rgba(212, 212, 212, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
   color: var(--primary-color);
   border-color: var(--primary-color);
   transform: translateX(2.6px);
@@ -333,8 +333,8 @@
 
 .light-theme .profile-theme-toggle-btn:hover {
   background: linear-gradient(90deg, 
-    rgba(59, 130, 246, 0.12) 0%, 
-    rgba(37, 99, 235, 0.08) 100%);
+    rgba(212, 212, 212, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
 }
 
 .theme-label {

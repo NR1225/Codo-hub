@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useConfirm, LOGOUT_ICON } from '../../contexts/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCog, 
@@ -20,6 +21,7 @@ interface ProfileModalProps {
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef }) => {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -58,8 +60,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
     }
   }, [isOpen, buttonRef]);
 
-  const handleLogout = () => {
-    const confirmed = window.confirm(t('settings.logoutConfirm'));
+  const handleLogout = async () => {
+    const confirmed = await confirm({
+      title: t('settings.logoutConfirm'),
+      message: t('settings.logoutConfirmMessage'),
+      confirmText: t('settings.logout'),
+      danger: true,
+      icon: LOGOUT_ICON,
+    });
     
     if (!confirmed) {
       return;

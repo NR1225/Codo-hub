@@ -121,7 +121,7 @@
 
 .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb,
 .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #00AFCA 0%, #00AFCA 50%, #fbbf24 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #fbbf24 100%);
   border-radius: 3.8px;
   border: 1.3px solid var(--bg-code);
   box-shadow: 0 1.3px 2.6px rgba(0, 0, 0, 0.2);
@@ -129,29 +129,29 @@
 
 .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb:hover,
 .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #0099CC 0%, #0099CC 50%, #f59e0b 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #f59e0b 100%);
   box-shadow: 0 2.6px 5.1px rgba(0, 0, 0, 0.3);
 }
 
 .dark-theme .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb,
 .dark-theme .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #00AFCA 0%, #00AFCA 50%, #0099CC 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
 .dark-theme .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb:hover,
 .dark-theme .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #0099CC 0%, #0099CC 50%, #00AFCA 100%);
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb,
   .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #00AFCA 0%, #00AFCA 50%, #0099CC 100%);
+    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
   }
 
   .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb:hover,
   .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #0099CC 0%, #0099CC 50%, #00AFCA 100%);
+    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
   }
 }
 

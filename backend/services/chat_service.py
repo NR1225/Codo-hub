@@ -1,6 +1,7 @@
 """Chat service for business logic"""
 from typing import List, Dict, Any
-from database import messages, users, friends
+from database import messages, friends
+from services.user_lookup import find_public_user
 
 
 class ChatService:
@@ -24,15 +25,16 @@ class ChatService:
         
         chats = []
         for partner_id in conversation_partners:
-            partner = next((u for u in users if u['id'] == partner_id), None)
+            partner = find_public_user(partner_id)
             if not partner:
                 continue
             
             # Get conversation messages
             conversation_messages = [
                 msg for msg in messages
-                if (msg.get('fromUserId') == user_id and msg.get('toUserId') == partner_id) or
-                   (msg.get('fromUserId') == partner_id and msg.get('toUserId') == user_id)
+                if ((msg.get('fromUserId') == user_id and msg.get('toUserId') == partner_id) or
+                    (msg.get('fromUserId') == partner_id and msg.get('toUserId') == user_id))
+                and user_id not in (msg.get('deletedFor') or [])
             ]
             
             # Get last message if exists

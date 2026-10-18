@@ -1,34 +1,67 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useVibecoding, VibecodingProvider } from '../contexts/VibecodingContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faCode,
-  faTerminal,
-  faRobot,
-  faFolderTree,
-  faUpload,
-  faComments,
-  faHome,
-  faSun,
-  faMoon,
-  faBars,
-  faMagnifyingGlass,
-} from '@fortawesome/free-solid-svg-icons';
+import { useVibecoding, VibecodingProvider, Project, detectLanguage } from '../contexts/VibecodingContext';
+import { apiService } from '../utils/api';
+import { ExplorerIcon, MenuIcon, TerminalIcon, SparkleIcon, SearchIcon, CommandIcon } from '../components/vibecoding/icons';
 import IDELayout from '../components/vibecoding/IDELayout';
 import CommandPalette from '../components/vibecoding/CommandPalette';
-import { useTheme } from '../contexts/ThemeContext';
 import './VibecodingPage.css';
+import '../components/vibecoding/VibecodingPanels.css';
 
 /* ─── Main component ─── */
 const VibecodingPageInner: React.FC = () => {
   const { t } = useTranslation();
-  const { state, dispatch, activeFile, isMobile, isDesktop } = useVibecoding();
-  const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
+  const { state, dispatch, activeFile, activeProject, isMobile, syncReady } = useVibecoding();
 
   const [paletteMode, setPaletteMode] = useState<'files' | 'commands' | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Басты беттің «Жобалар» панелінен келу:
+  //   ?project=<id>  — Vibecoding жобасы
+  //   ?repo=<codeId> — жүктелген жоба (бірінші рет ашылғанда Vibecoding-ке көшіріледі)
+  //   &file=<path>   — ашылатын файл
+  const handledLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    const projectId = searchParams.get('project');
+    const repoId = searchParams.get('repo');
+    if ((!projectId && !repoId) || !syncReady) return;
+    const linkKey = searchParams.toString();
+    if (handledLinkRef.current === linkKey) return;
+    handledLinkRef.current = linkKey;
+    const path = searchParams.get('file') || undefined;
+
+    const openTarget = async () => {
+      if (projectId) {
+        dispatch({ type: 'OPEN_PROJECT_FILE', payload: { projectId, path } });
+        return;
+      }
+      const targetId = `repo-${repoId}`;
+      if (!state.projects.some((p) => p.id === targetId)) {
+        const root = await apiService.getCodeFile(repoId!);
+        const sources = root.isFolder
+          ? (await apiService.getCodeFiles(repoId!, 1000, 0, true)).codes
+          : [root];
+        const project: Project = {
+          id: targetId,
+          name: root.title,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          files: sources.map((f) => {
+            const filePath = f.folderPath || f.title;
+            const name = filePath.split('/').pop() || f.title;
+            return { id: f.id, name, path: filePath, content: f.content ?? '', language: detectLanguage(name), isDirty: false };
+          }),
+        };
+        dispatch({ type: 'UPSERT_PROJECT', payload: { project } });
+      }
+      dispatch({ type: 'OPEN_PROJECT_FILE', payload: { projectId: targetId, path } });
+    };
+
+    openTarget()
+      .catch((err) => console.error('Failed to open project in Vibecoding:', err))
+      .finally(() => setSearchParams({}, { replace: true }));
+  }, [searchParams, setSearchParams, syncReady, state.projects, dispatch]);
 
   const openFilePalette = useCallback(() => setPaletteMode('files'), []);
   const openCommandPalette = useCallback(() => setPaletteMode('commands'), []);
@@ -92,155 +125,95 @@ const VibecodingPageInner: React.FC = () => {
     };
   }, []);
 
-  const isDark = theme === 'dark';
-
+  // Бет басты беттің дизайн тілінде: сайт хедері үстінде, қара фон,
+  // қалқымалы панельдер (Home.css, HomeSidebar.css)
   return (
-    <div
-      className={`vibe-root fixed inset-0 flex flex-col overflow-hidden select-none ${isDark ? '' : 'light-theme'}`}
-      style={{ color: 'var(--ide-text)', zIndex: 100 }}
-    >
-      {/* ═══════════════════════════════════════════════════
-          CONTENT LAYER
-          (the ambient gradient lives on .vibe-root::before)
-          ═══════════════════════════════════════════════════ */}
+    <div className="vibe-root select-none">
+      {/* Фон: жоғарыдан түсетін жұмсақ жарық + нүктелі тор */}
+      <div className="vibe-ambient" aria-hidden="true">
+        <span className="vibe-ambient__glow vibe-ambient__glow--a" />
+        <span className="vibe-ambient__glow vibe-ambient__glow--b" />
+        <span className="vibe-ambient__grid" />
+      </div>
       <div className="vibe-content-layer">
-        {/* IDE Header / Title bar */}
-        <div className={`vibe-glass flex items-center flex-shrink-0 ${isMobile ? 'h-9' : 'h-10'}`}>
-          {/* Activity bar — only on desktop */}
-          {isDesktop && (
-            <div
-              className="flex flex-col items-center w-11 h-full py-1 gap-0.5"
-              style={{
-                backgroundColor: 'var(--ide-sidebar-bg)',
-                borderRight: '1px solid var(--ide-border)',
-              }}
+        {/* Құралдар панелі — IDE панельдерін басқару */}
+        <div className="vibe-toolbar">
+          <div className="vibe-toolbar__group">
+            <button
+              onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
+              className={`vibe-header-tab ${state.leftPanelVisible ? 'active' : ''}`}
+              title={t('vibecoding.layout.toggleExplorer')}
             >
-              <button
-                onClick={() => navigate('/')}
-                className="w-8 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--ide-hover)] transition-colors"
-                title={t('common.home', 'Басты бет')}
-              >
-                <FontAwesomeIcon icon={faCode} className="text-[var(--ide-accent)] text-sm" />
-              </button>
-              <button
-                onClick={openFilePalette}
-                className="w-8 h-7 flex items-center justify-center rounded-lg hover:bg-[var(--ide-hover)] transition-colors"
-                title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
-              >
-                <FontAwesomeIcon icon={faMagnifyingGlass} className="text-[var(--ide-text-muted)] text-xs" />
-              </button>
-            </div>
-          )}
-
-          {/* Title bar */}
-          <div className={`flex-1 flex items-center ${isMobile ? 'px-2 gap-1' : 'px-3 gap-2'} h-full`}>
-            {/* Left actions - Panel toggles */}
-            <div className="flex items-center gap-1">
-              {isMobile && (
-                <button
-                  onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
-                  className={`vibe-header-tab !p-1.5 ${state.leftPanelVisible ? 'active' : ''}`}
-                  title={t('vibecoding.layout.toggleExplorer')}
-                >
-                  <FontAwesomeIcon icon={faBars} className="text-[11px]" />
-                </button>
-              )}
-
-              {!isMobile && (
-                <button
-                  onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
-                  className={`vibe-header-tab ${state.leftPanelVisible ? 'active' : ''}`}
-                  title={t('vibecoding.layout.toggleExplorer')}
-                >
-                  <FontAwesomeIcon icon={faFolderTree} className="text-[10px]" />
-                  <span className="hidden sm:inline">{t('vibecoding.fileExplorer.title', 'Эксплорер')}</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
-                className={`vibe-header-tab ${state.bottomPanelVisible ? 'active' : ''}`}
-                title={t('vibecoding.layout.toggleTerminal')}
-              >
-                <FontAwesomeIcon icon={faTerminal} className="text-[10px]" />
-                <span className="hidden sm:inline">{t('vibecoding.terminal.title', 'Терминал')}</span>
-              </button>
-            </div>
-
-            {/* Center - title */}
-            <div className="flex-1 text-center min-w-0">
-              <span
-                className="text-xs font-semibold tracking-wide truncate block"
-                style={{ color: 'var(--ide-text)' }}
-              >
-                {activeFile ? (
-                  <>
-                    <span className="text-[var(--ide-text)]">{activeFile.name}</span>
-                    {activeFile.isDirty && <span className="ml-1 text-[var(--ide-dirty)]">●</span>}
-                    {!isMobile && <>{' · '}<span style={{ color: 'var(--ide-text-muted)' }}>Vibecoding</span></>}
-                  </>
-                ) : (
-                  <span className="bg-gradient-to-r from-[var(--ide-accent)] to-[#9d7bff] bg-clip-text text-transparent">
-                    Vibecoding
-                  </span>
-                )}
+              <span className="vibe-header-tab__icon">
+                {isMobile ? <MenuIcon size={16} /> : <ExplorerIcon size={16} />}
               </span>
-            </div>
+              <span className="vibe-header-tab__text">{t('vibecoding.fileExplorer.title', 'Эксплорер')}</span>
+            </button>
 
-            {/* Right actions */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={openCommandPalette}
-                className="vibe-header-tab"
-                title={t('vibecoding.status.commandPalette', 'Командалар палитрасы (Ctrl+Shift+P)')}
-              >
-                <FontAwesomeIcon icon={faMagnifyingGlass} className="text-[10px]" />
-                <span className="hidden md:inline">{t('vibecoding.palette.commands', 'Командалар')}</span>
-              </button>
+            <button
+              onClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
+              className={`vibe-header-tab ${state.bottomPanelVisible ? 'active' : ''}`}
+              title={t('vibecoding.layout.toggleTerminal')}
+            >
+              <span className="vibe-header-tab__icon">
+                <TerminalIcon size={16} />
+              </span>
+              <span className="vibe-header-tab__text">{t('vibecoding.terminal.title', 'Терминал')}</span>
+            </button>
+          </div>
 
-              <button
-                onClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
-                className={`vibe-header-tab ${state.rightPanelVisible ? 'active' : ''}`}
-                title={t('vibecoding.layout.toggleChat')}
-              >
-                <FontAwesomeIcon icon={faRobot} className="text-[10px]" />
-                <span className="hidden sm:inline">ЖИ</span>
-              </button>
+          {/* Ортада — жоба мен ашық файл */}
+          <div className="vibe-toolbar__title">
+            <span className="vibe-toolbar__brand">
+              <span className="vibe-toolbar__brand-dot" />
+              Vibecoding
+            </span>
+            {activeProject && !isMobile && (
+              <>
+                <span className="vibe-toolbar__sep">/</span>
+                <span className="vibe-toolbar__project">{activeProject.name}</span>
+              </>
+            )}
+            {activeFile && (
+              <>
+                <span className="vibe-toolbar__sep">/</span>
+                <span className="vibe-toolbar__file">{activeFile.name}</span>
+                {activeFile.isDirty && <span className="vibe-toolbar__dirty" aria-label="unsaved" />}
+              </>
+            )}
+          </div>
 
-              {!isMobile && (
-                <button
-                  onClick={toggleTheme}
-                  className="vibe-header-tab"
-                  title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                >
-                  <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} className="text-[10px]" />
-                </button>
-              )}
+          <div className="vibe-toolbar__group">
+            <button
+              onClick={openFilePalette}
+              className="vibe-toolbar__search"
+              title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
+            >
+              <SearchIcon size={15} />
+              <span className="vibe-toolbar__search-text">{t('vibecoding.palette.searchFiles', 'Файл іздеу')}</span>
+              <kbd>Ctrl P</kbd>
+            </button>
 
-              <button
-                onClick={() => navigate('/upload')}
-                className="vibe-header-tab"
-                title={t('vibecoding.layout.upload')}
-              >
-                <FontAwesomeIcon icon={faUpload} className="text-[10px]" />
-              </button>
+            <button
+              onClick={openCommandPalette}
+              className="vibe-header-tab vibe-header-tab--icon"
+              title={t('vibecoding.status.commandPalette', 'Командалар палитрасы (Ctrl+Shift+P)')}
+            >
+              <span className="vibe-header-tab__icon">
+                <CommandIcon size={16} />
+              </span>
+            </button>
 
-              <button
-                onClick={() => navigate('/chat')}
-                className="vibe-header-tab"
-                title={t('header.chat')}
-              >
-                <FontAwesomeIcon icon={faComments} className="text-[10px]" />
-              </button>
-
-              <button
-                onClick={() => navigate('/')}
-                className="vibe-header-tab"
-                title={t('common.home')}
-              >
-                <FontAwesomeIcon icon={faHome} className="text-[10px]" />
-              </button>
-            </div>
+            <button
+              onClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
+              className={`vibe-header-tab ${state.rightPanelVisible ? 'active' : ''}`}
+              title={t('vibecoding.layout.toggleChat')}
+            >
+              <span className="vibe-header-tab__icon">
+                <SparkleIcon size={16} />
+              </span>
+              <span className="vibe-header-tab__text">ЖИ</span>
+            </button>
           </div>
         </div>
 

@@ -93,3 +93,42 @@ export const getFirebaseDb = (): Firestore | null => {
 export const isFirestoreBlocked = (): boolean => {
   return firestoreBlocked;
 };
+// ── Phone (SMS) verification via Firebase Auth ──
+// Used only at registration: Firebase sends the SMS, we hand the resulting
+// ID token to the backend, which turns it into its own phone_token.
+
+let recaptchaVerifier: import('firebase/auth').RecaptchaVerifier | null = null;
+
+/**
+ * Send an SMS code to `phone` (E.164). `containerId` is the id of an empty
+ * element that hosts the invisible reCAPTCHA.
+ */
+export const sendFirebaseSmsCode = async (
+  phone: string,
+  containerId: string,
+): Promise<import('firebase/auth').ConfirmationResult> => {
+  if (!app) throw new Error('Firebase is not configured');
+  const { getAuth, RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+  const auth = getAuth(app);
+  if (recaptchaVerifier) {
+    recaptchaVerifier.clear();
+    recaptchaVerifier = null;
+  }
+  recaptchaVerifier = new RecaptchaVerifier(auth, containerId, { size: 'invisible' });
+  return signInWithPhoneNumber(auth, phone, recaptchaVerifier);
+};
+
+/**
+ * Confirm the SMS code and return a Firebase ID token proving the phone.
+ * The Firebase session itself isn't kept — our backend issues the real login.
+ */
+export const confirmFirebaseSmsCode = async (
+  confirmation: import('firebase/auth').ConfirmationResult,
+  code: string,
+): Promise<string> => {
+  const { getAuth, signOut } = await import('firebase/auth');
+  const credential = await confirmation.confirm(code);
+  const idToken = await credential.user.getIdToken();
+  if (app) await signOut(getAuth(app)).catch(() => {});
+  return idToken;
+};

@@ -2,8 +2,10 @@
 from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime
+from fastapi import HTTPException
 from database import messages, save_messages, FIRESTORE_SYNC_AVAILABLE, FIRESTORE_SYNC_MESSAGE
 from websocket import manager
+from services.message_extras import apply_vote, now_iso, toggle_reaction, validate_edit
 
 
 class MessageService:
@@ -29,21 +31,25 @@ class MessageService:
         """Get conversation between two users"""
         conversation_messages = [
             msg for msg in messages
-            if (msg.get('fromUserId') == user_id and msg.get('toUserId') == friend_id) or
-               (msg.get('fromUserId') == friend_id and msg.get('toUserId') == user_id)
+            if ((msg.get('fromUserId') == user_id and msg.get('toUserId') == friend_id) or
+                (msg.get('fromUserId') == friend_id and msg.get('toUserId') == user_id))
+            and user_id not in (msg.get('deletedFor') or [])
         ]
         conversation_messages.sort(key=lambda x: x.get('createdAt', ''))
         return conversation_messages
-    
+
     @staticmethod
-    async def create_message(from_user_id: str, to_user_id: str, content: str, 
+    async def create_message(from_user_id: str, to_user_id: str, content: str,
                            are_friends: bool, message_type: str = "text",
                            attachments: Optional[List[Dict[str, Any]]] = None,
-                           metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Create a new message"""
+                           metadata: Optional[Dict[str, Any]] = None,
+                           extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create a new message. `extra` — replyTo / forwardedFrom (message_extras)"""
         if not are_friends:
             raise ValueError("Тек достарға хабарлама жіберуге болады. Алдымен дос болыңыз.")
-        
+
+        # Өзіне жазылған хабарлама («Сақталған») бірден оқылған
+        is_saved = from_user_id == to_user_id
         new_message = {
             'id': str(uuid.uuid4()),
             'fromUserId': from_user_id,
@@ -53,11 +59,12 @@ class MessageService:
             'attachments': attachments or [],
             'metadata': metadata or {},
             'createdAt': datetime.now().isoformat(),
-            'status': 'sent',
-            'read': False,
-            'readAt': None
+            'status': 'read' if is_saved else 'sent',
+            'read': is_saved,
+            'readAt': None,
+            **(extra or {}),
         }
-        
+
         messages.append(new_message)
         save_messages()
         
@@ -75,7 +82,7 @@ class MessageService:
         }, to_user_id)
         
         # Update status to delivered if recipient is online
-        if manager.is_user_online(to_user_id):
+        if not is_saved and manager.is_user_online(to_user_id):
             new_message['status'] = 'delivered'
             save_messages()
         
@@ -160,6 +167,97 @@ class MessageService:
             if msg.get('toUserId') == user_id and not msg.get('read', False)
         ]
         return len(unread_messages)
+
+    # ---------- Хабарлама әрекеттері (reply / edit / delete / react / pin) ----------
+
+    @staticmethod
+    def get_visible_message(message_id: str, user_id: str) -> Dict[str, Any]:
+        """Қолданушы қатысатын және өзінен жоймаған хабарлама, әйтпесе 404"""
+        msg = next((m for m in messages if m['id'] == message_id), None)
+        if (
+            not msg
+            or user_id not in (msg.get('fromUserId'), msg.get('toUserId'))
+            or user_id in (msg.get('deletedFor') or [])
+        ):
+            raise HTTPException(status_code=404, detail="Message not found")
+        return msg
+
+    @staticmethod
+    async def _notify_both(msg: Dict[str, Any], payload: Dict[str, Any]):
+        for uid in {msg.get('fromUserId'), msg.get('toUserId')}:
+            if uid:
+                await manager.send_personal_message(payload, uid)
+
+    @staticmethod
+    def _save_and_sync(msg: Dict[str, Any]):
+        save_messages()
+        if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_MESSAGE:
+            try:
+                FIRESTORE_SYNC_MESSAGE(msg)
+            except Exception as e:
+                print(f'Warning: Firestore sync failed for message: {e}')
+
+    @staticmethod
+    async def edit_message(message_id: str, user_id: str, content: str) -> Dict[str, Any]:
+        msg = MessageService.get_visible_message(message_id, user_id)
+        msg['content'] = validate_edit(msg, user_id, content)
+        msg['editedAt'] = now_iso()
+        MessageService._save_and_sync(msg)
+        await MessageService._notify_both(msg, {'type': 'message_updated', 'message': msg})
+        return msg
+
+    @staticmethod
+    async def delete_message(message_id: str, user_id: str, for_everyone: bool) -> Dict[str, Any]:
+        msg = MessageService.get_visible_message(message_id, user_id)
+        if for_everyone:
+            if msg.get('fromUserId') != user_id:
+                raise HTTPException(status_code=403, detail="Only the author can delete for everyone")
+            messages[:] = [m for m in messages if m['id'] != message_id]
+            save_messages()
+            await MessageService._notify_both(msg, {'type': 'message_deleted', 'messageId': message_id})
+        else:
+            msg['deletedFor'] = list({*(msg.get('deletedFor') or []), user_id})
+            save_messages()
+            await manager.send_personal_message({'type': 'message_deleted', 'messageId': message_id}, user_id)
+        return {'deleted': True, 'messageId': message_id, 'forEveryone': for_everyone}
+
+    @staticmethod
+    async def react(message_id: str, user_id: str, emoji: str) -> Dict[str, Any]:
+        msg = MessageService.get_visible_message(message_id, user_id)
+        msg['reactions'] = toggle_reaction(msg.get('reactions'), emoji, user_id)
+        save_messages()
+        await MessageService._notify_both(msg, {'type': 'message_updated', 'message': msg})
+        return msg
+
+    @staticmethod
+    async def set_pinned(message_id: str, user_id: str, pinned: bool) -> Dict[str, Any]:
+        msg = MessageService.get_visible_message(message_id, user_id)
+        msg['pinned'] = bool(pinned)
+        save_messages()
+        await MessageService._notify_both(msg, {'type': 'message_updated', 'message': msg})
+        return msg
+
+    @staticmethod
+    async def mark_listened(message_id: str, user_id: str) -> Dict[str, Any]:
+        """Дауыстық хабарламаны алушы тыңдады — жіберушіге «тыңдалды» белгісі"""
+        msg = MessageService.get_visible_message(message_id, user_id)
+        if msg.get('type') != 'audio':
+            raise HTTPException(status_code=400, detail="Only audio messages can be listened")
+        if str(msg.get('toUserId')) != str(user_id) or msg.get('fromUserId') == msg.get('toUserId'):
+            raise HTTPException(status_code=403, detail="Only the recipient can mark a message as listened")
+        if not msg.get('listenedAt'):
+            msg['listenedAt'] = now_iso()
+            MessageService._save_and_sync(msg)
+            await MessageService._notify_both(msg, {'type': 'message_updated', 'message': msg})
+        return msg
+
+    @staticmethod
+    async def vote(message_id: str, user_id: str, option_ids: List[str]) -> Dict[str, Any]:
+        msg = MessageService.get_visible_message(message_id, user_id)
+        msg['votes'] = apply_vote(msg, msg.get('votes'), user_id, option_ids)
+        save_messages()
+        await MessageService._notify_both(msg, {'type': 'message_updated', 'message': msg})
+        return msg
 
     @staticmethod
     def clear_conversation(user_id: str, friend_id: str) -> int:

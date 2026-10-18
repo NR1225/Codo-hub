@@ -130,7 +130,7 @@ a.btn {
 /* Secondary Button - Accent color background, white text */
 .btn-secondary {
   background: var(--accent-gradient);
-  color: #ffffff;
+  color: #0a0a0a;
   box-shadow: 
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -152,7 +152,7 @@ a.btn {
   box-shadow: 
     0 10px 15px -3px rgba(0, 0, 0, 0.2),
     0 4px 6px -2px rgba(0, 0, 0, 0.1),
-    0 0 20px rgba(59, 130, 246, 0.3);
+    0 0 20px rgba(212, 212, 212, 0.3);
   filter: brightness(1.1);
 }
 
@@ -171,7 +171,7 @@ a.btn {
   box-shadow: 
     0 10px 15px -3px rgba(0, 0, 0, 0.2),
     0 4px 6px -2px rgba(0, 0, 0, 0.1),
-    0 0 20px rgba(59, 130, 246, 0.4);
+    0 0 20px rgba(212, 212, 212, 0.4);
 }
 
 .btn-secondary:disabled {
@@ -216,12 +216,12 @@ a.btn {
 /* Dark theme adjustments */
 .dark-theme .btn-primary {
   background: var(--primary-color);
-  color: #ffffff;
+  color: #0a0a0a;
   outline: none !important;
   border: none !important;
   box-shadow:
-    0 4px 6px -1px rgba(0, 175, 202, 0.3),
-    0 2px 4px -1px rgba(0, 175, 202, 0.2) !important;
+    0 4px 6px -1px rgba(212, 212, 212, 0.3),
+    0 2px 4px -1px rgba(212, 212, 212, 0.2) !important;
 }
 
 .dark-theme .btn-primary:focus,
@@ -231,8 +231,8 @@ a.btn {
   outline-offset: 0 !important;
   border: none !important;
   box-shadow:
-    0 4px 6px -1px rgba(0, 175, 202, 0.3),
-    0 2px 4px -1px rgba(0, 175, 202, 0.2) !important;
+    0 4px 6px -1px rgba(212, 212, 212, 0.3),
+    0 2px 4px -1px rgba(212, 212, 212, 0.2) !important;
 }
 
 .dark-theme .btn-primary:hover:not(:disabled) {
@@ -240,14 +240,14 @@ a.btn {
   outline: none !important;
   border: none !important;
   box-shadow:
-    0 10px 15px -3px rgba(0, 175, 202, 0.4),
-    0 4px 6px -2px rgba(0, 175, 202, 0.2) !important;
+    0 10px 15px -3px rgba(212, 212, 212, 0.4),
+    0 4px 6px -2px rgba(212, 212, 212, 0.2) !important;
 }
 
 @media (prefers-color-scheme: dark) {
   .btn-primary {
     background: var(--primary-color);
-    color: #ffffff;
+    color: #0a0a0a;
   }
 
   .btn-primary:hover:not(:disabled) {

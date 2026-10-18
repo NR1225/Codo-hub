@@ -2,7 +2,8 @@
 from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime
-from database import friends, friend_requests, users, save_friends, save_friend_requests
+from database import friends, friend_requests, save_friends, save_friend_requests
+from services.user_lookup import find_public_user
 
 
 class FriendService:
@@ -19,7 +20,7 @@ class FriendService:
         user_friends = friends.get(user_id, [])
         friends_list = []
         for friend_id in user_friends:
-            friend = next((u for u in users if u['id'] == friend_id), None)
+            friend = find_public_user(friend_id)
             if friend:
                 friends_list.append({
                     'id': friend['id'],
@@ -69,6 +70,9 @@ class FriendService:
     @staticmethod
     def can_message(user_id: str, friend_id: str) -> bool:
         """Check if two users can message each other (friends or previous conversation)"""
+        if user_id == friend_id:
+            return True  # «Сақталған хабарламалар» — өзіне жазу
+
         if FriendService.are_friends(user_id, friend_id):
             return True
 
@@ -126,7 +130,7 @@ class FriendService:
         requests_with_users = []
         for req in requests:
             other_user_id = req['fromUserId'] if req['fromUserId'] != user_id else req['toUserId']
-            other_user = next((u for u in users if u['id'] == other_user_id), None)
+            other_user = find_public_user(other_user_id)
             if other_user:
                 requests_with_users.append({
                     **req,
@@ -150,7 +154,7 @@ class FriendService:
         
         requests_with_users = []
         for req in incoming_requests:
-            from_user = next((u for u in users if u['id'] == req['fromUserId']), None)
+            from_user = find_public_user(req['fromUserId'])
             if from_user:
                 requests_with_users.append({
                     **req,
@@ -173,7 +177,7 @@ class FriendService:
         
         requests_with_users = []
         for req in outgoing_requests:
-            to_user = next((u for u in users if u['id'] == req['toUserId']), None)
+            to_user = find_public_user(req['toUserId'])
             if to_user:
                 requests_with_users.append({
                     **req,

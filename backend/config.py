@@ -14,6 +14,20 @@ JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE", "30"))
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE", "30"))
 JWT_2FA_TEMP_TOKEN_EXPIRE_MINUTES = 5
+# Phone verified via SMS -> short-lived token the register call must carry
+JWT_PHONE_TOKEN_EXPIRE_MINUTES = 15
+
+# SMS verification (registration).
+# SMS_PROVIDER: "firebase" (Firebase Phone Auth sends the SMS from the browser),
+# "mobizon" (backend sends the code via Mobizon.kz) or "console" (dev only:
+# the code is printed to the server log instead of being sent).
+SMS_PROVIDER = os.getenv("SMS_PROVIDER", "console").lower()
+MOBIZON_API_KEY = os.getenv("MOBIZON_API_KEY", "")
+MOBIZON_API_DOMAIN = os.getenv("MOBIZON_API_DOMAIN", "api.mobizon.kz")
+MOBIZON_SENDER = os.getenv("MOBIZON_SENDER", "")  # Approved alpha-name; empty = Mobizon default
+SMS_CODE_TTL_MINUTES = int(os.getenv("SMS_CODE_TTL_MINUTES", "5"))
+SMS_CODE_MAX_ATTEMPTS = int(os.getenv("SMS_CODE_MAX_ATTEMPTS", "5"))
+SMS_RESEND_COOLDOWN_SECONDS = int(os.getenv("SMS_RESEND_COOLDOWN_SECONDS", "60"))
 
 # Per-account login brute-force protection (independent of the IP rate limiter)
 LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))

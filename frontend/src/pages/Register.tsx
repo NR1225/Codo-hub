@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../utils/api';
+import { sendFirebaseSmsCode, confirmFirebaseSmsCode } from '../utils/firebase';
+import type { ConfirmationResult } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
 import Parallax from 'parallax-js';
@@ -27,6 +29,8 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
+    phone: '',
+    smsCode: '',
     password: '',
     confirmPassword: '',
   });
@@ -34,6 +38,97 @@ const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // SMS verification state. `smsProvider` decides who sends the code:
+  // Firebase (from the browser) or our backend (Mobizon / console).
+  const [smsProvider, setSmsProvider] = useState<'firebase' | 'backend'>('backend');
+  const [codeSent, setCodeSent] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  const firebaseConfirmation = useRef<ConfirmationResult | null>(null);
+
+  useEffect(() => {
+    apiService.getSmsConfig()
+      .then((cfg) => setSmsProvider(cfg.provider))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn(resendIn - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  // Normalise to E.164 the same way the backend does (KZ default).
+  const normalizePhone = (raw: string): string | null => {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('8')) digits = '7' + digits.slice(1);
+    else if (digits.length === 10 && digits.startsWith('7')) digits = '7' + digits;
+    if (digits.length < 10 || digits.length > 15) return null;
+    return '+' + digits;
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setFormData({ ...formData, phone: value, smsCode: '' });
+    // A new number invalidates any earlier verification.
+    if (codeSent || phoneToken) {
+      setCodeSent(false);
+      setPhoneToken(null);
+      setVerifiedPhone(null);
+      firebaseConfirmation.current = null;
+    }
+  };
+
+  const handleSendCode = async () => {
+    setError(null);
+    const phone = normalizePhone(formData.phone);
+    if (!phone) {
+      setError(t('register.phoneInvalid'));
+      return;
+    }
+    setSendingCode(true);
+    try {
+      if (smsProvider === 'firebase') {
+        firebaseConfirmation.current = await sendFirebaseSmsCode(phone, 'recaptcha-container');
+        setResendIn(60);
+      } else {
+        const res = await apiService.sendSmsCode(phone);
+        setResendIn(res.resend_after);
+      }
+      setCodeSent(true);
+    } catch (err: any) {
+      console.error('Send SMS error:', err);
+      if (err?.status === 409 || err?.message?.includes('Phone already registered')) {
+        setError(t('register.phoneInUse'));
+      } else if (err?.status === 429 || err?.code === 'auth/too-many-requests') {
+        setError(t('register.smsTooMany'));
+      } else {
+        setError(t('register.smsSendFailed'));
+      }
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  // Turn the typed SMS code into a backend phone_token (cached for retries).
+  const getPhoneToken = async (): Promise<string> => {
+    const phone = normalizePhone(formData.phone);
+    if (phoneToken && verifiedPhone === phone) return phoneToken;
+
+    let res: { phone_token: string; phone: string };
+    if (smsProvider === 'firebase') {
+      if (!firebaseConfirmation.current) throw new Error(t('register.smsNotSent'));
+      const idToken = await confirmFirebaseSmsCode(firebaseConfirmation.current, formData.smsCode);
+      res = await apiService.verifyFirebasePhone(idToken);
+    } else {
+      res = await apiService.verifySmsCode(phone!, formData.smsCode);
+    }
+    setPhoneToken(res.phone_token);
+    setVerifiedPhone(phone);
+    return res.phone_token;
+  };
 
   // Set up auth page layout on mount
   useEffect(() => {
@@ -140,14 +235,41 @@ const Register: React.FC = () => {
       return;
     }
 
+    if (!codeSent && !phoneToken) {
+      setError(t('register.smsNotSent'));
+      return;
+    }
+
+    if (!phoneToken && !/^\d{6}$/.test(formData.smsCode)) {
+      setError(t('register.smsCodeInvalid'));
+      return;
+    }
+
     setLoading(true);
+
+    let verifiedToken: string;
+    try {
+      verifiedToken = await getPhoneToken();
+    } catch (err: any) {
+      console.error('SMS verify error:', err);
+      if (err?.status === 409 || err?.message?.includes('Phone already registered')) {
+        setError(t('register.phoneInUse'));
+      } else if (err?.message?.includes('expired')) {
+        setError(t('register.smsCodeExpired'));
+      } else {
+        setError(t('register.smsCodeWrong'));
+      }
+      setLoading(false);
+      return;
+    }
 
     try {
       // Register user with backend API
       const response = await apiService.register(
         formData.username,
         formData.email,
-        formData.password
+        formData.password,
+        verifiedToken,
       );
       
       // Save user to localStorage
@@ -187,6 +309,13 @@ const Register: React.FC = () => {
       if (err.message) {
         if (err.message.includes('already exists') || err.message.includes('User already exists')) {
           errorMessage = t('register.accountExists');
+        } else if (err.message.includes('Phone already registered')) {
+          errorMessage = t('register.phoneInUse');
+        } else if (err.message.includes('Phone verification')) {
+          // phone_token expired: make the user verify again
+          setPhoneToken(null);
+          setCodeSent(false);
+          errorMessage = t('register.smsCodeExpired');
         } else if (err.message.includes('Password must be at least')) {
           errorMessage = t('register.passwordMinLength');
         } else if (err.message.includes('required')) {
@@ -270,6 +399,17 @@ const Register: React.FC = () => {
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="email@example.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <input
                 id="username"
                 type="text"
                 value={formData.username}
@@ -280,15 +420,55 @@ const Register: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="email@example.com"
-                required
-              />
+              <div className="phone-input-row">
+                <input
+                  id="phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={formData.phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  placeholder="+7 701 123 45 67"
+                  required
+                  disabled={!!phoneToken}
+                />
+                <button
+                  type="button"
+                  className="sms-send-btn"
+                  onClick={handleSendCode}
+                  disabled={sendingCode || resendIn > 0 || !!phoneToken || !formData.phone.trim()}
+                >
+                  {phoneToken
+                    ? t('register.phoneVerified')
+                    : sendingCode
+                      ? t('register.smsSending')
+                      : resendIn > 0
+                        ? `${resendIn}s`
+                        : codeSent
+                          ? t('register.smsResend')
+                          : t('register.smsSend')}
+                </button>
+              </div>
             </div>
+
+            {codeSent && !phoneToken && (
+              <div className="form-group">
+                <input
+                  id="smsCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={formData.smsCode}
+                  onChange={(e) => setFormData({ ...formData, smsCode: e.target.value.replace(/\D/g, '') })}
+                  placeholder={t('register.smsCodePlaceholder')}
+                  required
+                />
+              </div>
+            )}
+
+            {/* Invisible reCAPTCHA host for Firebase phone auth */}
+            <div id="recaptcha-container" />
 
             <div className="form-group password-group">
               <div className="password-input-wrapper">

@@ -1,18 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding } from '../../contexts/VibecodingContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faRobot,
-  faPaperPlane,
-  faPlus,
-  faTrash,
-  faCopy,
-  faCode,
-  faUser,
-  faCheck,
-  faTimes,
-} from '@fortawesome/free-solid-svg-icons';
+  SparkleIcon,
+  PlusIcon,
+  TrashIcon,
+  CopyIcon,
+  CheckIcon,
+  InsertIcon,
+  UserIcon,
+  CloseIcon,
+  ArrowUpIcon,
+  ChevronIcon,
+} from './icons';
 
 interface ChatMessage {
   id: string;
@@ -186,14 +186,14 @@ const ChatPanel: React.FC = () => {
       } else if (inlineMatch[5]) {
         // Inline code `code`
         parts.push(
-          <code key={`c-${keyIndex}`} className="px-1 py-0.5 rounded bg-[var(--ide-terminal-bg)] text-[var(--ide-accent)] text-[10px]">
+          <code key={`c-${keyIndex}`} className="vx-ai__inline-code">
             {inlineMatch[6]}
           </code>
         );
       } else if (inlineMatch[7]) {
         // Link [text](url)
         parts.push(
-          <a key={`a-${keyIndex}`} href={inlineMatch[9]} target="_blank" rel="noopener noreferrer" className="text-[var(--ide-accent)] underline hover:opacity-80">
+          <a key={`a-${keyIndex}`} href={inlineMatch[9]} target="_blank" rel="noopener noreferrer" className="vx-ai__link">
             {inlineMatch[8]}
           </a>
         );
@@ -229,13 +229,13 @@ const ChatPanel: React.FC = () => {
       if (inCodeBlock) continue;
 
       if (line.startsWith('### ')) {
-        elements.push(<div key={i} className="text-sm font-bold mt-1">{renderInlineMarkdown(line.slice(4))}</div>);
+        elements.push(<div key={i} className="vx-ai__heading">{renderInlineMarkdown(line.slice(4))}</div>);
       } else if (line.startsWith('## ')) {
-        elements.push(<div key={i} className="text-sm font-bold mt-1">{renderInlineMarkdown(line.slice(3))}</div>);
+        elements.push(<div key={i} className="vx-ai__heading">{renderInlineMarkdown(line.slice(3))}</div>);
       } else if (line.startsWith('# ')) {
-        elements.push(<div key={i} className="text-sm font-bold mt-1">{renderInlineMarkdown(line.slice(2))}</div>);
+        elements.push(<div key={i} className="vx-ai__heading">{renderInlineMarkdown(line.slice(2))}</div>);
       } else if (line.startsWith('- ')) {
-        elements.push(<div key={i} className="ml-2 flex items-start gap-1.5"><span className="text-[var(--ide-accent)] mt-0.5">•</span><span>{renderInlineMarkdown(line.slice(2))}</span></div>);
+        elements.push(<div key={i} className="vx-ai__li"><span className="vx-ai__bullet" /><span>{renderInlineMarkdown(line.slice(2))}</span></div>);
       } else if (line.startsWith('**') && line.endsWith('**')) {
         elements.push(<div key={i} className="font-semibold">{renderInlineMarkdown(line)}</div>);
       } else {
@@ -246,32 +246,35 @@ const ChatPanel: React.FC = () => {
     if (codeBlocks && codeBlocks.length > 0) {
       codeBlocks.forEach((block, idx) => {
         const blockId = `${msgId}-code-${idx}`;
+        const copied = copiedId === blockId;
         elements.push(
-          <div key={`code-${idx}`} className="mt-2 rounded-lg overflow-hidden border border-[var(--ide-border)]">
-            <div className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--ide-border)]/50 text-[10px]">
-              <span className="font-medium">{block.language}</span>
-              <div className="flex gap-1">
+          <div key={`code-${idx}`} className="vx-ai__code">
+            <div className="vx-ai__code-bar">
+              <span className="vx-ai__code-lang">{block.language}</span>
+              <div className="vx-ai__code-actions">
                 <button
+                  type="button"
                   onClick={() => handleCopyCode(block.code, blockId)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[var(--ide-hover)] transition-colors"
+                  className={`vx-chip-btn ${copied ? 'is-done' : ''}`}
                   title={t('vibecoding.chat.copyCode')}
                 >
-                  <FontAwesomeIcon icon={copiedId === blockId ? faCheck : faCopy} className="text-[8px]" />
-                  <span>{copiedId === blockId ? t('vibecoding.chat.copied') : t('vibecoding.chat.copy')}</span>
+                  {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+                  <span>{copied ? t('vibecoding.chat.copied') : t('vibecoding.chat.copy')}</span>
                 </button>
                 {activeFile && (
                   <button
+                    type="button"
                     onClick={() => handleInsertCode(block.code)}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[var(--ide-hover)] transition-colors"
+                    className="vx-chip-btn"
                     title={t('vibecoding.chat.insertCode')}
                   >
-                    <FontAwesomeIcon icon={faCode} className="text-[8px]" />
+                    <InsertIcon size={12} />
                     <span>{t('vibecoding.chat.insert')}</span>
                   </button>
                 )}
               </div>
             </div>
-            <pre className="p-2.5 text-[11px] overflow-x-auto bg-[var(--ide-terminal-bg)] text-[var(--ide-text)] leading-relaxed">
+            <pre>
               <code>{block.code}</code>
             </pre>
           </div>
@@ -282,157 +285,145 @@ const ChatPanel: React.FC = () => {
     return elements;
   };
 
+  const suggestions = [
+    t('vibecoding.chat.suggestExplain'),
+    t('vibecoding.chat.suggestBugs'),
+    t('vibecoding.chat.suggestRefactor'),
+  ];
+
+  const askSuggestion = (text: string) => {
+    setInputValue(text);
+    inputRef.current?.focus();
+  };
+
   return (
-    <div className="h-full flex flex-col bg-[var(--ide-sidebar-bg)]">
-      {/* Chat header */}
-      <div
-        className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--ide-border)] flex-shrink-0"
-      >
-        <div className="flex items-center gap-2.5">
-          {/* Overlay close button (mobile/tablet) */}
-          {isOverlay && (
-            <button
-              onClick={() => dispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: false })}
-              className="p-1.5 rounded-md text-[var(--ide-text-muted)] hover:text-[var(--ide-text)] hover:bg-[var(--ide-hover)] transition-colors mr-1"
-              title={t('vibecoding.chat.closeChat')}
-            >
-              <FontAwesomeIcon icon={faTimes} className="text-[11px]" />
-            </button>
-          )}
-          <div className="vibe-ai-avatar">
-            <FontAwesomeIcon icon={faRobot} className="text-white text-xs" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-[var(--ide-text)]">{t('vibecoding.chat.title', 'ЖИ Көмекші')}</div>
-            <div className="text-[10px] text-green-400 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              {t('vibecoding.chat.ready', 'Дайын')}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-0.5">
+    <div className={`vx-ai ${messages.length === 0 ? 'is-empty' : ''}`}>
+      {/* ЖИ тақырыбы */}
+      <div className="vx-ai__bar">
+        {isOverlay && (
           <button
-            onClick={handleNewChat}
-            className="p-1.5 rounded-md text-[var(--ide-text-muted)] hover:text-[var(--ide-text)] hover:bg-[var(--ide-hover)] transition-colors"
-            title={t('vibecoding.chat.newChat')}
+            type="button"
+            onClick={() => dispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: false })}
+            className="vx-icon-btn"
+            title={t('vibecoding.chat.closeChat')}
           >
-            <FontAwesomeIcon icon={faPlus} className="text-[10px]" />
+            <CloseIcon size={15} />
           </button>
-          {messages.length > 0 && (
-            <button
-              onClick={handleNewChat}
-              className="p-1.5 rounded-md text-[var(--ide-text-muted)] hover:text-red-400 hover:bg-[var(--ide-hover)] transition-colors"
-              title={t('vibecoding.chat.clearChat')}
-            >
-              <FontAwesomeIcon icon={faTrash} className="text-[10px]" />
-            </button>
-          )}
+        )}
+        <span className="vx-ai__bar-orb">
+          <SparkleIcon size={16} />
+        </span>
+        <div className="vx-ai__bar-text">
+          <div className="vx-ai__bar-title">{t('vibecoding.chat.title', 'ЖИ Көмекші')}</div>
+          <div className="vx-ai__status">
+            <span className="vx-ai__status-dot" />
+            {t('vibecoding.chat.ready', 'Дайын')}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={handleNewChat}
+          className="vx-icon-btn"
+          title={t('vibecoding.chat.newChat')}
+        >
+          <PlusIcon size={15} />
+        </button>
+        {messages.length > 0 && (
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="vx-icon-btn vx-icon-btn--danger"
+            title={t('vibecoding.chat.clearChat')}
+          >
+            <TrashIcon size={15} />
+          </button>
+        )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4" style={{ minHeight: 0 }}>
+      {/* Хабарлар */}
+      <div className="vx-ai__scroll" style={{ minHeight: 0 }}>
         {messages.length === 0 && (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center text-[var(--ide-text-muted)] animate-fadeIn">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--ide-accent)', opacity: 0.1 }}>
-                <FontAwesomeIcon icon={faRobot} className="text-2xl" style={{ color: 'var(--ide-accent)' }} />
-              </div>
-              <p className="text-sm font-medium text-[var(--ide-text)] mb-1.5">
-                {t('vibecoding.chat.title')}
-              </p>
-              <p className="text-xs leading-relaxed max-w-[200px] mx-auto">
-                {t('vibecoding.chat.placeholder')}
-              </p>
+          <div className="vx-ai__hero">
+            <div className="vx-orb vx-orb--spin">
+              <SparkleIcon size={26} />
+            </div>
+            <p className="vx-ai__hero-title">{t('vibecoding.chat.title')}</p>
+            <p className="vx-ai__hero-sub">{t('vibecoding.chat.subtitle')}</p>
+            <div className="vx-ai__chips">
+              {suggestions.map((s, i) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="vx-ai__chip"
+                  style={{ ['--d' as string]: i }}
+                  onClick={() => askSuggestion(s)}
+                >
+                  {s}
+                  <ChevronIcon size={12} />
+                </button>
+              ))}
             </div>
           </div>
         )}
 
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            {/* Avatar */}
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs"
-              style={{
-                backgroundColor: msg.role === 'assistant' ? 'var(--ide-accent)' : 'var(--ide-border)',
-                color: msg.role === 'assistant' ? '#fff' : 'var(--ide-text)',
-              }}
-            >
-              <FontAwesomeIcon icon={msg.role === 'assistant' ? faRobot : faUser} className="text-[10px]" />
+          <div key={msg.id} className={`vx-ai__msg vx-ai__msg--${msg.role}`}>
+            {msg.role === 'assistant' && (
+              <span className="vx-ai__avatar">
+                <SparkleIcon size={14} />
+              </span>
+            )}
+            <div className="vx-ai__content">
+              <div className="vx-ai__text">{renderMessageContent(msg.content, msg.codeBlocks, msg.id)}</div>
+              <div className="vx-ai__time">{formatTime(msg.timestamp)}</div>
             </div>
-
-            {/* Message bubble */}
-            <div className={`max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div
-                className={`rounded-2xl px-3 py-2.5 text-xs leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'rounded-tr-md text-white'
-                    : 'rounded-tl-md text-[var(--ide-text)] border border-[var(--ide-border)]'
-                }`}
-                style={{
-                  backgroundColor: msg.role === 'user' ? 'var(--ide-accent)' : 'var(--ide-editor-bg)',
-                }}
-              >
-                {renderMessageContent(msg.content, msg.codeBlocks, msg.id)}
-              </div>
-              <div className={`text-[9px] text-[var(--ide-text-muted)] mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                {formatTime(msg.timestamp)}
-              </div>
-            </div>
+            {msg.role === 'user' && (
+              <span className="vx-ai__avatar vx-ai__avatar--user">
+                <UserIcon size={14} />
+              </span>
+            )}
           </div>
         ))}
 
         {isLoading && (
-          <div className="flex gap-2.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--ide-accent)' }}>
-              <FontAwesomeIcon icon={faRobot} className="text-white text-[10px]" />
-            </div>
-            <div className="rounded-2xl rounded-tl-md px-3 py-2.5 border border-[var(--ide-border)]" style={{ backgroundColor: 'var(--ide-editor-bg)' }}>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--ide-accent)] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--ide-accent)] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--ide-accent)] animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-                <span className="text-[var(--ide-text-muted)] text-xs">
-                  {t('vibecoding.chat.thinking')}
-                </span>
-              </div>
+          <div className="vx-ai__msg vx-ai__msg--assistant">
+            <span className="vx-ai__avatar is-thinking">
+              <SparkleIcon size={14} />
+            </span>
+            <div className="vx-ai__dots" aria-label={t('vibecoding.chat.thinking')}>
+              <span />
+              <span />
+              <span />
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-[var(--ide-border)] p-3 flex-shrink-0">
-        <div className="flex items-end gap-2">
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('vibecoding.chat.placeholder')}
-              rows={1}
-              className="w-full resize-none bg-[var(--ide-editor-bg)] border border-[var(--ide-border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--ide-text)] placeholder-[var(--ide-text-muted)] outline-none focus:border-[var(--ide-accent)] focus:ring-1 focus:ring-[var(--ide-accent)]/30 transition-all"
-              style={{ maxHeight: '120px' }}
-            />
-          </div>
+      {/* Жазу өрісі — фокуста жарық жиек */}
+      <div className="vx-ai__composer">
+        <div className="vx-ai__box">
+          <textarea
+            ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t('vibecoding.chat.placeholder')}
+            rows={1}
+            className="vx-ai__input"
+            style={{ maxHeight: '120px' }}
+          />
           <button
+            type="button"
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
-            className="p-2.5 rounded-xl transition-all duration-200 flex-shrink-0"
-            style={{
-              backgroundColor: 'var(--ide-accent)',
-              color: '#fff',
-              opacity: !inputValue.trim() || isLoading ? 0.4 : 1,
-              cursor: !inputValue.trim() || isLoading ? 'not-allowed' : 'pointer',
-            }}
+            className="vx-ai__send"
+            title={t('vibecoding.chat.send')}
           >
-            <FontAwesomeIcon icon={faPaperPlane} className="text-xs" />
+            <ArrowUpIcon size={16} />
           </button>
         </div>
+        <p className="vx-ai__hint">{t('vibecoding.chat.hint')}</p>
       </div>
     </div>
   );

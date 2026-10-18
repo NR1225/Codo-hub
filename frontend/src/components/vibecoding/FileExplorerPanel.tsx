@@ -1,60 +1,190 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useVibecoding, detectLanguage, VirtualFile } from '../../contexts/VibecodingContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useVibecoding, detectLanguage, VirtualFile, normalizePath } from '../../contexts/VibecodingContext';
 import {
-  faFolder,
-  faFolderOpen,
-  faPlus,
-  faTrash,
-  faEdit,
-  faChevronRight,
-  faChevronDown,
-  faEllipsisH,
-  faFileCode,
-  faSearch,
-  faFileAlt,
-  faFolderPlus,
-  faTimes,
-  faCodeBranch,
-  faCog,
-  faArrowLeft,
-} from '@fortawesome/free-solid-svg-icons';
+  FolderIcon,
+  FolderPlusIcon,
+  FilePlusIcon,
+  FileIcon,
+  PlusIcon,
+  TrashIcon,
+  EditIcon,
+  ChevronIcon,
+  ChevronDownIcon,
+  MoreIcon,
+  SearchIcon,
+  CloseIcon,
+  ArrowLeftIcon,
+  BranchIcon,
+} from './icons';
+import { langColor, fileExt } from './langColors';
 
-// Modern file type icons with distinct visual identities
-const fileTypeIcons: Record<string, { icon: typeof faFileCode; color: string; bg: string }> = {
-  javascript:  { icon: faFileCode, color: '#f7df1e', bg: 'rgba(247,223,30,0.12)' },
-  typescript:  { icon: faFileCode, color: '#3178c6', bg: 'rgba(49,120,198,0.12)' },
-  python:      { icon: faFileCode, color: '#4584b6', bg: 'rgba(69,132,182,0.12)' },
-  html:        { icon: faFileCode, color: '#e44d26', bg: 'rgba(228,77,38,0.12)' },
-  css:         { icon: faFileCode, color: '#2965f1', bg: 'rgba(41,101,241,0.12)' },
-  json:        { icon: faFileCode, color: '#a8a8a8', bg: 'rgba(168,168,168,0.12)' },
-  markdown:    { icon: faFileCode, color: '#083fa1', bg: 'rgba(8,63,161,0.12)' },
-  java:        { icon: faFileCode, color: '#ed8b00', bg: 'rgba(237,139,0,0.12)' },
-  cpp:         { icon: faFileCode, color: '#00599c', bg: 'rgba(0,89,156,0.12)' },
-  c:           { icon: faFileCode, color: '#a8b9cc', bg: 'rgba(168,185,204,0.12)' },
-  rust:        { icon: faFileCode, color: '#dea584', bg: 'rgba(222,165,132,0.12)' },
-  go:          { icon: faFileCode, color: '#00add8', bg: 'rgba(0,173,216,0.12)' },
-  php:         { icon: faFileCode, color: '#777bb4', bg: 'rgba(119,123,180,0.12)' },
-  shell:       { icon: faFileCode, color: '#89e015', bg: 'rgba(137,224,21,0.12)' },
-  sql:         { icon: faFileCode, color: '#e38c00', bg: 'rgba(227,140,0,0.12)' },
+// ─── Папка ағашы ───────────────────────────────────────────────────
+
+interface DirNode {
+  name: string;
+  path: string;
+  dirs: DirNode[];
+  files: VirtualFile[];
+}
+
+// file.path бойынша ағаш құру: папкалар алдымен, сосын файлдар (әліпби бойынша)
+function buildFileTree(files: VirtualFile[], folders: string[] = []): DirNode {
+  const root: DirNode = { name: '', path: '', dirs: [], files: [] };
+  const ensureDir = (segs: string[]): DirNode => {
+    let node = root;
+    segs.forEach((seg) => {
+      const path = node.path ? `${node.path}/${seg}` : seg;
+      let child = node.dirs.find((d) => d.name === seg);
+      if (!child) {
+        child = { name: seg, path, dirs: [], files: [] };
+        node.dirs.push(child);
+      }
+      node = child;
+    });
+    return node;
+  };
+  folders.forEach((folder) => ensureDir(folder.split('/').filter(Boolean)));
+  files.forEach((file) => {
+    const segs = (file.path || file.name).split('/').filter(Boolean).slice(0, -1);
+    ensureDir(segs).files.push(file);
+  });
+  const sort = (node: DirNode) => {
+    node.dirs.sort((a, b) => a.name.localeCompare(b.name));
+    node.files.sort((a, b) => a.name.localeCompare(b.name));
+    node.dirs.forEach(sort);
+  };
+  sort(root);
+  return root;
+}
+
+// Файлды көрсету үшін оның барлық ата-папкаларының жолдары
+function ancestorDirs(path: string): string[] {
+  const segs = path.split('/').filter(Boolean).slice(0, -1);
+  return segs.map((_, i) => segs.slice(0, i + 1).join('/'));
+}
+
+const INDENT_PX = 14;
+
+// Жол үшін контекст мәзірі (папка мен файлға ортақ)
+interface MenuItem {
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  danger?: boolean;
+  onClick: () => void;
+}
+
+const RowMenu: React.FC<{ items: (MenuItem | 'divider')[]; onClose: () => void }> = ({ items, onClose }) => (
+  <>
+    <div
+      className="fixed inset-0 z-[100]"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+    />
+    <div className="vx-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+      {items.map((item, i) =>
+        item === 'divider' ? (
+          <div key={`div-${i}`} className="vx-menu__divider" />
+        ) : (
+          <button
+            key={item.label}
+            type="button"
+            role="menuitem"
+            className={`vx-menu__item ${item.danger ? 'is-danger' : ''}`}
+            onClick={() => {
+              onClose();
+              item.onClick();
+            }}
+          >
+            <span className="vx-menu__icon">{item.icon}</span>
+            <span className="vx-menu__label">{item.label}</span>
+            {item.hint && <kbd className="vx-menu__hint">{item.hint}</kbd>}
+          </button>
+        )
+      )}
+    </div>
+  </>
+);
+
+interface FolderNodeProps {
+  name: string;
+  depth: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  onNewFile: () => void;
+  onNewFolder: () => void;
+  onDelete: () => void;
+}
+
+const FolderNode: React.FC<FolderNodeProps> = ({ name, depth, isOpen, onToggle, onNewFile, onNewFolder, onDelete }) => {
+  const [showMenu, setShowMenu] = useState(false);
+
+  return (
+    <div
+      className={`vx-row vx-row--dir ${isOpen ? 'is-open' : ''}`}
+      style={{ paddingLeft: 6 + depth * INDENT_PX }}
+      onClick={onToggle}
+      role="treeitem"
+      aria-expanded={isOpen}
+    >
+      {/* Ішкі деңгейдің бағыттаушы сызықтары */}
+      {Array.from({ length: depth }).map((_, i) => (
+        <span key={i} className="vx-row__guide" style={{ left: 13 + i * INDENT_PX }} />
+      ))}
+      <span className="vx-row__chevron">
+        <ChevronIcon size={12} />
+      </span>
+      <span className="vx-row__folder">
+        <FolderIcon size={15} open={isOpen} />
+      </span>
+      <span className="vx-row__name">{name}</span>
+
+      <span className="vx-row__actions">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMenu(!showMenu);
+          }}
+          className="vx-icon-btn vx-icon-btn--sm"
+          title="Әрекеттер"
+        >
+          <MoreIcon size={14} />
+        </button>
+        {showMenu && (
+          <RowMenu
+            onClose={() => setShowMenu(false)}
+            items={[
+              { icon: <FilePlusIcon size={14} />, label: 'Жаңа файл', onClick: onNewFile },
+              { icon: <FolderPlusIcon size={14} />, label: 'Жаңа папка', onClick: onNewFolder },
+              'divider',
+              { icon: <TrashIcon size={14} />, label: 'Папканы жою', danger: true, onClick: onDelete },
+            ]}
+          />
+        )}
+      </span>
+    </div>
+  );
 };
 
 interface FileNodeProps {
   file: VirtualFile;
+  depth: number;
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onRename: (name: string) => void;
 }
 
-const FileNode: React.FC<FileNodeProps> = ({ file, isActive, onSelect, onDelete, onRename }) => {
+const FileNode: React.FC<FileNodeProps> = ({ file, depth, isActive, onSelect, onDelete, onRename }) => {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(file.name);
   const [showMenu, setShowMenu] = useState(false);
 
-  const lang = detectLanguage(file.name);
-  const iconInfo = fileTypeIcons[lang] || { icon: faFileAlt, color: 'var(--ide-text-muted)', bg: 'transparent' };
+  const color = langColor(detectLanguage(file.name));
 
   const handleRenameSubmit = () => {
     if (renameValue.trim() && renameValue !== file.name) {
@@ -63,130 +193,71 @@ const FileNode: React.FC<FileNodeProps> = ({ file, isActive, onSelect, onDelete,
     setIsRenaming(false);
   };
 
-  const fileExt = file.name.includes('.') ? file.name.split('.').pop()?.toUpperCase() : '';
-
   return (
     <div
-      className={`group relative flex items-center gap-0 cursor-pointer text-[12px] transition-all duration-200`}
+      className={`vx-row vx-row--file ${isActive ? 'is-active' : ''}`}
+      style={{ paddingLeft: 6 + depth * INDENT_PX + 16, ['--lang' as string]: color }}
       onClick={onSelect}
+      title={file.path}
+      role="treeitem"
+      aria-selected={isActive}
     >
-      {/* Hover background */}
-      <div
-        className={`absolute inset-0 rounded-md transition-all duration-150 ${
-          isActive ? '' : 'group-hover:bg-[var(--ide-hover)]'
-        }`}
-        style={isActive ? { backgroundColor: 'var(--ide-accent)', opacity: 0.9 } : undefined}
-      />
+      {Array.from({ length: depth }).map((_, i) => (
+        <span key={i} className="vx-row__guide" style={{ left: 13 + i * INDENT_PX }} />
+      ))}
+      {/* Файл белгішесі + тілдің жарық нүктесі */}
+      <span className="vx-row__file">
+        <FileIcon size={15} />
+        <span className="vx-row__lang" />
+      </span>
 
-      {/* Active left indicator */}
-      {isActive && (
-        <div
-          className="absolute left-0 top-1 bottom-1 w-[2.5px] rounded-r-full"
-          style={{ backgroundColor: '#fff' }}
+      {isRenaming ? (
+        <input
+          type="text"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={handleRenameSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleRenameSubmit();
+            if (e.key === 'Escape') setIsRenaming(false);
+          }}
+          className="vx-row__rename"
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
         />
+      ) : (
+        <span className="vx-row__name">{file.name}</span>
       )}
 
-      <div className="relative flex items-center gap-2.5 px-3 py-[6px] w-full">
-        {/* File type badge */}
-        <div
-          className="w-5 h-5 rounded-md flex items-center justify-center text-[8px] font-bold flex-shrink-0"
-          style={{
-            backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : iconInfo.bg,
-            color: isActive ? '#fff' : iconInfo.color,
-          }}
-        >
-          {fileExt || '?'}
-        </div>
+      {!isRenaming && <span className="vx-row__ext">{fileExt(file.name)}</span>}
 
-        {isRenaming ? (
-          <input
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onBlur={handleRenameSubmit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleRenameSubmit();
-              if (e.key === 'Escape') setIsRenaming(false);
+      {file.isDirty && !isRenaming && <span className="vx-row__dirty" aria-label="unsaved" />}
+
+      {!isRenaming && (
+        <span className="vx-row__actions">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
             }}
-            className="flex-1 bg-[var(--ide-editor-bg)] border border-[var(--ide-accent)] text-[var(--ide-text)] px-1.5 py-0.5 text-[12px] outline-none rounded-sm min-w-0"
-            autoFocus
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <span
-            className="flex-1 truncate font-medium"
-            style={{ color: isActive ? '#fff' : 'var(--ide-text)' }}
+            className="vx-icon-btn vx-icon-btn--sm"
+            title="Әрекеттер"
           >
-            {file.name}
-          </span>
-        )}
-
-        {/* Dirty dot */}
-        {file.isDirty && !isRenaming && (
-          <span
-            className="w-[6px] h-[6px] rounded-full flex-shrink-0"
-            style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.8)' : 'var(--ide-accent)' }}
-          />
-        )}
-
-        {/* Context menu trigger */}
-        {!isRenaming && (
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className={`p-1 rounded-md transition-all duration-150 ${
-                isActive ? 'opacity-70 hover:opacity-100 hover:bg-white/20' : 'opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-[var(--ide-hover)]'
-              }`}
-            >
-              <FontAwesomeIcon icon={faEllipsisH} className="text-[10px]" style={{ color: isActive ? '#fff' : 'var(--ide-text-muted)' }} />
-            </button>
-
-            {/* Dropdown menu */}
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-[100]" onClick={() => setShowMenu(false)} />
-                <div
-                  className="absolute right-0 top-full z-[101] mt-0.5 py-1 rounded-lg shadow-2xl min-w-[160px] text-[12px] animate-fadeIn"
-                  style={{
-                    backgroundColor: 'var(--ide-sidebar-bg)',
-                    border: '1px solid var(--ide-border)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                  }}
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsRenaming(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-[var(--ide-hover)] flex items-center gap-2.5 transition-colors"
-                  >
-                    <FontAwesomeIcon icon={faEdit} className="w-3.5 text-[var(--ide-text-muted)]" />
-                    <span>Атауын өзгерту</span>
-                    <span className="ml-auto text-[10px] text-[var(--ide-text-muted)] opacity-50">F2</span>
-                  </button>
-                  <div className="my-1 mx-2 border-t border-[var(--ide-border)]" />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete();
-                      setShowMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-red-500/15 text-red-400 flex items-center gap-2.5 transition-colors"
-                  >
-                    <FontAwesomeIcon icon={faTrash} className="w-3.5" />
-                    <span>Жою</span>
-                    <span className="ml-auto text-[10px] opacity-50">Del</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+            <MoreIcon size={14} />
+          </button>
+          {showMenu && (
+            <RowMenu
+              onClose={() => setShowMenu(false)}
+              items={[
+                { icon: <EditIcon size={14} />, label: 'Атауын өзгерту', hint: 'F2', onClick: () => setIsRenaming(true) },
+                'divider',
+                { icon: <TrashIcon size={14} />, label: 'Жою', hint: 'Del', danger: true, onClick: onDelete },
+              ]}
+            />
+          )}
+        </span>
+      )}
     </div>
   );
 };
@@ -194,22 +265,46 @@ const FileNode: React.FC<FileNodeProps> = ({ file, isActive, onSelect, onDelete,
 const FileExplorerPanel: React.FC = () => {
   const { t } = useTranslation();
   const { state, dispatch, activeProject, isMobile, isTablet } = useVibecoding();
-  const [showNewFile, setShowNewFile] = useState(false);
+  // Жаңа файл немесе папка жасау: parent — қай папканың ішінде ('' — түбір)
+  const [creating, setCreating] = useState<{ kind: 'file' | 'folder'; parent: string } | null>(null);
   const [newFileName, setNewFileName] = useState('');
+  const showNewFile = creating !== null;
+  const startCreating = useCallback((kind: 'file' | 'folder', parent = '') => {
+    setCreating({ kind, parent });
+    setNewFileName('');
+  }, []);
+  const cancelCreating = useCallback(() => {
+    setCreating(null);
+    setNewFileName('');
+  }, []);
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const isOverlay = isMobile || isTablet;
 
   const handleCreateFile = useCallback(() => {
-    if (!newFileName.trim()) return;
-    dispatch({
-      type: 'CREATE_FILE',
-      payload: { name: newFileName.trim(), path: newFileName.trim(), content: '' },
-    });
-    setNewFileName('');
-    setShowNewFile(false);
-  }, [dispatch, newFileName]);
+    if (!creating) return;
+    // "src/utils.ts" сияқты жол жазылса — файл/папка сол папкада жасалады
+    const path = normalizePath(`${creating.parent}/${newFileName}`);
+    if (!path || path === normalizePath(creating.parent)) return;
+    if (creating.kind === 'folder') {
+      dispatch({ type: 'CREATE_FOLDER', payload: { path } });
+      setExpandedDirs(prev => new Set([...prev, ...ancestorDirs(`${path}/_`)]));
+    } else {
+      const name = path.split('/').pop() || path;
+      dispatch({ type: 'CREATE_FILE', payload: { name, path, content: '' } });
+    }
+    cancelCreating();
+  }, [dispatch, newFileName, creating, cancelCreating]);
+
+  const handleDeleteFolder = useCallback((path: string) => {
+    const count = activeProject?.files.filter(f => f.path.startsWith(`${path}/`)).length ?? 0;
+    const message = count > 0
+      ? `"${path}" папкасы ішіндегі ${count} файлмен бірге жойылады. Жалғастырасыз ба?`
+      : `"${path}" папкасын жою керек пе?`;
+    if (!window.confirm(message)) return;
+    dispatch({ type: 'DELETE_FOLDER', payload: { path } });
+  }, [dispatch, activeProject]);
 
   const handleDeleteFile = useCallback((fileId: string) => {
     dispatch({ type: 'DELETE_FILE', payload: { fileId } });
@@ -234,247 +329,250 @@ const FileExplorerPanel: React.FC = () => {
   }, [dispatch, state.projects.length]);
 
   const filteredFiles = useMemo(() =>
-    activeProject?.files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())) || [],
+    activeProject?.files.filter(f => (f.path || f.name).toLowerCase().includes(searchQuery.toLowerCase())) || [],
     [activeProject, searchQuery]
+  );
+
+  // Іздеу кезінде бос папкаларды көрсетпейміз — тек сәйкес файлдар
+  const tree = useMemo(
+    () => buildFileTree(filteredFiles, searchQuery ? [] : activeProject?.folders ?? []),
+    [filteredFiles, searchQuery, activeProject?.folders]
+  );
+
+  // Ашық папкалар (жоба ауысқанда — тек жоғарғы деңгей ашық)
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!activeProject) return;
+    setExpandedDirs(new Set(buildFileTree(activeProject.files, activeProject.folders).dirs.map(d => d.path)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProject?.id]);
+
+  // Белсенді файлдың папкаларын автоматты ашу (жаңа файл жасағанда да)
+  const activeFilePath = activeProject?.files.find(f => f.id === state.activeFileId)?.path;
+  useEffect(() => {
+    if (!activeFilePath) return;
+    setExpandedDirs(prev => {
+      const missing = ancestorDirs(activeFilePath).filter(d => !prev.has(d));
+      return missing.length ? new Set([...prev, ...missing]) : prev;
+    });
+  }, [activeFilePath]);
+
+  const toggleDir = useCallback((path: string) => {
+    setExpandedDirs(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const renderDir = (node: DirNode, depth: number): React.ReactNode => (
+    <>
+      {node.dirs.map((dir) => {
+        // Іздеу кезінде сәйкес папкалардың бәрі ашық тұрады
+        const isOpen = !!searchQuery || expandedDirs.has(dir.path);
+        return (
+          <React.Fragment key={`d:${dir.path}`}>
+            <FolderNode
+              name={dir.name}
+              depth={depth}
+              isOpen={isOpen}
+              onToggle={() => toggleDir(dir.path)}
+              onNewFile={() => {
+                setExpandedDirs(prev => new Set([...prev, dir.path]));
+                startCreating('file', dir.path);
+              }}
+              onNewFolder={() => {
+                setExpandedDirs(prev => new Set([...prev, dir.path]));
+                startCreating('folder', dir.path);
+              }}
+              onDelete={() => handleDeleteFolder(dir.path)}
+            />
+            {isOpen && renderDir(dir, depth + 1)}
+          </React.Fragment>
+        );
+      })}
+      {node.files.map((file) => (
+        <FileNode
+          key={file.id}
+          file={file}
+          depth={depth}
+          isActive={file.id === state.activeFileId}
+          onSelect={() => handleSelectFile(file.id)}
+          onDelete={() => handleDeleteFile(file.id)}
+          onRename={(name) => handleRenameFile(file.id, name)}
+        />
+      ))}
+    </>
   );
 
   if (!activeProject) {
     return (
-      <div className="h-full flex flex-col bg-[var(--ide-sidebar-bg)]">
-        <div className="flex-1 flex items-center justify-center text-[var(--ide-text-muted)] text-xs p-6">
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--ide-accent)', opacity: 0.1 }}>
-              <FontAwesomeIcon icon={faFolderOpen} className="text-2xl" style={{ color: 'var(--ide-accent)' }} />
-            </div>
-            <p className="mb-3 text-sm font-medium text-[var(--ide-text)]">{t('vibecoding.fileExplorer.emptyProject')}</p>
-            <button
-              onClick={handleCreateProject}
-              className="px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 hover:opacity-90"
-              style={{ backgroundColor: 'var(--ide-accent)', color: '#fff' }}
-            >
-              <FontAwesomeIcon icon={faFolderPlus} className="mr-1.5" />
-              {t('vibecoding.fileExplorer.newProject')}
-            </button>
+      <div className="vx-explorer">
+        <div className="vx-empty">
+          <div className="vx-orb">
+            <FolderIcon size={26} open />
           </div>
+          <p className="vx-empty__title">{t('vibecoding.fileExplorer.emptyProject')}</p>
+          <button type="button" onClick={handleCreateProject} className="vx-btn vx-btn--primary">
+            <FolderPlusIcon size={15} />
+            {t('vibecoding.fileExplorer.newProject')}
+          </button>
         </div>
       </div>
     );
   }
 
+  const dirtyCount = activeProject.files.filter(f => f.isDirty).length;
+
   return (
-    <div className="h-full flex flex-col bg-[var(--ide-sidebar-bg)] select-none">
+    <div className="vx-explorer select-none">
       {/* Overlay close button (mobile/tablet only) */}
       {isOverlay && (
-        <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--ide-border)] flex-shrink-0">
-          <span className="text-xs font-semibold text-[var(--ide-text)]">{t('vibecoding.fileExplorer.title')}</span>
+        <div className="vx-explorer__overlay-head">
           <button
+            type="button"
             onClick={() => dispatch({ type: 'SET_LEFT_PANEL_VISIBLE', payload: false })}
-            className="p-1.5 rounded-md text-[var(--ide-text-muted)] hover:text-[var(--ide-text)] hover:bg-[var(--ide-hover)] transition-colors"
+            className="vx-icon-btn"
             title="Жабу"
           >
-            <FontAwesomeIcon icon={faArrowLeft} className="text-[10px]" />
+            <ArrowLeftIcon size={16} />
           </button>
+          <span>{t('vibecoding.fileExplorer.title')}</span>
         </div>
       )}
 
-      {/* Project selector header */}
-      <div className="px-2 pt-2 pb-1.5 flex-shrink-0">
+      {/* Жоба таңдау — басты беттің sidebar жолындай */}
+      <div className="vx-project">
         <button
+          type="button"
           onClick={() => setShowProjectMenu(!showProjectMenu)}
-          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12px] font-semibold text-[var(--ide-text)] hover:bg-[var(--ide-hover)] transition-all duration-200 group"
+          className={`vx-project__btn ${showProjectMenu ? 'is-open' : ''}`}
         >
-          <div
-            className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'var(--ide-accent)', opacity: 0.15 }}
-          >
-            <FontAwesomeIcon icon={faFolderOpen} className="text-[10px]" style={{ color: 'var(--ide-accent)' }} />
-          </div>
-          <span className="flex-1 text-left truncate">{activeProject.name}</span>
-          <FontAwesomeIcon
-            icon={showProjectMenu ? faChevronDown : faChevronRight}
-            className="text-[8px] text-[var(--ide-text-muted)] transition-transform duration-200"
-            style={{ transform: showProjectMenu ? 'rotate(0deg)' : 'rotate(0deg)' }}
-          />
+          <span className="vx-mono">{activeProject.name.charAt(0).toUpperCase() || 'P'}</span>
+          <span className="vx-project__info">
+            <span className="vx-project__name">{activeProject.name}</span>
+            <span className="vx-project__meta">
+              {activeProject.files.length} файл
+              {dirtyCount > 0 && <> · <span className="vx-project__dirty">{dirtyCount} өзгертілді</span></>}
+            </span>
+          </span>
+          <span className="vx-project__chevron">
+            <ChevronDownIcon size={14} />
+          </span>
         </button>
 
-        {/* Project dropdown */}
         {showProjectMenu && (
           <>
             <div className="fixed inset-0 z-50" onClick={() => setShowProjectMenu(false)} />
-            <div
-              className="absolute left-2 right-2 z-50 mt-1 py-1 rounded-xl shadow-2xl text-[12px] animate-fadeIn"
-              style={{
-                backgroundColor: 'var(--ide-sidebar-bg)',
-                border: '1px solid var(--ide-border)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
-              }}
-            >
-              {/* Project list header */}
-              <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-[var(--ide-text-muted)] font-bold flex items-center gap-1.5">
-                <FontAwesomeIcon icon={faCodeBranch} className="text-[8px]" />
+            <div className="vx-menu vx-menu--projects">
+              <div className="vx-menu__heading">
+                <BranchIcon size={12} />
                 {t('vibecoding.fileExplorer.projects')}
               </div>
-
               {state.projects.map((proj) => (
                 <button
                   key={proj.id}
+                  type="button"
                   onClick={() => handleSwitchProject(proj.id)}
-                  className={`w-full text-left px-3 py-2.5 hover:bg-[var(--ide-hover)] flex items-center gap-2.5 transition-all duration-150 ${
-                    proj.id === activeProject.id ? 'bg-[var(--ide-accent)]/10' : ''
-                  }`}
+                  className={`vx-menu__item ${proj.id === activeProject.id ? 'is-current' : ''}`}
                 >
-                  <div
-                    className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[9px]"
-                    style={{
-                      backgroundColor: proj.id === activeProject.id ? 'var(--ide-accent)' : 'var(--ide-hover)',
-                      color: proj.id === activeProject.id ? '#fff' : 'var(--ide-text-muted)',
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faFolder} className="text-[9px]" />
-                  </div>
-                  <span className={`truncate ${proj.id === activeProject.id ? 'text-[var(--ide-accent)] font-medium' : 'text-[var(--ide-text)]'}`}>
-                    {proj.name}
-                  </span>
-                  <span className="ml-auto text-[10px] text-[var(--ide-text-muted)] bg-[var(--ide-hover)] px-1.5 py-0.5 rounded-md">
-                    {proj.files.length}
-                  </span>
+                  <span className="vx-mono vx-mono--sm">{proj.name.charAt(0).toUpperCase() || 'P'}</span>
+                  <span className="vx-menu__label">{proj.name}</span>
+                  <span className="vx-menu__count">{proj.files.length}</span>
                 </button>
               ))}
-
-              <div className="my-1 mx-3 border-t border-[var(--ide-border)]" />
-
-              <button
-                onClick={handleCreateProject}
-                className="w-full text-left px-3 py-2.5 hover:bg-[var(--ide-hover)] flex items-center gap-2.5 transition-colors text-[var(--ide-accent)]"
-              >
-                <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--ide-accent)', opacity: 0.15 }}>
-                  <FontAwesomeIcon icon={faPlus} className="text-[9px]" />
-                </div>
-                <span className="font-medium">{t('vibecoding.fileExplorer.newProject')}</span>
+              <div className="vx-menu__divider" />
+              <button type="button" onClick={handleCreateProject} className="vx-menu__item">
+                <span className="vx-menu__icon">
+                  <PlusIcon size={14} />
+                </span>
+                <span className="vx-menu__label">{t('vibecoding.fileExplorer.newProject')}</span>
               </button>
             </div>
           </>
         )}
       </div>
 
-      {/* Section header: Explorer */}
-      <div className="flex items-center justify-between px-3 py-1.5 flex-shrink-0">
-        <span className="text-[10px] uppercase tracking-[0.1em] font-bold text-[var(--ide-text-muted)]">
-          {t('vibecoding.fileExplorer.title')}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setShowNewFile(!showNewFile)}
-            className={`p-1.5 rounded-md transition-all duration-200 ${
-              showNewFile
-                ? 'text-[var(--ide-accent)] bg-[var(--ide-accent)]/10'
-                : 'text-[var(--ide-text-muted)] hover:text-[var(--ide-accent)] hover:bg-[var(--ide-hover)]'
-            }`}
-            title={t('vibecoding.fileExplorer.newFile')}
-          >
-            <FontAwesomeIcon icon={faPlus} className="text-[10px]" />
+      {/* Іздеу өрісі */}
+      <div className="vx-search">
+        <SearchIcon size={15} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Файл іздеу..."
+        />
+        {searchQuery && (
+          <button type="button" onClick={() => setSearchQuery('')} className="vx-icon-btn vx-icon-btn--sm" title="Тазалау">
+            <CloseIcon size={12} />
           </button>
-        </div>
-      </div>
-
-      {/* Search bar */}
-      {activeProject.files.length > 2 && (
-        <div className="px-3 pb-2 flex-shrink-0">
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[var(--ide-editor-bg)] border border-[var(--ide-border)] focus-within:border-[var(--ide-accent)] transition-colors">
-            <FontAwesomeIcon icon={faSearch} className="text-[10px] text-[var(--ide-text-muted)]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Іздеу..."
-              className="flex-1 bg-transparent border-none outline-none text-[11px] text-[var(--ide-text)] placeholder-[var(--ide-text-muted)] w-0"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="p-0.5 rounded text-[var(--ide-text-muted)] hover:text-[var(--ide-text)] transition-colors"
-              >
-                <FontAwesomeIcon icon={faTimes} className="text-[8px]" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* New file input */}
-      {showNewFile && (
-        <div className="px-3 pb-2 flex-shrink-0 animate-fadeIn">
-          <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[var(--ide-editor-bg)] border-2 border-[var(--ide-accent)] shadow-[0_0_8px_rgba(0,175,202,0.15)]">
-            <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--ide-accent)', opacity: 0.15 }}>
-              <FontAwesomeIcon icon={faFileCode} className="text-[8px]" style={{ color: 'var(--ide-accent)' }} />
-            </div>
-            <input
-              type="text"
-              value={newFileName}
-              onChange={(e) => setNewFileName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateFile();
-                if (e.key === 'Escape') { setShowNewFile(false); setNewFileName(''); }
-              }}
-              placeholder="filename.ext"
-              className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--ide-text)] placeholder-[var(--ide-text-muted)] min-w-0"
-              autoFocus
-            />
-            <button
-              onClick={() => { setShowNewFile(false); setNewFileName(''); }}
-              className="p-1 rounded text-[var(--ide-text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-            >
-              <FontAwesomeIcon icon={faTimes} className="text-[9px]" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Thin divider */}
-      <div className="mx-3 border-t border-[var(--ide-border)]" />
-
-      {/* File list */}
-      <div className="flex-1 overflow-y-auto py-1 ide-scrollbar">
-        {filteredFiles.length === 0 ? (
-          <div className="px-3 py-8 text-[var(--ide-text-muted)] text-xs text-center">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--ide-hover)' }}>
-              <FontAwesomeIcon icon={faFileAlt} className="text-lg opacity-30" />
-            </div>
-            {searchQuery ? 'Ештеңе табылмады' : t('vibecoding.fileExplorer.emptyProject')}
-          </div>
-        ) : (
-          filteredFiles.map((file) => (
-            <FileNode
-              key={file.id}
-              file={file}
-              isActive={file.id === state.activeFileId}
-              onSelect={() => handleSelectFile(file.id)}
-              onDelete={() => handleDeleteFile(file.id)}
-              onRename={(name) => handleRenameFile(file.id, name)}
-            />
-          ))
         )}
       </div>
 
-      {/* Bottom status bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-t border-[var(--ide-border)] flex-shrink-0">
-        <span className="text-[10px] text-[var(--ide-text-muted)] font-medium">
-          {activeProject.files.length} файл{activeProject.files.length === 1 ? '' : activeProject.files.length > 1 && activeProject.files.length < 5 ? '' : ''}
-        </span>
-        <div className="flex items-center gap-2">
-          {activeProject.files.some(f => f.isDirty) && (
-            <span className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--ide-accent)' }}>
-              <span className="w-[5px] h-[5px] rounded-full animate-pulse" style={{ backgroundColor: 'var(--ide-accent)' }} />
-              өзгертілді
-            </span>
-          )}
+      {/* Бөлім тақырыбы */}
+      <div className="vx-section">
+        <span className="vx-section__title">{t('vibecoding.fileExplorer.title')}</span>
+        <div className="vx-section__actions">
           <button
-            className="p-1 rounded text-[var(--ide-text-muted)] hover:text-[var(--ide-text)] hover:bg-[var(--ide-hover)] transition-colors"
-            title="Баптау"
+            type="button"
+            onClick={() => (creating?.kind === 'file' && !creating.parent ? cancelCreating() : startCreating('file'))}
+            className={`vx-icon-btn ${creating?.kind === 'file' ? 'is-on' : ''}`}
+            title={t('vibecoding.fileExplorer.newFile')}
           >
-            <FontAwesomeIcon icon={faCog} className="text-[9px]" />
+            <FilePlusIcon size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => (creating?.kind === 'folder' && !creating.parent ? cancelCreating() : startCreating('folder'))}
+            className={`vx-icon-btn ${creating?.kind === 'folder' ? 'is-on' : ''}`}
+            title="Жаңа папка"
+          >
+            <FolderPlusIcon size={15} />
           </button>
         </div>
+      </div>
+
+      {/* Жаңа файл / папка енгізу */}
+      {showNewFile && (
+        <div className="vx-create">
+          <span className="vx-create__icon">
+            {creating?.kind === 'folder' ? <FolderIcon size={14} /> : <FileIcon size={14} />}
+          </span>
+          {creating?.parent && (
+            <span className="vx-create__parent" title={creating.parent}>
+              {creating.parent}/
+            </span>
+          )}
+          <input
+            type="text"
+            value={newFileName}
+            onChange={(e) => setNewFileName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreateFile();
+              if (e.key === 'Escape') cancelCreating();
+            }}
+            placeholder={creating?.kind === 'folder' ? 'папка-аты' : 'filename.ext'}
+            autoFocus
+          />
+          <button type="button" onClick={cancelCreating} className="vx-icon-btn vx-icon-btn--sm" title="Болдырмау">
+            <CloseIcon size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* Файлдар ағашы */}
+      <div className="vx-tree ide-scrollbar">
+        {filteredFiles.length === 0 ? (
+          <div className="vx-tree__empty">
+            <span className="vx-tree__empty-icon">
+              {searchQuery ? <SearchIcon size={20} /> : <FileIcon size={20} />}
+            </span>
+            {searchQuery ? 'Ештеңе табылмады' : t('vibecoding.fileExplorer.emptyProject')}
+          </div>
+        ) : (
+          <div role="tree">{renderDir(tree, 0)}</div>
+        )}
       </div>
     </div>
   );

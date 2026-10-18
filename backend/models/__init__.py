@@ -9,6 +9,9 @@ from .user import (
     TwoFASetupVerify,
     TwoFADisable,
     TwoFALoginVerify,
+    SmsSendRequest,
+    SmsVerifyRequest,
+    FirebasePhoneVerify,
 )
 from .code import (
     CodeCreate,
@@ -18,7 +21,7 @@ from .code import (
     ViewRequest,
     DeleteMultipleRequest
 )
-from .message import MessageCreate
+from .message import MessageCreate, MessageEdit, ReactionToggle, PinToggle, ForwardRequest, PollVote, ChatPrefUpdate
 from .friend import FriendRequestCreate
 
 __all__ = [
@@ -31,6 +34,9 @@ __all__ = [
     "TwoFASetupVerify",
     "TwoFADisable",
     "TwoFALoginVerify",
+    "SmsSendRequest",
+    "SmsVerifyRequest",
+    "FirebasePhoneVerify",
     "CodeCreate",
     "CodeUpdate",
     "CommentCreate",
@@ -38,5 +44,11 @@ __all__ = [
     "ViewRequest",
     "DeleteMultipleRequest",
     "MessageCreate",
+    "MessageEdit",
+    "ReactionToggle",
+    "PinToggle",
+    "ForwardRequest",
+    "PollVote",
+    "ChatPrefUpdate",
     "FriendRequestCreate",
 ]

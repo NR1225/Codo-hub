@@ -1,143 +1,264 @@
 /* =========================================================
-   VibeCoding — Premium IDE shell
-   A clean, cohesive, professional editor surface
-   (Cursor / Windsurf / VS Code "Modern Dark" inspired).
+   Vibecoding — басты беттің дизайн тілінде (Home.css, HomeSidebar.css):
+   сайт хедерінің астында, қара фон, монохром палитра, қалқымалы панельдер.
+   Тақырыптан тәуелсіз — басты бет сияқты әрқашан қара.
    ========================================================= */
 
-/* ── Design tokens for the IDE surface (dark default) ── */
+/* ── IDE айнымалылары ── */
 .vibe-root {
   /* Surfaces */
-  --ide-bg: #0d0f12;
-  --ide-sidebar-bg: #131519;
-  --ide-editor-bg: #0d0f12;
-  --ide-terminal-bg: #0a0c0f;
-  --ide-tab-active-bg: #0d0f12;
-  --ide-tab-inactive-bg: #131519;
+  --ide-bg: #000;
+  --ide-sidebar-bg: #0e0e0e;
+  --ide-editor-bg: #0a0a0a;
+  --ide-terminal-bg: #0a0a0a;
+  --ide-tab-active-bg: #0a0a0a;
+  --ide-tab-inactive-bg: #111111;
 
   /* Text */
-  --ide-text: #d7dbe6;
-  --ide-text-muted: #6b7284;
+  --ide-text: #f5f5f5;
+  --ide-text-muted: #8f8f8f;
 
-  /* Accent */
-  --ide-accent: #00b4c4;
-  --ide-accent-hover: #00d0e0;
-  --ide-accent-soft: rgba(0, 180, 196, 0.12);
+  /* Accent — басты беттегідей ақ, үстіндегі мәтін қара */
+  --ide-accent: #fafafa;
+  --ide-accent-hover: #d4d4d4;
+  --ide-accent-soft: rgba(255, 255, 255, 0.08);
+  --ide-on-accent: #0a0a0a;
 
   /* Lines & hovers */
-  --ide-border: #1f232b;
-  --ide-border-soft: #171a20;
-  --ide-hover: #1a1d24;
-  --ide-active: #1c6b75;
+  --ide-border: #1f1f1f;
+  --ide-border-soft: #171717;
+  --ide-hover: #1a1a1a;
+  --ide-active: #262626;
 
   /* Status bar */
-  --ide-status-bar-bg: #00b4c4;
-  --ide-status-bar-text: #04181c;
-  --ide-status-bar-item-hover: rgba(255, 255, 255, 0.18);
+  --ide-status-bar-bg: transparent;
+  --ide-status-bar-text: #a3a3a3;
+  --ide-status-bar-item-hover: rgba(255, 255, 255, 0.06);
 
   /* Scrollbar */
-  --ide-scrollbar-thumb: #2a2f3a;
+  --ide-scrollbar-thumb: #2a2a2a;
 
   /* Misc */
   --ide-dirty: #fbbf24;
   --ide-danger: #f87171;
   --ide-success: #34d399;
 
-  --ide-radius: 8px;
+  --ide-radius: 12px;
   --ide-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --ide-shadow-2: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --ide-shadow-2: 0 20px 60px rgba(0, 0, 0, 0.6);
   --ide-transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Басты беттің панель стилі */
+  --vibe-panel-bg: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  --vibe-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  --vibe-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --vibe-gap: 12px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* --header-h — хедердің нақты биіктігі (Header.tsx) */
+  height: calc(100dvh - var(--header-h, 64px));
+  min-height: 480px;
+  padding: var(--vibe-gap);
+  box-sizing: border-box;
+  overflow: hidden;
   color: var(--ide-text);
-  background: var(--ide-bg);
+  background: #000;
 }
 
-/* Light theme overrides */
-.light-theme .vibe-root {
-  --ide-bg: #fbfbfc;
-  --ide-sidebar-bg: #f3f4f6;
-  --ide-editor-bg: #ffffff;
-  --ide-terminal-bg: #f7f8fa;
-  --ide-tab-active-bg: #ffffff;
-  --ide-tab-inactive-bg: #f0f1f4;
-
-  --ide-text: #1f2430;
-  --ide-text-muted: #71778a;
-
-  --ide-accent: #0a9bb0;
-  --ide-accent-hover: #088699;
-  --ide-accent-soft: rgba(10, 155, 176, 0.1);
-
-  --ide-border: #e4e7ec;
-  --ide-border-soft: #edeff3;
-  --ide-hover: #ebedf1;
-  --ide-active: #d7eef2;
-
-  --ide-status-bar-bg: #0a9bb0;
-  --ide-status-bar-text: #ffffff;
-  --ide-status-bar-item-hover: rgba(255, 255, 255, 0.22);
-
-  --ide-scrollbar-thumb: #c8ccd4;
-  --ide-shadow-2: 0 8px 28px rgba(15, 23, 42, 0.12);
+/* ── Құралдар панелі (бұрынғы жеке хедердің орнына) ── */
+.vibe-toolbar {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--ide-border);
+  border-radius: 16px;
+  background: var(--vibe-panel-bg);
+  box-shadow: var(--vibe-panel-shadow);
+  animation: vibePanelIn 0.6s var(--vibe-ease) backwards;
 }
 
-/* ── Subtle ambient background (replaces holographic clutter) ── */
-.vibe-root::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 18% -5%, rgba(0, 180, 196, 0.07), transparent 38%),
-    radial-gradient(circle at 85% 105%, rgba(100, 80, 200, 0.05), transparent 34%);
-  pointer-events: none;
-  z-index: 0;
-}
-.light-theme .vibe-root::before {
-  background:
-    radial-gradient(circle at 18% -5%, rgba(10, 155, 176, 0.06), transparent 38%),
-    radial-gradient(circle at 85% 105%, rgba(100, 80, 200, 0.04), transparent 34%);
+.vibe-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
-/* ── Title bar (header glass) ── */
-.vibe-glass {
-  background: var(--ide-sidebar-bg);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-bottom: 1px solid var(--ide-border);
-  box-shadow: none;
+.vibe-toolbar__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
 }
-.vibe-glass::before,
-.vibe-glass::after { display: none; }
 
-/* ── Header tab buttons ── */
+.vibe-toolbar__brand {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ide-text);
+}
+
+.vibe-toolbar__sep {
+  color: #404040;
+}
+
+.vibe-toolbar__project {
+  color: var(--ide-text-muted);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vibe-toolbar__file {
+  font-weight: 600;
+  color: var(--ide-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vibe-toolbar__dirty {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ide-dirty);
+}
+
+/* Файл іздеу — басты беттегі іздеу өрісі сияқты */
+.vibe-toolbar__search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--ide-border);
+  border-radius: 12px;
+  background: #0a0a0a;
+  color: var(--ide-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--ide-transition), color var(--ide-transition);
+}
+
+.vibe-toolbar__search:hover {
+  border-color: #333;
+  color: var(--ide-text);
+}
+
+.vibe-toolbar__search-text {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vibe-toolbar__search kbd {
+  padding: 2px 6px;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  background: #1c1c1c;
+  color: var(--ide-text-muted);
+  font-family: inherit;
+  font-size: 10px;
+}
+
+/* ── Құралдар батырмалары: басты беттің иконка ұяшығы + мәтін ── */
 .vibe-header-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 9px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--ide-text-muted);
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px 0 4px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 12px;
   background: transparent;
-  border: 1px solid transparent;
-  transition: all var(--ide-transition);
-  cursor: pointer;
+  color: var(--ide-text-muted);
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
-}
-.vibe-header-tab:hover {
-  color: var(--ide-text);
-  background: var(--ide-hover);
-}
-.vibe-header-tab.active {
-  color: var(--ide-text);
-  background: var(--ide-active);
-  border-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
-/* ── Title in header ── */
-.vibe-title-glitch { position: relative; display: inline-block; }
-.vibe-title-glitch::before,
-.vibe-title-glitch::after { display: none; }
+.vibe-header-tab:hover {
+  background: var(--ide-hover);
+  color: var(--ide-text);
+}
+
+.vibe-header-tab:active {
+  transform: scale(0.97);
+}
+
+.vibe-header-tab:focus-visible,
+.vibe-toolbar__search:focus-visible {
+  outline: 2px solid var(--ide-accent);
+  outline-offset: 2px;
+}
+
+.vibe-header-tab--icon {
+  padding: 0 4px;
+}
+
+.vibe-header-tab__icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2e2e2e;
+  border-radius: 9px;
+  background: #1c1c1c;
+  color: #e5e5e5;
+  font-size: 12px;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Ашық панель — ақ ұяшық (басты беттің акцент түсі) */
+.vibe-header-tab.active {
+  color: var(--ide-text);
+}
+
+.vibe-header-tab.active .vibe-header-tab__icon {
+  border-color: var(--ide-accent);
+  background: var(--ide-accent);
+  color: var(--ide-on-accent);
+}
+
+@keyframes vibePanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── IDE аймағы ── */
+.vibe-ide {
+  margin-top: var(--vibe-gap);
+  min-height: 0;
+}
 
 /* ── Buttons ── */
 .vibe-btn,
@@ -151,7 +272,7 @@
   border-radius: var(--ide-radius);
   font-size: 12px;
   font-weight: 500;
-  color: var(--ide-text);
+  color: var(--ide-on-accent);
   background: var(--ide-accent);
   border: none;
   box-shadow: none;
@@ -161,7 +282,7 @@
 .vibe-btn:hover,
 .vibe-btn-secondary:hover {
   background: var(--ide-accent-hover);
-  color: #04181c;
+  color: var(--ide-on-accent);
   transform: none;
   box-shadow: none;
 }
@@ -169,13 +290,13 @@
 .vibe-btn-secondary::before { display: none; }
 .vibe-btn-secondary {
   background: transparent;
-  color: var(--ide-accent);
+  color: var(--ide-text);
   border: 1px solid var(--ide-border);
 }
 .vibe-btn-secondary:hover {
-  background: var(--ide-accent-soft);
-  color: var(--ide-accent);
-  border-color: var(--ide-accent);
+  background: var(--ide-hover);
+  color: var(--ide-text);
+  border-color: #333;
 }
 
 /* ── Empty-state card ── */
@@ -186,9 +307,10 @@
   text-align: center;
   position: relative;
   overflow: hidden;
-  background: var(--ide-sidebar-bg);
+  background: var(--vibe-panel-bg);
   border: 1px solid var(--ide-border);
-  box-shadow: var(--ide-shadow-2);
+  border-radius: 20px;
+  box-shadow: var(--vibe-panel-shadow);
 }
 .vibe-empty-card::after { display: none; }
 .vibe-glow-border::before { display: none; }
@@ -224,20 +346,39 @@
 }
 .vibe-ai-avatar::before { display: none; }
 
-/* ── Panels: flat separators (no neon) ── */
+/* ── Панельдер: басты беттегідей қалқымалы карталар ── */
 .vibe-panel-left,
 .vibe-panel-right,
-.vibe-panel-bottom { position: relative; }
+.vibe-panel-center { position: relative; }
 .vibe-panel-left::before,
 .vibe-panel-right::before,
 .vibe-panel-bottom::before { display: none; }
-.vibe-panel-left {
-  background: var(--ide-sidebar-bg);
-  border-right: 1px solid var(--ide-border);
-}
+.vibe-panel-left,
 .vibe-panel-right {
-  background: var(--ide-sidebar-bg);
-  border-left: 1px solid var(--ide-border);
+  border: 1px solid var(--ide-border);
+  border-radius: 18px;
+  background: var(--vibe-panel-bg);
+  box-shadow: var(--vibe-panel-shadow);
+  animation: vibePanelIn 0.6s var(--vibe-ease) backwards;
+}
+.vibe-panel-left { animation-delay: 60ms; }
+.vibe-panel-right { animation-delay: 120ms; }
+/* Жабық панельдің жиегі мен көлеңкесі көрінбейді */
+.vibe-panel-left[data-open="false"],
+.vibe-panel-right[data-open="false"] {
+  border-color: transparent;
+  box-shadow: none;
+}
+/* Ішкі компоненттердің өз фоны карта градиентін жаппауы үшін */
+.vibe-panel-left > *,
+.vibe-panel-right > * { background: transparent !important; }
+
+.vibe-panel-center {
+  border: 1px solid var(--ide-border);
+  border-radius: 20px;
+  background: var(--ide-editor-bg);
+  box-shadow: var(--vibe-panel-shadow);
+  animation: vibePanelIn 0.6s var(--vibe-ease) 30ms backwards;
 }
 .vibe-panel-bottom {
   border-top: 1px solid var(--ide-border);
@@ -251,7 +392,7 @@
 }
 .vibe-terminal-connect {
   background: var(--ide-accent);
-  color: #fff;
+  color: var(--ide-on-accent);
   box-shadow: none;
   border-radius: 6px;
   padding: 4px 10px;
@@ -259,7 +400,7 @@
 }
 .vibe-terminal-connect:hover {
   background: var(--ide-accent-hover);
-  color: #04181c;
+  color: var(--ide-on-accent);
 }
 
 /* ── Status bar (legacy helper class kept for the editor mini-bar) ── */
@@ -300,9 +441,16 @@
 .vibe-statusbar {
   display: flex;
   align-items: stretch;
-  height: 24px;
+  height: 30px;
   flex-shrink: 0;
-  background: var(--ide-status-bar-bg);
+  margin-top: var(--vibe-gap, 12px);
+  padding: 0 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--ide-border);
+  border-radius: 12px;
+  background: var(--vibe-panel-bg, var(--ide-sidebar-bg));
+  box-shadow: var(--vibe-panel-shadow, none);
   color: var(--ide-status-bar-text);
   font-size: 11px;
   user-select: none;
@@ -332,7 +480,7 @@
   width: 1px;
   align-self: center;
   height: 14px;
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--ide-border);
 }
 .vibe-statusbar-dot {
   width: 6px;
@@ -357,9 +505,9 @@
   justify-content: center;
   align-items: flex-start;
   padding-top: 12vh;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   animation: vibe-cp-fade 140ms ease-out;
 }
 @keyframes vibe-cp-fade {
@@ -371,9 +519,9 @@
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  background: var(--ide-sidebar-bg);
+  background: var(--vibe-panel-bg, var(--ide-sidebar-bg));
   border: 1px solid var(--ide-border);
-  border-radius: 12px;
+  border-radius: 18px;
   box-shadow: var(--ide-shadow-2);
   overflow: hidden;
   animation: vibe-cp-pop 160ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -425,8 +573,8 @@
 }
 .vibe-cp-item:hover { background: var(--ide-hover); }
 .vibe-cp-item.selected {
-  background: var(--ide-accent-soft);
-  outline: 1px solid var(--ide-accent);
+  background: var(--ide-hover);
+  outline: 1px solid #333;
   outline-offset: -1px;
 }
 .vibe-cp-item-icon {
@@ -443,7 +591,7 @@
 }
 .vibe-cp-item.selected .vibe-cp-item-icon {
   background: var(--ide-accent);
-  color: #fff;
+  color: var(--ide-on-accent);
 }
 .vibe-cp-item-label { flex: 1; min-width: 0; }
 .vibe-cp-item-title { font-weight: 500; }
@@ -569,6 +717,7 @@
   transition: transform var(--ide-transition);
 }
 .vibe-toggle.on { background: var(--ide-accent); }
+.vibe-toggle.on::after { background: var(--ide-on-accent); }
 .vibe-toggle.on::after { transform: translateX(16px); }
 .vibe-select {
   background: var(--ide-hover);
@@ -617,13 +766,46 @@
 }
 .vibe-hide-scrollbar::-webkit-scrollbar { display: none; }
 
-/* Match container helper — the content sits above the ambient layer */
+/* Беттің мазмұны */
 .vibe-content-layer {
   position: relative;
-  z-index: 10;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* =========================================================
+   Кіші экрандар
+   ========================================================= */
+@media (max-width: 1024px) {
+  .vibe-toolbar__search { width: auto; }
+  .vibe-toolbar__search-text,
+  .vibe-toolbar__search kbd { display: none; }
+}
+
+@media (max-width: 640px) {
+  .vibe-root {
+    --vibe-gap: 8px;
+    min-height: 0;
+  }
+  .vibe-toolbar {
+    height: 48px;
+    gap: 6px;
+    padding: 0 4px;
+  }
+  .vibe-header-tab { padding: 0 4px; }
+  .vibe-header-tab__text { display: none; }
+  .vibe-toolbar__title { font-size: 12px; }
+  .vibe-panel-center { border-radius: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vibe-toolbar,
+  .vibe-panel-left,
+  .vibe-panel-right,
+  .vibe-panel-center {
+    animation: none;
+  }
 }

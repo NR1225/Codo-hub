@@ -1,28 +1,34 @@
 """Message routes"""
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request, Query
 from typing import Optional
 import json
-from models import MessageCreate
+from models import MessageCreate, MessageEdit, ReactionToggle, PinToggle, ForwardRequest, PollVote
 from services.message_service import MessageService
+from services.message_extras import build_poll_metadata, reply_snapshot
+from services.user_lookup import find_public_user
+from services.forward_service import forward_message
 from services.friend_service import FriendService
+from services.upload_service import save_chat_attachment
+from services.project_card import build_project_metadata
 from utils.auth import get_current_user, verify_user_access
-from db import User
-import os
-from datetime import datetime
-from config import DANGEROUS_EXTENSIONS, MAX_FILE_SIZE
+from db import SessionLocal, User
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
-# Create uploads directory if it doesn't exist
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(f"{UPLOAD_DIR}/images", exist_ok=True)
-os.makedirs(f"{UPLOAD_DIR}/audio", exist_ok=True)
-os.makedirs(f"{UPLOAD_DIR}/video", exist_ok=True)
-os.makedirs(f"{UPLOAD_DIR}/files", exist_ok=True)
+
+def _reply_extra(user_id: str, peer_id: str, reply_to_id: Optional[str]) -> dict:
+    """replyToId → {'replyTo': үзінді}; хабарлама осы сөйлесуде болуы керек"""
+    if not reply_to_id:
+        return {}
+    source = MessageService.get_visible_message(reply_to_id, user_id)
+    if peer_id not in (source.get('fromUserId'), source.get('toUserId')):
+        raise HTTPException(status_code=400, detail="Reply target is not in this conversation")
+    sender = find_public_user(source.get('fromUserId'))
+    return {'replyTo': reply_snapshot(source, sender['username'] if sender else None)}
+
 
 
 @router.get("/messages/{user_id}")
@@ -52,14 +58,29 @@ async def create_message(request: Request, message_data: MessageCreate, user: Us
 
     try:
         can_message = FriendService.can_message(user.id, message_data.toUserId)
+        metadata = message_data.metadata
+        content = message_data.content or ""
+        if message_data.type == "poll":
+            metadata = build_poll_metadata(metadata)
+            content = metadata["question"]
+        if message_data.type == "project":
+            if not can_message:
+                raise ValueError("Тек достарға хабарлама жіберуге болады. Алдымен дос болыңыз.")
+            # Жоба картасының деректерін сервер толтырады
+            db = SessionLocal()
+            try:
+                metadata = build_project_metadata(db, user.id, message_data.metadata)
+            finally:
+                db.close()
         message = await MessageService.create_message(
             from_user_id=user.id,
             to_user_id=message_data.toUserId,
-            content=message_data.content or "",
+            content=content,
             are_friends=can_message,
             message_type=message_data.type or "text",
             attachments=message_data.attachments,
-            metadata=message_data.metadata
+            metadata=metadata,
+            extra=_reply_extra(user.id, message_data.toUserId, message_data.replyToId),
         )
         return message
     except ValueError as e:
@@ -74,85 +95,19 @@ async def upload_file(
     toUserId: str = Form(...),
     messageType: str = Form("file"),
     content: Optional[str] = Form(None),
-    metadata: Optional[str] = Form(None),
+    metadata: Optional[str] = Form(None, max_length=4000),
+    replyToId: Optional[str] = Form(None, max_length=64),
     user: User = Depends(get_current_user),
 ):
     """Upload a file and create a message with attachment"""
     try:
-        # Validate file extension
-        if file.filename:
-            file_ext = os.path.splitext(file.filename)[1].lower()
-            if file_ext in DANGEROUS_EXTENSIONS:
-                raise HTTPException(status_code=400, detail=f"File type '{file_ext}' is not allowed")
-
-            # Double-check: verify content type matches extension for images
-            if file.content_type and file.content_type.startswith('image/'):
-                import filetype
-                content_bytes = await file.read()
-                await file.seek(0)  # Reset position after reading
-                kind = filetype.guess(content_bytes)
-                if kind is None:
-                    # Could not determine file type from magic bytes — reject for safety
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Could not verify file type. Only valid image files are accepted."
-                    )
-                elif kind.mime != file.content_type:
-                    # Content type doesn't match actual file content
-                    raise HTTPException(
-                        status_code=400,
-                        detail="File content does not match the declared file type"
-                    )
-
-        # Read file content with size check
-        content_bytes = await file.read()
-        if len(content_bytes) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail=f"File size exceeds maximum allowed size")
-
-        # Verify messaging permission
+        # Алдымен рұқсатты тексереміз — рұқсат жоқ болса файл сақталмайды
         can_message = FriendService.can_message(user.id, toUserId)
         if not can_message:
             raise HTTPException(status_code=403, detail="Тек достарға хабарлама жіберуге болады. Алдымен дос болыңыз.")
+        reply_extra = _reply_extra(user.id, toUserId, replyToId)
 
-        # Determine upload directory based on message type
-        upload_subdir = {
-            "image": "images",
-            "audio": "audio",
-            "video": "video",
-            "file": "files"
-        }.get(messageType, "files")
-
-        upload_path = f"{UPLOAD_DIR}/{upload_subdir}"
-        os.makedirs(upload_path, exist_ok=True)
-
-        # Generate unique filename (sanitize to prevent path traversal)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_filename = os.path.basename(file.filename) if file.filename else "upload"
-        safe_filename = safe_filename.replace("..", "").replace("/", "").replace("\\", "")
-        file_extension = os.path.splitext(safe_filename)[1] if safe_filename else ""
-        unique_filename = f"{timestamp}_{safe_filename}"
-        file_path = os.path.join(upload_path, unique_filename)
-
-        # Verify path is within upload directory
-        upload_dir_abs = os.path.abspath(UPLOAD_DIR)
-        file_path_abs = os.path.abspath(file_path)
-        if not file_path_abs.startswith(upload_dir_abs):
-            raise HTTPException(status_code=400, detail="Invalid file path")
-
-        # Save file
-        with open(file_path, "wb") as buffer:
-            buffer.write(content_bytes)
-
-        # Get file size
-        file_size = len(content_bytes)
-
-        # Create attachment object
-        attachment = {
-            "filename": safe_filename,
-            "url": f"/api/uploads/{upload_subdir}/{unique_filename}",
-            "size": file_size,
-            "mimeType": file.content_type or "application/octet-stream"
-        }
+        attachment = await save_chat_attachment(file, messageType)
 
         # Parse metadata if provided
         metadata_dict = {}
@@ -170,7 +125,8 @@ async def upload_file(
             are_friends=can_message,
             message_type=messageType,
             attachments=[attachment],
-            metadata=metadata_dict
+            metadata=metadata_dict,
+            extra=reply_extra,
         )
 
         return message
@@ -227,3 +183,57 @@ async def clear_conversation(request: Request, user_id: str, friend_id: str, cur
     deleted_count = MessageService.clear_conversation(user_id, friend_id)
     return {'message': 'Conversation cleared', 'deletedCount': deleted_count}
 
+
+
+# ---------- Хабарлама әрекеттері ----------
+
+@router.patch("/messages/{message_id}")
+@limiter.limit("30/minute")
+async def edit_message(request: Request, message_id: str, body: MessageEdit, user: User = Depends(get_current_user)):
+    """Өз хабарламасының мәтінін өзгерту"""
+    return await MessageService.edit_message(message_id, user.id, body.content)
+
+
+@router.delete("/messages/{message_id}")
+@limiter.limit("30/minute")
+async def delete_message(
+    request: Request,
+    message_id: str,
+    scope: str = Query("me", pattern=r"^(me|all)$"),
+    user: User = Depends(get_current_user),
+):
+    """scope=me — тек өзімнен, scope=all — екеуінен де (тек автор)"""
+    return await MessageService.delete_message(message_id, user.id, scope == "all")
+
+
+@router.post("/messages/{message_id}/reactions")
+@limiter.limit("60/minute")
+async def react_to_message(request: Request, message_id: str, body: ReactionToggle, user: User = Depends(get_current_user)):
+    return await MessageService.react(message_id, user.id, body.emoji)
+
+
+@router.post("/messages/{message_id}/pin")
+@limiter.limit("30/minute")
+async def pin_message(request: Request, message_id: str, body: PinToggle, user: User = Depends(get_current_user)):
+    return await MessageService.set_pinned(message_id, user.id, body.pinned)
+
+
+@router.post("/messages/{message_id}/listened")
+@limiter.limit("60/minute")
+async def mark_listened(request: Request, message_id: str, user: User = Depends(get_current_user)):
+    """Дауыстық хабарламаны тыңдадым (тек алушы)"""
+    return await MessageService.mark_listened(message_id, user.id)
+
+
+@router.post("/messages/{message_id}/vote")
+@limiter.limit("60/minute")
+async def vote_in_poll(request: Request, message_id: str, body: PollVote, user: User = Depends(get_current_user)):
+    """Сауалнамаға дауыс беру; optionIds бос болса — дауысты қайтарып алу"""
+    return await MessageService.vote(message_id, user.id, body.optionIds)
+
+
+@router.post("/messages/forward")
+@limiter.limit("20/minute")
+async def forward(request: Request, body: ForwardRequest, user: User = Depends(get_current_user)):
+    """Хабарламаны (жеке чаттан не топтан) достарға және топтарға бағыттау"""
+    return await forward_message(user.id, body)
