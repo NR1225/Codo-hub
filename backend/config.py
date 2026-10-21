@@ -42,6 +42,30 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Kazakh Hub")
 RESET_PASSWORD_URL = os.getenv("RESET_PASSWORD_URL", "http://localhost:5173/reset-password")
 
+# ── Vibecoding terminal (PTY) hardening ──
+# The terminal hands an authenticated user a real shell on the server, so it is
+# sandboxed and capped. Each session runs in a per-user workspace directory with
+# a scrubbed environment (no app secrets), resource limits (Unix), and strict
+# session/idle/lifetime caps. Set TERMINAL_ENABLED=false to turn it off entirely.
+TERMINAL_ENABLED = os.getenv("TERMINAL_ENABLED", "true").lower() == "true"
+TERMINAL_WORKSPACE_DIR = os.getenv(
+    "TERMINAL_WORKSPACE_DIR",
+    os.path.join(os.path.dirname(__file__), "data", "terminal_workspaces"),
+)
+TERMINAL_MAX_SESSIONS_PER_USER = int(os.getenv("TERMINAL_MAX_SESSIONS_PER_USER", "2"))
+TERMINAL_MAX_SESSIONS_TOTAL = int(os.getenv("TERMINAL_MAX_SESSIONS_TOTAL", "50"))
+TERMINAL_IDLE_TIMEOUT_SECONDS = int(os.getenv("TERMINAL_IDLE_TIMEOUT_SECONDS", "900"))      # 15 min
+TERMINAL_MAX_LIFETIME_SECONDS = int(os.getenv("TERMINAL_MAX_LIFETIME_SECONDS", "3600"))     # 1 hour
+TERMINAL_OUTPUT_QUEUE_MAX = int(os.getenv("TERMINAL_OUTPUT_QUEUE_MAX", "1000"))
+TERMINAL_MAX_INPUT_BYTES = int(os.getenv("TERMINAL_MAX_INPUT_BYTES", "4096"))               # per message
+TERMINAL_INPUT_RATE_MAX = int(os.getenv("TERMINAL_INPUT_RATE_MAX", "200"))                  # messages / window
+TERMINAL_INPUT_RATE_WINDOW = int(os.getenv("TERMINAL_INPUT_RATE_WINDOW", "10"))             # seconds
+# Memory/CPU/process/file caps applied per session on Unix via setrlimit.
+TERMINAL_RLIMIT_CPU_SECONDS = int(os.getenv("TERMINAL_RLIMIT_CPU_SECONDS", "120"))
+TERMINAL_RLIMIT_MEM_MB = int(os.getenv("TERMINAL_RLIMIT_MEM_MB", "512"))
+TERMINAL_RLIMIT_NPROC = int(os.getenv("TERMINAL_RLIMIT_NPROC", "64"))
+TERMINAL_RLIMIT_FSIZE_MB = int(os.getenv("TERMINAL_RLIMIT_FSIZE_MB", "100"))
+
 # Data file paths
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CODES_FILE = os.path.join(DATA_DIR, "codes.json")

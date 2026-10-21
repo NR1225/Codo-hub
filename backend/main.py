@@ -375,11 +375,20 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
 
 
 # Terminal WebSocket endpoint for Vibecoding
-from services.terminal_service import terminal_manager
+from services.terminal_service import terminal_manager, TerminalLimitError
+from config import (
+    TERMINAL_ENABLED, TERMINAL_MAX_INPUT_BYTES,
+    TERMINAL_INPUT_RATE_MAX, TERMINAL_INPUT_RATE_WINDOW,
+)
 
 @app.websocket("/api/ws/terminal")
 async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     """WebSocket endpoint for terminal sessions in Vibecoding (requires JWT token)"""
+    # Feature kill-switch.
+    if not TERMINAL_ENABLED:
+        await websocket.close(code=4004, reason="Terminal is disabled")
+        return
+
     # Validate Origin header
     origin = websocket.headers.get("origin", "")
     allowed_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")
@@ -410,11 +419,16 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
     # Accept the WebSocket connection
     await websocket.accept()
 
-    # Create a new terminal session
+    # Create a new terminal session (enforces per-user / global caps)
     session = None
     output_task = None
     try:
-        session = await terminal_manager.create_session(user_id)
+        try:
+            session = await terminal_manager.create_session(user_id)
+        except TerminalLimitError as e:
+            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.close(code=4008, reason="Session limit")
+            return
 
         # Send connected message
         await websocket.send_json({
@@ -425,11 +439,9 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
         # Start reading output from the terminal
         async def read_terminal_output():
             """Read output from the terminal and send it to the WebSocket"""
-            if not hasattr(session, '_output_queue'):
-                return
             try:
                 while True:
-                    data = await session._output_queue.get()
+                    data = await session.output_queue.get()
                     if data is None:
                         # Process exited
                         await websocket.send_json({
@@ -447,21 +459,45 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
         # Start output reader task
         output_task = asyncio.create_task(read_terminal_output())
 
+        # Simple per-connection input rate limiter (sliding window).
+        rate_window_start = asyncio.get_event_loop().time()
+        rate_count = 0
+
         # Handle incoming messages
         while True:
             data = await websocket.receive_json()
             message_type = data.get("type")
 
             if message_type == "input":
+                # Rate limit: cap input messages per window.
+                now = asyncio.get_event_loop().time()
+                if now - rate_window_start > TERMINAL_INPUT_RATE_WINDOW:
+                    rate_window_start = now
+                    rate_count = 0
+                rate_count += 1
+                if rate_count > TERMINAL_INPUT_RATE_MAX:
+                    await websocket.send_json({"type": "error", "message": "Input rate limit exceeded"})
+                    await websocket.close(code=4008, reason="Rate limit")
+                    break
+
                 input_data = data.get("data", "")
+                if not isinstance(input_data, str):
+                    continue
+                # Size cap (defence in depth; the session also truncates).
+                if len(input_data.encode("utf-8")) > TERMINAL_MAX_INPUT_BYTES:
+                    input_data = input_data.encode("utf-8")[:TERMINAL_MAX_INPUT_BYTES].decode("utf-8", "ignore")
+                # Audit log (truncated so secrets typed at the prompt aren't fully stored).
+                logger.info("term-input user=%s session=%s bytes=%d", user_id, session.session_id, len(input_data))
                 await session.write(input_data)
 
             elif message_type == "resize":
                 cols = data.get("cols", 80)
                 rows = data.get("rows", 24)
                 await session.resize(cols, rows)
+                session.touch()
 
             elif message_type == "ping":
+                session.touch()
                 await websocket.send_json({"type": "pong"})
 
     except WebSocketDisconnect:
@@ -483,6 +519,27 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
         if session:
             await terminal_manager.close_session(session.session_id)
 
+
+# Route-order fix: the literal "/api/ws/terminal" must be matched before the
+# parametric "/api/ws/{user_id}" (defined earlier), which would otherwise
+# capture "terminal" as a user_id and reject the handshake with "User ID
+# mismatch". Starlette matches routes in registration order, so move the
+# literal terminal route ahead of the parametric one.
+def _prioritize_terminal_route():
+    routes = app.router.routes
+    term_idx = user_idx = None
+    for i, r in enumerate(routes):
+        path = getattr(r, "path", None)
+        if path == "/api/ws/terminal" and term_idx is None:
+            term_idx = i
+        elif path == "/api/ws/{user_id}" and user_idx is None:
+            user_idx = i
+    if term_idx is not None and user_idx is not None and term_idx > user_idx:
+        routes.insert(user_idx, routes.pop(term_idx))
+
+_prioritize_terminal_route()
+
+
 if __name__ == "__main__":
     # Default to 3000 for local development, 8080 for Cloud Run
     port = int(os.getenv("PORT", 3000))
@@ -492,5 +549,6 @@ if __name__ == "__main__":
         port=port,
         timeout_keep_alive=75,  # Keep connections alive for 75 seconds
         timeout_graceful_shutdown=10,  # Graceful shutdown timeout
-        access_log=True  # Enable access logging for debugging
+        access_log=True,  # Enable access logging for debugging
+        server_header=False,  # Don't advertise the server software (info disclosure)
     )
