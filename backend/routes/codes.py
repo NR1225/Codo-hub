@@ -44,6 +44,10 @@ async def create_code(request: Request, code_data: CodeCreate, user: User = Depe
     """Create a new code"""
     try:
         code_dict = code_data.model_dump()
+        # Server-side ownership: never trust a client-supplied author; the
+        # author is always the authenticated user (prevents attribution spoofing
+        # and the ownership checks on edit/delete being set to someone else).
+        code_dict['author'] = user.username
         return CodeService.create_code(code_dict)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
