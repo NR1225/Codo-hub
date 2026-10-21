@@ -636,10 +636,10 @@ class ApiService {
   }
 
   // Authentication
-  async register(username: string, email: string, password: string, phoneToken: string): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
+  async register(username: string, email: string, password: string): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
     return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password, phone_token: phoneToken }),
+      body: JSON.stringify({ username, email, password }),
     });
   }
 

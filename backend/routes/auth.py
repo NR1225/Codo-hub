@@ -265,21 +265,11 @@ async def register(request: Request, user_data: UserRegister, db: Session = Depe
         username = user_data.username.strip()
         email = user_data.email.strip().lower()
 
-        try:
-            phone_payload = decode_token(user_data.phone_token)
-        except HTTPException:
-            raise HTTPException(status_code=400, detail="Phone verification expired, verify again")
-        if phone_payload.get("type") != "phone_verified" or not phone_payload.get("phone"):
-            raise HTTPException(status_code=400, detail="Invalid phone verification")
-        phone = phone_payload["phone"]
-
         existing_user = db.query(User).filter(
             (User.email == email) | (User.username == username)
         ).first()
         if existing_user:
             raise HTTPException(status_code=409, detail="User already exists")
-        if _phone_taken(db, phone):
-            raise HTTPException(status_code=409, detail="Phone already registered")
 
         user_id = generate_user_id()
         while db.query(User).filter(User.id == user_id).first():
@@ -290,7 +280,6 @@ async def register(request: Request, user_data: UserRegister, db: Session = Depe
             id=user_id,
             username=username,
             email=email,
-            phone=phone,
             password_hash=password_hash,
             avatar=None,
         )

@@ -8,7 +8,6 @@ class UserRegister(BaseModel):
     username: str = Field(min_length=2, max_length=50, pattern=r'^[a-zA-Z0-9_Ѐ-ӿ]+$')
     email: str = Field(max_length=255)
     password: str = Field(min_length=8, max_length=128)
-    phone_token: str = Field(max_length=1000)
 
     @field_validator('email')
     @classmethod
