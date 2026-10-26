@@ -10,22 +10,15 @@ from models import (
     UserRegister, UserLogin, ChangePassword,
     ForgotPasswordRequest, ResetPasswordRequest,
     TwoFASetupVerify, TwoFADisable, TwoFALoginVerify,
-    SmsSendRequest, SmsVerifyRequest, FirebasePhoneVerify,
 )
-from db import get_db, User, PasswordReset, SmsVerification
+from db import get_db, User, PasswordReset
 from utils.password import hash_password, verify_password, hash_refresh_token, verify_refresh_token
 from utils.auth import (
     create_access_token, create_refresh_token, create_temp_2fa_token,
-    create_phone_token, decode_token, get_current_user,
+    decode_token, get_current_user,
 )
-from utils.sms import (
-    normalize_phone, generate_sms_code, hash_sms_code, verify_sms_code,
-    send_sms, verify_firebase_phone_token,
-)
-from config import (
-    LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
-    SMS_PROVIDER, SMS_CODE_TTL_MINUTES, SMS_CODE_MAX_ATTEMPTS, SMS_RESEND_COOLDOWN_SECONDS,
-)
+from utils.captcha import verify_captcha
+from config import LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_MINUTES
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -138,117 +131,12 @@ def _create_tokens(user: User, db: Session) -> dict:
     }
 
 
-# ── SMS phone verification (registration) ──
-
-def _phone_taken(db: Session, phone: str) -> bool:
-    return db.query(User).filter(User.phone == phone).first() is not None
-
-
-@router.get("/auth/sms/config")
-async def sms_config():
-    """Tell the frontend who sends the SMS: the browser (firebase) or the backend."""
-    return {"provider": "firebase" if SMS_PROVIDER == "firebase" else "backend"}
-
-
-@router.post("/auth/sms/send")
-@limiter.limit("3/minute")
-async def sms_send(request: Request, body: SmsSendRequest, db: Session = Depends(get_db)):
-    if SMS_PROVIDER == "firebase":
-        raise HTTPException(status_code=400, detail="SMS is sent by Firebase on this server")
-    try:
-        phone = normalize_phone(body.phone)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-    if _phone_taken(db, phone):
-        raise HTTPException(status_code=409, detail="Phone already registered")
-
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    last = (
-        db.query(SmsVerification)
-        .filter(SmsVerification.phone == phone)
-        .order_by(SmsVerification.created_at.desc())
-        .first()
-    )
-    if last and last.created_at and (now - _naive_utc(last.created_at)).total_seconds() < SMS_RESEND_COOLDOWN_SECONDS:
-        retry_after = SMS_RESEND_COOLDOWN_SECONDS - int((now - _naive_utc(last.created_at)).total_seconds())
-        raise HTTPException(
-            status_code=429,
-            detail="Please wait before requesting a new code",
-            headers={"Retry-After": str(retry_after)},
-        )
-
-    # Only the newest code is valid.
-    db.query(SmsVerification).filter(
-        SmsVerification.phone == phone, SmsVerification.used == False
-    ).update({SmsVerification.used: True})
-
-    code = generate_sms_code()
-    db.add(SmsVerification(
-        id=str(uuid.uuid4()),
-        phone=phone,
-        code_hash=hash_sms_code(phone, code),
-        created_at=now,
-        expires_at=now + timedelta(minutes=SMS_CODE_TTL_MINUTES),
-    ))
-    db.commit()
-
-    if not send_sms(phone, f"Kazakh Hub: растау коды {code}"):
-        raise HTTPException(status_code=502, detail="Failed to send SMS")
-
-    return {"message": "Code sent", "phone": phone, "resend_after": SMS_RESEND_COOLDOWN_SECONDS}
-
-
-@router.post("/auth/sms/verify")
-@limiter.limit("10/minute")
-async def sms_verify(request: Request, body: SmsVerifyRequest, db: Session = Depends(get_db)):
-    try:
-        phone = normalize_phone(body.phone)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-
-    entry = (
-        db.query(SmsVerification)
-        .filter(SmsVerification.phone == phone, SmsVerification.used == False)
-        .order_by(SmsVerification.created_at.desc())
-        .first()
-    )
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if not entry or _naive_utc(entry.expires_at) < now:
-        raise HTTPException(status_code=400, detail="Code expired, request a new one")
-
-    if not verify_sms_code(phone, body.code, entry.code_hash):
-        entry.attempts = (entry.attempts or 0) + 1
-        if entry.attempts >= SMS_CODE_MAX_ATTEMPTS:
-            entry.used = True  # burn the code after too many wrong guesses
-        db.commit()
-        raise HTTPException(status_code=400, detail="Invalid code")
-
-    entry.used = True
-    db.commit()
-    return {"phone_token": create_phone_token(phone), "phone": phone}
-
-
-@router.post("/auth/sms/firebase")
-@limiter.limit("10/minute")
-async def sms_firebase(request: Request, body: FirebasePhoneVerify, db: Session = Depends(get_db)):
-    """Exchange a Firebase phone-auth ID token for our own phone_token."""
-    if SMS_PROVIDER != "firebase":
-        raise HTTPException(status_code=400, detail="Firebase phone auth is disabled")
-    try:
-        phone = verify_firebase_phone_token(body.id_token)
-    except ValueError as e:
-        import logging
-        logging.getLogger("kazakh_hub").warning("Firebase phone verify failed: %s", e)
-        raise HTTPException(status_code=401, detail="Phone verification failed")
-    if _phone_taken(db, phone):
-        raise HTTPException(status_code=409, detail="Phone already registered")
-    return {"phone_token": create_phone_token(phone), "phone": phone}
-
-
 @router.post("/auth/register")
 @limiter.limit("3/minute")
 async def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
     try:
+        if not await verify_captcha(user_data.captcha_token, get_remote_address(request)):
+            raise HTTPException(status_code=400, detail="Captcha verification failed")
         if not user_data.username or not user_data.username.strip():
             raise HTTPException(status_code=400, detail="Username is required")
         if not user_data.email or not user_data.email.strip():
@@ -314,6 +202,8 @@ async def login(request: Request, login_data: UserLogin, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="Email or username required")
     if not login_data.password:
         raise HTTPException(status_code=400, detail="Password is required")
+    if not await verify_captcha(login_data.captcha_token, get_remote_address(request)):
+        raise HTTPException(status_code=400, detail="Captcha verification failed")
 
     user = None
     if login_data.email:

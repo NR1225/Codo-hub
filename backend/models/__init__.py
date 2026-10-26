@@ -9,9 +9,6 @@ from .user import (
     TwoFASetupVerify,
     TwoFADisable,
     TwoFALoginVerify,
-    SmsSendRequest,
-    SmsVerifyRequest,
-    FirebasePhoneVerify,
 )
 from .code import (
     CodeCreate,
@@ -34,9 +31,6 @@ __all__ = [
     "TwoFASetupVerify",
     "TwoFADisable",
     "TwoFALoginVerify",
-    "SmsSendRequest",
-    "SmsVerifyRequest",
-    "FirebasePhoneVerify",
     "CodeCreate",
     "CodeUpdate",
     "CommentCreate",

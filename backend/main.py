@@ -12,12 +12,14 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import uvicorn
 import os
+import sys
+import time
 import asyncio
 import logging
 
 # Import database and config
 from database import load_data, save_codes, save_users, save_friends, save_messages, save_friend_requests, codes
-from config import FIRESTORE_SYNC_AVAILABLE, FIRESTORE_INIT
+from config import FIRESTORE_SYNC_AVAILABLE, FIRESTORE_INIT, HSTS_MAX_AGE, HSTS_INCLUDE_SUBDOMAINS
 from db import init_db
 
 # Configure logging
@@ -47,7 +49,7 @@ async def lifespan(app: FastAPI):
     migrate_json_users()
 
     load_data()
-    logger.info(f"Loaded {len(codes)} codes from file")
+    logger.info(f"Loaded {len(codes)} codes from SQLite")
     
     # Initialize Firestore if available
     if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_INIT:
@@ -140,6 +142,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["X-Request-ID"] = os.urandom(16).hex()
+        # HSTS тек HTTPS-те (прокси артында X-Forwarded-Proto). http-де браузер бәрібір елемейді.
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
+        if proto == "https":
+            hsts = f"max-age={HSTS_MAX_AGE}"
+            if HSTS_INCLUDE_SUBDOMAINS:
+                hsts += "; includeSubDomains"
+            response.headers["Strict-Transport-Security"] = hsts
         try:
             del response.headers["server"]
         except KeyError:
@@ -376,13 +385,22 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
 
 # Terminal WebSocket endpoint for Vibecoding
 from services.terminal_service import terminal_manager, TerminalLimitError
+from services import terminal_workspace
+from db import VibecodingProject
+import json as _json
 from config import (
     TERMINAL_ENABLED, TERMINAL_MAX_INPUT_BYTES,
     TERMINAL_INPUT_RATE_MAX, TERMINAL_INPUT_RATE_WINDOW,
 )
 
 @app.websocket("/api/ws/terminal")
-async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
+async def terminal_websocket_endpoint(
+    websocket: WebSocket,
+    token: str = Query(None),
+    project_id: str = Query(None, alias="projectId", max_length=64),
+    cols: int = Query(80, ge=1, le=1000),
+    rows: int = Query(24, ge=1, le=1000),
+):
     """WebSocket endpoint for terminal sessions in Vibecoding (requires JWT token)"""
     # Feature kill-switch.
     if not TERMINAL_ENABLED:
@@ -405,6 +423,7 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
         return
 
     user_id = None
+    project = None
     db = SessionLocal()
     try:
         try:
@@ -413,6 +432,16 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
             await websocket.close(code=4001, reason="Invalid token")
             return
         user_id = user.id
+        if project_id:
+            # Тек өз жобасы — бөтен жобаның ID-і берілсе, үй папкасында ашылады
+            row = db.query(VibecodingProject).filter(VibecodingProject.id == project_id).first()
+            if row and row.owner_id == user_id:
+                project = {
+                    "id": row.id,
+                    "name": row.name,
+                    "files": _json.loads(row.files or "[]"),
+                    "folders": _json.loads(row.folders or "[]"),
+                }
     finally:
         db.close()
 
@@ -422,9 +451,23 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
     # Create a new terminal session (enforces per-user / global caps)
     session = None
     output_task = None
+    watch_task = None
     try:
+        # Жоба файлдарын терминал папкасына жазу — терминал жобаның ішінде ашылады
+        cwd = None
+        if project:
+            try:
+                cwd = await asyncio.to_thread(
+                    terminal_workspace.push, user_id, project["id"], project["name"],
+                    project["files"], project["folders"], True,
+                )
+            except Exception as e:
+                logger.error(f"Terminal workspace sync failed for project {project['id']}: {e}")
+                project = None
         try:
-            session = await terminal_manager.create_session(user_id)
+            session = await terminal_manager.create_session(
+                user_id, cols, rows, cwd=cwd, project_id=project["id"] if project else None,
+            )
         except TerminalLimitError as e:
             await websocket.send_json({"type": "error", "message": str(e)})
             await websocket.close(code=4008, reason="Session limit")
@@ -433,7 +476,10 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
         # Send connected message
         await websocket.send_json({
             "type": "connected",
-            "sessionId": session.session_id
+            "sessionId": session.session_id,
+            "projectId": session.project_id,
+            "mode": session.mode,
+            "platform": sys.platform,
         })
 
         # Start reading output from the terminal
@@ -446,7 +492,7 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
                         # Process exited
                         await websocket.send_json({
                             "type": "exit",
-                            "code": session.process.returncode if session.process else 0
+                            "code": session.exit_code
                         })
                         break
                     await websocket.send_json({
@@ -458,6 +504,29 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
 
         # Start output reader task
         output_task = asyncio.create_task(read_terminal_output())
+
+        async def send_fs_changes():
+            """Терминалда өзгерген файлдарды редакторға жіберу"""
+            changes = await asyncio.to_thread(terminal_workspace.pull, user_id, session.project_id)
+            if changes and any(changes.values()):
+                await websocket.send_json({"type": "fs-changes", "projectId": session.project_id, **changes})
+
+        async def watch_project_files():
+            """Шығыс болған сайын папканы тексеру: команда файл жасаса/өзгертсе — редактор біледі"""
+            last_scan = 0.0
+            last_sig = await asyncio.to_thread(terminal_workspace.signature, session.cwd)
+            while True:
+                await asyncio.sleep(1.5)
+                if session.last_output <= last_scan:
+                    continue
+                last_scan = time.monotonic()
+                sig = await asyncio.to_thread(terminal_workspace.signature, session.cwd)
+                if sig != last_sig:
+                    last_sig = sig
+                    await send_fs_changes()
+
+        if session.project_id:
+            watch_task = asyncio.create_task(watch_project_files())
 
         # Simple per-connection input rate limiter (sliding window).
         rate_window_start = asyncio.get_event_loop().time()
@@ -500,6 +569,9 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
                 session.touch()
                 await websocket.send_json({"type": "pong"})
 
+            elif message_type == "sync" and session.project_id:
+                await send_fs_changes()
+
     except WebSocketDisconnect:
         logger.info(f"Terminal WebSocket disconnected for user {user_id}")
     except Exception as e:
@@ -510,12 +582,13 @@ async def terminal_websocket_endpoint(websocket: WebSocket, token: str = Query(N
             pass
     finally:
         # Cleanup
-        if output_task and not output_task.done():
-            output_task.cancel()
-            try:
-                await output_task
-            except asyncio.CancelledError:
-                pass
+        for task in (output_task, watch_task):
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
         if session:
             await terminal_manager.close_session(session.session_id)
 

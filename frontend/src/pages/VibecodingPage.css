@@ -1,6 +1,6 @@
 /* =========================================================
-   Vibecoding — басты беттің дизайн тілінде (Home.css, HomeSidebar.css):
-   сайт хедерінің астында, қара фон, монохром палитра, қалқымалы панельдер.
+   Vibecoding — IDE стилі: өз хедері сайт хедерінің астына жапсырылған,
+   жинақы панельдер, әсерлер аз — басты назар кодта.
    Тақырыптан тәуелсіз — басты бет сияқты әрқашан қара.
    ========================================================= */
 
@@ -43,18 +43,16 @@
   --ide-danger: #f87171;
   --ide-success: #34d399;
 
-  --ide-radius: 12px;
+  --ide-radius: 8px;
   --ide-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
   --ide-shadow-2: 0 20px 60px rgba(0, 0, 0, 0.6);
   --ide-transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Басты беттің панель стилі */
-  --vibe-panel-bg: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
-  --vibe-panel-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  /* Жинақы панель стилі: тегіс фон, көлеңкесіз */
+  --vibe-panel-bg: #0e0e0e;
+  --vibe-panel-shadow: none;
   --vibe-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --vibe-gap: 12px;
+  --vibe-gap: 6px;
 
   position: relative;
   display: flex;
@@ -63,148 +61,96 @@
   /* --header-h — хедердің нақты биіктігі (Header.tsx) */
   height: calc(100dvh - var(--header-h, 64px));
   min-height: 480px;
-  padding: var(--vibe-gap);
   box-sizing: border-box;
   overflow: hidden;
   color: var(--ide-text);
   background: #000;
 }
 
-/* ── Құралдар панелі (бұрынғы жеке хедердің орнына) ── */
+/* ── Беттің өз хедері: сайт хедерінің астына жапсырылған жіңішке жолақ,
+   VS Code тақырып жолағы сияқты — іздеу ортада, макет белгішелері оң жақта ── */
 .vibe-toolbar {
   position: relative;
   flex-shrink: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 420px) 1fr;
   align-items: center;
-  gap: 12px;
-  height: 52px;
+  gap: 10px;
+  height: 38px;
   padding: 0 8px;
   box-sizing: border-box;
-  border: 1px solid var(--ide-border);
-  border-radius: 16px;
-  background: var(--vibe-panel-bg);
-  box-shadow: var(--vibe-panel-shadow);
-  animation: vibePanelIn 0.6s var(--vibe-ease) backwards;
+  border-bottom: 1px solid var(--ide-border);
+  background: #0a0a0a;
 }
 
-.vibe-toolbar__group {
+.vibe-toolbar__side {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.vibe-toolbar__title {
-  flex: 1;
+  gap: 2px;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
 }
 
-.vibe-toolbar__brand {
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--ide-text);
+.vibe-toolbar__side--end {
+  justify-content: flex-end;
 }
 
-.vibe-toolbar__sep {
-  color: #404040;
+.vibe-toolbar__divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--ide-border);
 }
 
-.vibe-toolbar__project {
-  color: var(--ide-text-muted);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.vibe-toolbar__file {
-  font-weight: 600;
-  color: var(--ide-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.vibe-toolbar__dirty {
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--ide-dirty);
-}
-
-/* Файл іздеу — басты беттегі іздеу өрісі сияқты */
+/* Файл іздеу — ортадағы кең өріс */
 .vibe-toolbar__search {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  width: 220px;
-  height: 36px;
-  padding: 0 8px 0 12px;
+  width: 100%;
+  height: 26px;
+  padding: 0 10px;
   box-sizing: border-box;
   border: 1px solid var(--ide-border);
-  border-radius: 12px;
-  background: #0a0a0a;
+  border-radius: 6px;
+  background: #121212;
   color: var(--ide-text-muted);
   font-size: 12px;
   cursor: pointer;
-  transition: border-color var(--ide-transition), color var(--ide-transition);
+  transition: border-color var(--ide-transition), color var(--ide-transition), background-color var(--ide-transition);
 }
 
 .vibe-toolbar__search:hover {
   border-color: #333;
+  background: #171717;
   color: var(--ide-text);
 }
 
 .vibe-toolbar__search-text {
-  flex: 1;
-  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.vibe-toolbar__search kbd {
-  padding: 2px 6px;
-  border: 1px solid #2e2e2e;
-  border-radius: 6px;
-  background: #1c1c1c;
-  color: var(--ide-text-muted);
-  font-family: inherit;
-  font-size: 10px;
-}
-
-/* ── Құралдар батырмалары: басты беттің иконка ұяшығы + мәтін ── */
+/* ── Хедер белгішелері ── */
 .vibe-header-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 12px 0 4px;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   box-sizing: border-box;
   border: 0;
-  border-radius: 12px;
+  border-radius: 6px;
   background: transparent;
   color: var(--ide-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .vibe-header-tab:hover {
   background: var(--ide-hover);
   color: var(--ide-text);
-}
-
-.vibe-header-tab:active {
-  transform: scale(0.97);
 }
 
 .vibe-header-tab:focus-visible,
@@ -213,50 +159,46 @@
   outline-offset: 2px;
 }
 
-.vibe-header-tab--icon {
-  padding: 0 4px;
-}
-
-.vibe-header-tab__icon {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #2e2e2e;
-  border-radius: 9px;
-  background: #1c1c1c;
-  color: #e5e5e5;
-  font-size: 12px;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-/* Ашық панель — ақ ұяшық (басты беттің акцент түсі) */
+/* Ашық панель — белгішенің бөлігі боялады, түсі ашығырақ */
 .vibe-header-tab.active {
   color: var(--ide-text);
 }
 
-.vibe-header-tab.active .vibe-header-tab__icon {
-  border-color: var(--ide-accent);
-  background: var(--ide-accent);
-  color: var(--ide-on-accent);
+/* «Іске қосу» — тулбардағы жалғыз мәтінді батырма */
+.vibe-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  background: #161616;
+  color: #e5e5e5;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
 
-@keyframes vibePanelIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.vibe-run-btn svg { color: #51cf66; }
+
+.vibe-run-btn:hover {
+  border-color: #3a3a3a;
+  background: #1f1f1f;
+}
+
+.vibe-run-btn:active { transform: scale(0.97); }
+
+.vibe-run-btn:focus-visible {
+  outline: 2px solid var(--ide-accent);
+  outline-offset: 2px;
 }
 
 /* ── IDE аймағы ── */
 .vibe-ide {
-  margin-top: var(--vibe-gap);
+  padding: var(--vibe-gap);
   min-height: 0;
 }
 
@@ -301,15 +243,14 @@
 
 /* ── Empty-state card ── */
 .vibe-empty-card {
-  width: min(440px, 90vw);
-  padding: 40px 32px;
-  border-radius: 16px;
+  width: min(360px, 90vw);
+  padding: 24px 20px;
   text-align: center;
   position: relative;
   overflow: hidden;
   background: var(--vibe-panel-bg);
   border: 1px solid var(--ide-border);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: var(--vibe-panel-shadow);
 }
 .vibe-empty-card::after { display: none; }
@@ -318,10 +259,10 @@
 /* ── Holographic icon → refined rounded icon tile ── */
 .vibe-holo-icon {
   position: relative;
-  width: 68px;
-  height: 68px;
-  margin: 0 auto 22px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 14px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -346,7 +287,7 @@
 }
 .vibe-ai-avatar::before { display: none; }
 
-/* ── Панельдер: басты беттегідей қалқымалы карталар ── */
+/* ── Панельдер: жинақы карталар, анимациясыз ── */
 .vibe-panel-left,
 .vibe-panel-right,
 .vibe-panel-center { position: relative; }
@@ -356,13 +297,9 @@
 .vibe-panel-left,
 .vibe-panel-right {
   border: 1px solid var(--ide-border);
-  border-radius: 18px;
+  border-radius: 8px;
   background: var(--vibe-panel-bg);
-  box-shadow: var(--vibe-panel-shadow);
-  animation: vibePanelIn 0.6s var(--vibe-ease) backwards;
 }
-.vibe-panel-left { animation-delay: 60ms; }
-.vibe-panel-right { animation-delay: 120ms; }
 /* Жабық панельдің жиегі мен көлеңкесі көрінбейді */
 .vibe-panel-left[data-open="false"],
 .vibe-panel-right[data-open="false"] {
@@ -375,13 +312,12 @@
 
 .vibe-panel-center {
   border: 1px solid var(--ide-border);
-  border-radius: 20px;
+  border-radius: 8px;
   background: var(--ide-editor-bg);
-  box-shadow: var(--vibe-panel-shadow);
-  animation: vibePanelIn 0.6s var(--vibe-ease) 30ms backwards;
 }
 .vibe-panel-bottom {
-  border-top: 1px solid var(--ide-border);
+  /* Терминал өзі қалқымалы карта (.vx-term-wrap) — бөлек жиек керек емес */
+  border-top: 0;
 }
 
 /* ── Terminal header ── */
@@ -441,14 +377,14 @@
 .vibe-statusbar {
   display: flex;
   align-items: stretch;
-  height: 30px;
+  height: 24px;
   flex-shrink: 0;
-  margin-top: var(--vibe-gap, 12px);
-  padding: 0 6px;
+  margin-top: var(--vibe-gap, 6px);
+  padding: 0 4px;
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--ide-border);
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--vibe-panel-bg, var(--ide-sidebar-bg));
   box-shadow: var(--vibe-panel-shadow, none);
   color: var(--ide-status-bar-text);
@@ -779,33 +715,19 @@
 /* =========================================================
    Кіші экрандар
    ========================================================= */
-@media (max-width: 1024px) {
-  .vibe-toolbar__search { width: auto; }
-  .vibe-toolbar__search-text,
-  .vibe-toolbar__search kbd { display: none; }
-}
+
 
 @media (max-width: 640px) {
   .vibe-root {
-    --vibe-gap: 8px;
+    --vibe-gap: 4px;
     min-height: 0;
   }
   .vibe-toolbar {
-    height: 48px;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 6px;
     padding: 0 4px;
   }
-  .vibe-header-tab { padding: 0 4px; }
-  .vibe-header-tab__text { display: none; }
-  .vibe-toolbar__title { font-size: 12px; }
-  .vibe-panel-center { border-radius: 16px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .vibe-toolbar,
-  .vibe-panel-left,
-  .vibe-panel-right,
-  .vibe-panel-center {
-    animation: none;
-  }
+  .vibe-toolbar__side:first-child { display: none; }
+  .vibe-run-btn { padding: 0 8px; }
+  .vibe-run-btn__text { display: none; }
 }

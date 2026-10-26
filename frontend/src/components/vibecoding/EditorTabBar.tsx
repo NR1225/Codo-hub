@@ -2,7 +2,8 @@ import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { CloseIcon } from './icons';
-import { langColor, fileExt } from './langColors';
+import { langColor } from './langColors';
+import { FileTypeIcon } from './fileIcons';
 
 const EditorTabBar: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +36,7 @@ const EditorTabBar: React.FC = () => {
             style={{ ['--lang' as string]: color }}
             title={file.path}
           >
-            <span className="vx-tab__badge">{fileExt(file.name) || '·'}</span>
+            <span className="vx-tab__icon"><FileTypeIcon name={file.name} size={18} /></span>
             <span className="vx-tab__name">{file.name}</span>
             {/* Сақталмаған файлда — нүкте, ховерде жабу батырмасына ауысады */}
             <span className="vx-tab__dirty" />

@@ -1,193 +1,196 @@
-"""Database operations for loading and saving data"""
+"""Кодтар, жеке хабарламалар, достар және ескі қолданушылар қоймасы.
+
+Сервистер жадтағы тізімдермен (`codes`, `messages`, ...) жұмыс істейді және
+оларды орнында өзгертеді. `save_*` функциялары жадтағы күйді SQLite-қа
+(db.py: codes, direct_messages, ...) синхрондайды: тек өзгерген жазбалар
+жазылады, жоғалғандары өшіріледі — бәрі бір транзакцияда.
+
+Бұрын бұл деректер backend/data/*.json файлдарында тұрған. Алғашқы іске
+қосуда кесте бос болса, JSON импортталып, файл `*.json.migrated` болып
+қайта аталады (сақтық көшірме ретінде қалады).
+"""
 import json
+import logging
 import os
-import tempfile
-from typing import List, Dict, Any
+from typing import Any, Callable, Dict, List
+
 from config import (
     CODES_FILE, USERS_FILE, FRIENDS_FILE,
     MESSAGES_FILE, FRIEND_REQUESTS_FILE, FIRESTORE_SYNC_AVAILABLE,
     FIRESTORE_SYNC_CODE, FIRESTORE_SYNC_MESSAGE, FIRESTORE_DELETE_CODE
 )
+from db import (
+    SessionLocal, CodeRecord, DirectMessageRecord, FriendRequestRecord,
+    FriendListRecord, LegacyUserRecord,
+)
+
+logger = logging.getLogger("kazakh_hub")
 
 # Global data storage
 codes: List[Dict[str, Any]] = []
-users: List[Dict[str, Any]] = []
+users: List[Dict[str, Any]] = []  # ескі users.json қолданушылары (тек көрсету үшін)
 friends: Dict[str, List[str]] = {}
 messages: List[Dict[str, Any]] = []
 friend_requests: List[Dict[str, Any]] = []
 
 
-def load_data():
-    """Load all data from JSON files"""
-    global codes, users, friends, messages, friend_requests
-    
-    # Load codes
-    try:
-        if os.path.exists(CODES_FILE):
-            with open(CODES_FILE, 'r', encoding='utf-8') as f:
-                loaded_codes = json.load(f)
-                codes.clear()
-                codes.extend(loaded_codes)
-        else:
-            codes.clear()
-    except Exception as e:
-        print(f'Error loading codes: {e}')
-        codes.clear()
-    
-    # Load users
-    try:
-        if os.path.exists(USERS_FILE):
-            with open(USERS_FILE, 'r', encoding='utf-8') as f:
-                loaded_users = json.load(f)
-                users.clear()
-                users.extend(loaded_users)
-        else:
-            users.clear()
-            users.append({
-                'id': '1',
-                'username': 'current-user',
-                'email': 'user@example.com',
-                'avatar': None
-            })
-            save_users()
-    except Exception as e:
-        print(f'Error loading users: {e}')
-        users.clear()
-        users.append({
-            'id': '1',
-            'username': 'current-user',
-            'email': 'user@example.com',
-            'avatar': None
-        })
+class _Collection:
+    """Жадтағы бір коллекция мен оның SQL кестесі арасындағы көпір.
 
-    # Load friends
-    try:
-        if os.path.exists(FRIENDS_FILE):
-            with open(FRIENDS_FILE, 'r', encoding='utf-8') as f:
-                friends_obj = json.load(f)
-                friends.clear()
-                friends.update(friends_obj)
-        else:
-            friends.clear()
-    except Exception as e:
-        print(f'Error loading friends: {e}')
-        friends.clear()
-    
-    # Load messages
-    try:
-        if os.path.exists(MESSAGES_FILE):
-            with open(MESSAGES_FILE, 'r', encoding='utf-8') as f:
-                loaded_messages = json.load(f)
-                messages.clear()
-                messages.extend(loaded_messages)
-        else:
-            messages.clear()
-    except Exception as e:
-        print(f'Error loading messages: {e}')
-        messages.clear()
-    
-    # Load friend requests
-    try:
-        if os.path.exists(FRIEND_REQUESTS_FILE):
-            with open(FRIEND_REQUESTS_FILE, 'r', encoding='utf-8') as f:
-                loaded_friend_requests = json.load(f)
-                friend_requests.clear()
-                friend_requests.extend(loaded_friend_requests)
-        else:
-            friend_requests.clear()
-    except Exception as e:
-        print(f'Error loading friend requests: {e}')
-        friend_requests.clear()
+    `_saved` — соңғы сақталған күй: {id: (seq, json)}. Сақтағанда жадтағы
+    әр жазба осымен салыстырылады, сондықтан 1 код өзгерсе, 1 жол жазылады.
+    """
 
+    def __init__(self, name: str, model, json_file: str, columns: Callable[[Any], Dict[str, Any]]):
+        self.name = name
+        self.model = model
+        self.json_file = json_file
+        self.columns = columns
+        self._saved: Dict[str, tuple] = {}
+        self._next_seq = 0
 
-def _atomic_write(filepath: str, data: str) -> None:
-    """Write data to a file atomically using write-then-rename pattern."""
-    dir_path = os.path.dirname(filepath)
-    if dir_path:
-        os.makedirs(dir_path, exist_ok=True)
-    # Write to temporary file first, then rename for atomic operation
-    fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix='.tmp')
-    try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            f.write(data)
-        os.replace(tmp_path, filepath)
-    except Exception:
-        # Clean up temp file on error
+    def load(self) -> List[tuple]:
+        """[(id, value)] — seq бойынша реттелген. Кесте бос болса, JSON-нан импорттайды."""
+        db = SessionLocal()
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+            rows = db.query(self.model.id, self.model.seq, self.model.data).order_by(self.model.seq).all()
+        finally:
+            db.close()
+
+        if not rows and os.path.exists(self.json_file):
+            return self._import_json()
+
+        if rows and os.path.exists(self.json_file):
+            logger.warning("%s: SQLite-та деректер бар, %s еленбейді", self.name, self.json_file)
+
+        self._saved = {r.id: (r.seq, r.data) for r in rows}
+        self._next_seq = (rows[-1].seq + 1) if rows else 0
+        return [(r.id, json.loads(r.data)) for r in rows]
+
+    def _import_json(self) -> List[tuple]:
+        with open(self.json_file, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        items = list(raw.items()) if isinstance(raw, dict) else [(str(x.get("id")), x) for x in raw if x.get("id") is not None]
+        self._saved = {}
+        self._next_seq = 0
+        self.sync(items)
+        os.replace(self.json_file, self.json_file + ".migrated")
+        logger.info("%s: %d жазба %s файлынан SQLite-қа көшірілді", self.name, len(items), os.path.basename(self.json_file))
+        return items
+
+    def sync(self, items: List[tuple]) -> tuple:
+        """Жадтағы [(id, value)] күйін кестеге жазады. (өзгерген id-лер, өшірілген id-лер) қайтарады."""
+        current: Dict[str, str] = {}
+        values: Dict[str, Any] = {}
+        for key, value in items:
+            current[key] = json.dumps(value, ensure_ascii=False)
+            values[key] = value
+
+        changed = [k for k, s in current.items() if k not in self._saved or self._saved[k][1] != s]
+        removed = [k for k in self._saved if k not in current]
+        if not changed and not removed:
+            return [], []
+
+        saved = dict(self._saved)
+        next_seq = self._next_seq
+        db = SessionLocal()
+        try:
+            for key in changed:
+                if key in saved:
+                    seq = saved[key][0]
+                else:
+                    seq = next_seq
+                    next_seq += 1
+                db.merge(self.model(id=key, seq=seq, data=current[key], **self.columns(values[key])))
+                saved[key] = (seq, current[key])
+            for i in range(0, len(removed), 500):
+                chunk = removed[i:i + 500]
+                db.query(self.model).filter(self.model.id.in_(chunk)).delete(synchronize_session=False)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+        for key in removed:
+            saved.pop(key, None)
+        self._saved = saved
+        self._next_seq = next_seq
+        return changed, removed
+
+
+_codes = _Collection("codes", CodeRecord, CODES_FILE,
+                     lambda c: {"author": c.get("author"), "folder_id": c.get("folderId")})
+_messages = _Collection("messages", DirectMessageRecord, MESSAGES_FILE,
+                        lambda m: {"from_user_id": m.get("fromUserId"), "to_user_id": m.get("toUserId")})
+_friend_requests = _Collection("friend_requests", FriendRequestRecord, FRIEND_REQUESTS_FILE,
+                               lambda r: {"from_user_id": r.get("fromUserId"), "to_user_id": r.get("toUserId")})
+_friends = _Collection("friends", FriendListRecord, FRIENDS_FILE, lambda _: {})
+_users = _Collection("legacy_users", LegacyUserRecord, USERS_FILE, lambda _: {})
+
+
+def _by_id(items: List[Dict[str, Any]]) -> List[tuple]:
+    return [(str(x["id"]), x) for x in list(items) if x.get("id") is not None]
+
+
+def load_data():
+    """Барлық коллекцияны SQLite-тан жадқа жүктеу (қажет болса JSON-нан бір рет көшіріп)"""
+    for collection, target in ((_codes, codes), (_messages, messages),
+                               (_friend_requests, friend_requests), (_users, users)):
+        try:
+            loaded = [value for _, value in collection.load()]
+        except Exception as e:
+            logger.error("Error loading %s: %s", collection.name, e)
+            raise
+        target.clear()
+        target.extend(loaded)
+
+    try:
+        loaded_friends = dict(_friends.load())
+    except Exception as e:
+        logger.error("Error loading friends: %s", e)
         raise
+    friends.clear()
+    friends.update(loaded_friends)
 
 
 def save_codes():
-    """Save codes to file and sync to Firestore"""
-    try:
-        json_data = json.dumps(codes, indent=2, ensure_ascii=False)
-        _atomic_write(CODES_FILE, json_data)
-        print(f'Codes saved successfully, file size: {len(json_data)} bytes')
-
-        # Firestore-ға синхрондау
-        if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
-            try:
-                for code in codes:
+    """Кодтарды SQLite-қа сақтау; өзгергендерін Firestore-ға синхрондау"""
+    changed, _ = _codes.sync(_by_id(codes))
+    if changed and FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
+        changed_ids = set(changed)
+        try:
+            for code in codes:
+                if str(code.get("id")) in changed_ids:
                     FIRESTORE_SYNC_CODE(code)
-            except Exception as e:
-                print(f'Warning: Firestore sync failed: {e}')
-    except Exception as e:
-        print(f'Error saving codes: {e}')
-        raise
+        except Exception as e:
+            logger.warning("Firestore sync failed: %s", e)
 
 
 def save_users():
-    """Save users to file"""
-    try:
-        json_data = json.dumps(users, indent=2, ensure_ascii=False)
-        _atomic_write(USERS_FILE, json_data)
-        print(f'Users saved successfully, count: {len(users)}')
-    except Exception as e:
-        print(f'Error saving users: {e}')
-        raise
+    """Ескі қолданушыларды сақтау"""
+    _users.sync(_by_id(users))
 
 
 def save_friends():
-    """Save friends to file"""
-    try:
-        json_data = json.dumps(friends, indent=2, ensure_ascii=False)
-        _atomic_write(FRIENDS_FILE, json_data)
-        print(f'Friends saved successfully, count: {len(friends)} users')
-    except Exception as e:
-        print(f'Error saving friends: {e}')
-        raise
+    """Достар тізімдерін сақтау"""
+    _friends.sync([(str(k), v) for k, v in list(friends.items())])
 
 
 def save_messages():
-    """Save messages to file and sync to Firestore"""
-    try:
-        json_data = json.dumps(messages, indent=2, ensure_ascii=False)
-        _atomic_write(MESSAGES_FILE, json_data)
-
-        # Firestore-ға синхрондау (соңғы хабарламаларды)
-        if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_MESSAGE:
-            try:
-                # Соңғы 100 хабарламаны синхрондау (performance үшін)
-                recent_messages = messages[-100:] if len(messages) > 100 else messages
-                for message in recent_messages:
+    """Жеке хабарламаларды SQLite-қа сақтау; өзгергендерін Firestore-ға синхрондау"""
+    changed, _ = _messages.sync(_by_id(messages))
+    if changed and FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_MESSAGE:
+        changed_ids = set(changed)
+        try:
+            for message in messages:
+                if str(message.get("id")) in changed_ids:
                     FIRESTORE_SYNC_MESSAGE(message)
-            except Exception as e:
-                print(f'Warning: Firestore messages sync failed: {e}')
-    except Exception as e:
-        print(f'Error saving messages: {e}')
-        raise
+        except Exception as e:
+            logger.warning("Firestore messages sync failed: %s", e)
 
 
 def save_friend_requests():
-    """Save friend requests to file"""
-    try:
-        json_data = json.dumps(friend_requests, indent=2, ensure_ascii=False)
-        _atomic_write(FRIEND_REQUESTS_FILE, json_data)
-        print(f'Friend requests saved successfully, count: {len(friend_requests)}')
-    except Exception as e:
-        print(f'Error saving friend requests: {e}')
-        raise
-
+    """Достық өтінімдерін сақтау"""
+    _friend_requests.sync(_by_id(friend_requests))

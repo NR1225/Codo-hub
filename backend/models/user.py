@@ -8,6 +8,7 @@ class UserRegister(BaseModel):
     username: str = Field(min_length=2, max_length=50, pattern=r'^[a-zA-Z0-9_Ѐ-ӿ]+$')
     email: str = Field(max_length=255)
     password: str = Field(min_length=8, max_length=128)
+    captcha_token: Optional[str] = Field(default=None, max_length=2048)
 
     @field_validator('email')
     @classmethod
@@ -15,23 +16,11 @@ class UserRegister(BaseModel):
         return validate_email(v)
 
 
-class SmsSendRequest(BaseModel):
-    phone: str = Field(max_length=32)
-
-
-class SmsVerifyRequest(BaseModel):
-    phone: str = Field(max_length=32)
-    code: str = Field(max_length=6, pattern=r'^\d{6}$')
-
-
-class FirebasePhoneVerify(BaseModel):
-    id_token: str = Field(max_length=4096)
-
-
 class UserLogin(BaseModel):
     email: Optional[str] = Field(default=None, max_length=255)
     username: Optional[str] = Field(default=None, max_length=50)
     password: str = Field(max_length=128)
+    captcha_token: Optional[str] = Field(default=None, max_length=2048)
 
     @field_validator('email')
     @classmethod

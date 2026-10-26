@@ -1,0 +1,1317 @@
+/* =========================================================
+   Жазбалар (Obsidian сияқты) — басты беттің дизайнымен бірдей:
+   қара фон үстінде қалқымалы панельдер, монохром палитра, ақ акцент.
+   Тақырыптан тәуелсіз (Home.css сияқты әрқашан қараңғы).
+   ========================================================= */
+
+.nt-root {
+  --nt-page: #000;
+  --nt-bg: #0b0b0b;
+  --nt-panel: #111;
+  --nt-raise: #161616;
+  --nt-hover: #1a1a1a;
+  --nt-border: #1f1f1f;
+  --nt-border-strong: #2e2e2e;
+  --nt-text: #f5f5f5;
+  --nt-soft: #d9d9d9;
+  --nt-muted: #8f8f8f;
+  --nt-accent: #fafafa;
+  --nt-accent-hover: #d4d4d4;
+  --nt-accent-soft: rgba(255, 255, 255, 0.08);
+  --nt-on-accent: #0a0a0a;
+  --nt-danger: #f87171;
+  --nt-link: #ffffff;
+  --nt-code-bg: rgba(255, 255, 255, 0.06);
+  --nt-graph-node: rgba(255, 255, 255, 0.6);
+  --nt-graph-missing: rgba(255, 255, 255, 0.2);
+  --nt-graph-tag: #a3a3a3;
+  --nt-graph-edge: rgba(255, 255, 255, 0.14);
+  --nt-radius: 12px;
+  --nt-panel-radius: 18px;
+  --nt-gap: 12px;
+  --nt-sidebar-w: 280px;
+  --nt-rail-w: 58px;
+  --nt-info-w: 290px;
+  --nt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nt-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Басты беттегі панельдердің ортақ көрінісі */
+  --nt-surface: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  --nt-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  --nt-pop-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.03);
+
+  /* Сайттың ортақ айнымалылары да осы бетте қараңғы болсын */
+  --text-primary: var(--nt-text);
+  --text-muted: var(--nt-muted);
+  --border-color: var(--nt-border);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--header-h, 64px));
+  min-height: 480px;
+  overflow: hidden;
+  color: var(--nt-text);
+  background: var(--nt-page);
+  font-size: 14px;
+  color-scheme: dark;
+}
+
+.nt-root button { font: inherit; color: inherit; }
+
+.nt-root kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  color: var(--nt-muted);
+  font: 600 11px/1 ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+
+.nt-root ::-webkit-scrollbar { width: 8px; height: 8px; }
+.nt-root ::-webkit-scrollbar-thumb { border-radius: 8px; background: #2a2a2a; }
+.nt-root ::-webkit-scrollbar-track { background: transparent; }
+.nt-root * { scrollbar-color: #2a2a2a transparent; }
+
+/* ── Негізгі макет: сол жақ панель · ортаңғы жұмыс аймағы · оң жақ панель ── */
+.nt-body {
+  position: relative;
+  flex: 1;
+  display: flex;
+  gap: var(--nt-gap);
+  min-height: 0;
+  padding: var(--nt-gap);
+  box-sizing: border-box;
+}
+
+.nt-sidebar,
+.nt-workspace,
+.nt-right {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-panel-radius);
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow);
+}
+
+.nt-workspace {
+  flex: 1;
+  min-width: 0;
+  container: ws / inline-size;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.045) 0%, transparent 60%),
+    linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+}
+
+/* Бос күйде фонда нүктелі тор — басты беттегі Бүркіт сияқты */
+.nt-workspace.is-empty::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(60% 50% at 50% 30%, #000 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(60% 50% at 50% 30%, #000 0%, transparent 100%);
+}
+
+/* Панель ашылғанда — жарық жиегі мен сырғу (HomeSidebar сияқты) */
+.nt-sidebar { animation: ntPanelIn 0.55s var(--nt-ease) backwards, ntGlow 0.9s ease-out; }
+.nt-right { animation: ntPanelInRight 0.55s var(--nt-ease) backwards, ntGlow 0.9s ease-out; }
+
+@keyframes ntPanelIn {
+  from { opacity: 0; transform: translateX(-14px) scale(0.98); }
+}
+
+@keyframes ntPanelInRight {
+  from { opacity: 0; transform: translateX(14px) scale(0.98); }
+}
+
+@keyframes ntGlow {
+  30% {
+    border-color: #3d3d3d;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 48px -6px rgba(255, 255, 255, 0.12),
+      0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  }
+}
+
+@keyframes ntRise {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+.nt-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nt-backdrop { display: none; }
+
+/* ── Жоғарғы жолақ (жұмыс аймағының ішінде) ── */
+.nt-topbar {
+  position: relative;
+  z-index: 5;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--nt-border);
+}
+
+.nt-topbar__side { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.nt-topbar__side--end { margin-left: auto; }
+
+.nt-topbar__title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.nt-topbar__heading {
+  padding-left: 8px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.nt-topbar__crumb {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 35%;
+  padding-left: 8px;
+  overflow: hidden;
+  color: var(--nt-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nt-topbar__input {
+  min-width: 80px;
+  max-width: 480px;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--nt-text);
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.nt-topbar__input:hover { box-shadow: inset 0 0 0 1px var(--nt-border-strong); }
+.nt-topbar__input:focus { outline: none; background: #0a0a0a; box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+
+/* Сақталу күйі — нүктесі бар кішкентай белгі */
+.nt-save {
+  flex-shrink: 0;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px #262626;
+  color: var(--nt-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nt-save::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+.nt-save--dirty::before, .nt-save--saving::before { background: #e5e5e5; animation: ntPulse 1s ease-in-out infinite; }
+.nt-save--error { color: var(--nt-danger); }
+.nt-save--error::before { background: var(--nt-danger); }
+
+@keyframes ntPulse {
+  50% { opacity: 0.3; }
+}
+
+/* Сегменттелген ауыстырғыш: белсенді батырма — ақ */
+.nt-segment {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-right: 4px;
+  border-radius: 12px;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px var(--nt-border);
+}
+.nt-segment .nt-icon-btn { width: 32px; height: 28px; border-radius: 9px; }
+.nt-segment .nt-icon-btn.is-active { background: var(--nt-accent); color: var(--nt-on-accent) !important; box-shadow: none; }
+
+/* ── Батырмалар ── */
+.nt-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--nt-muted) !important;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.nt-icon-btn:hover { background: var(--nt-hover); color: var(--nt-text) !important; }
+.nt-icon-btn:active:not(:disabled) { transform: scale(0.94); }
+.nt-icon-btn:disabled { opacity: 0.3; cursor: default; }
+.nt-icon-btn:disabled:hover { background: transparent; color: var(--nt-muted) !important; }
+.nt-icon-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+.nt-icon-btn.is-active { background: #1c1c1c; color: var(--nt-text) !important; box-shadow: inset 0 0 0 1px var(--nt-border-strong); }
+.nt-icon-btn.is-starred { color: #facc15 !important; }
+.nt-icon-btn.is-danger:hover { color: var(--nt-danger) !important; }
+.nt-icon-btn--sm { width: 30px; height: 30px; border-radius: 8px; font-size: 13px; }
+.nt-icon-btn svg { flex-shrink: 0; }
+/* PanelIcon-ның ішкі бөлігі (HomeSidebar стилі) */
+.nt-icon-btn .hsb__panel-fill { opacity: 0.4; }
+
+.nt-icon-btn__badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--nt-accent);
+  color: var(--nt-on-accent);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 15px;
+}
+
+.nt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--nt-radius);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--nt-border-strong);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.nt-btn:hover { background: var(--nt-raise); box-shadow: inset 0 0 0 1px #3a3a3a; }
+.nt-btn--primary { background: var(--nt-accent); box-shadow: none; color: var(--nt-on-accent) !important; }
+.nt-btn--primary:hover { background: var(--nt-accent-hover); box-shadow: none; }
+
+.nt-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--nt-radius);
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px var(--nt-border);
+  color: var(--nt-text);
+  font: inherit;
+  box-sizing: border-box;
+  transition: box-shadow 0.15s ease;
+}
+.nt-input::placeholder { color: #6b6b6b; }
+.nt-input:hover { box-shadow: inset 0 0 0 1px #333; }
+.nt-input:focus { outline: none; box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+.nt-input--sm { width: 180px; height: 30px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
+
+.nt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px #262626;
+  color: var(--nt-soft) !important;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.nt-chip:hover { background: var(--nt-raise); box-shadow: inset 0 0 0 1px #3a3a3a; color: #fff !important; }
+.nt-chip.is-active { background: var(--nt-accent); box-shadow: none; color: var(--nt-on-accent) !important; }
+.nt-chip__count { color: var(--nt-muted); font-size: 11px; }
+.nt-chip.is-active .nt-chip__count { color: inherit; opacity: 0.6; }
+
+/* ── Сол жақ панель (басты беттегі HomeSidebar сияқты) ──
+   Әр жол бірдей: сол жақта 40px белгіше ұяшығы, оң жақта мәтін.
+   Жиналғанда тек ен кішірейеді — белгішелер орнынан қозғалмайды. */
+.nt-sidebar {
+  width: var(--nt-sidebar-w);
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+  /* Ашылу — серіппе сияқты, жабылу — тегіс әрі жылдам */
+  transition: width 0.6s var(--nt-spring);
+}
+.nt-sidebar.is-collapsed {
+  width: var(--nt-rail-w);
+  transition: width 0.4s cubic-bezier(0.7, 0, 0.2, 1);
+}
+
+.nt-root .nt-sidebar__row {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--nt-radius);
+  background: transparent;
+  color: var(--nt-soft);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.nt-sidebar__row:hover { background: var(--nt-hover); color: var(--nt-text); }
+.nt-sidebar__row:active { transform: scale(0.97); }
+.nt-sidebar__row:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+
+.nt-sidebar__slot {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--nt-muted);
+  transition: color 0.15s ease;
+}
+.nt-sidebar__row:hover .nt-sidebar__slot { color: var(--nt-text); }
+
+.nt-sidebar__label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity 0.3s ease 0.12s, filter 0.4s ease 0.12s, transform 0.5s var(--nt-spring) 0.08s;
+}
+
+.nt-sidebar__head { display: flex; align-items: center; margin-bottom: 4px; }
+.nt-root .nt-sidebar__toggle { width: 40px; }
+.nt-sidebar__toggle .hsb__panel-fill { opacity: 0.4; transform-box: fill-box; transform-origin: left center; transition: transform 0.34s var(--nt-ease), opacity 0.34s ease; }
+
+.nt-sidebar__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 6px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.nt-sidebar__count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #1e1e1e;
+  color: var(--nt-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Басты беттегі «Жоба қосу» сияқты ақ батырма */
+.nt-root .nt-sidebar__new { background: var(--nt-accent); color: var(--nt-on-accent); font-size: 0.9rem; }
+.nt-sidebar__new .nt-sidebar__slot, .nt-sidebar__new:hover .nt-sidebar__slot { color: inherit; }
+.nt-root .nt-sidebar__new:hover { background: var(--nt-accent-hover); color: var(--nt-on-accent); }
+.nt-root .nt-sidebar__new kbd { flex: none; margin-right: 8px; background: rgba(0, 0, 0, 0.08); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); color: #525252; }
+.nt-sidebar__new:focus-visible { box-shadow: 0 0 0 2px var(--nt-page), 0 0 0 4px var(--nt-accent); }
+
+.nt-root .nt-sidebar__search { cursor: text; background: #0a0a0a; box-shadow: inset 0 0 0 1px var(--nt-border); }
+.nt-root .nt-sidebar__search:hover { background: #0a0a0a; box-shadow: inset 0 0 0 1px #333; }
+.nt-root .nt-sidebar__search:focus-within { box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+.nt-sidebar__search:active { transform: none; }
+.nt-sidebar__search:focus-within .nt-sidebar__slot { color: var(--nt-text); }
+.nt-sidebar__input {
+  height: 100%;
+  padding: 0 10px 0 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--nt-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+.nt-sidebar__input::placeholder { color: #6b6b6b; }
+.nt-sidebar__input::-webkit-search-cancel-button { filter: invert(1) grayscale(1); opacity: 0.5; cursor: pointer; }
+
+.nt-sidebar__divider { height: 1px; flex-shrink: 0; margin: 4px; background: var(--nt-border); }
+
+/* Жиналған күй: бірдей 40px шаршылардан тұратын жолақ */
+.nt-sidebar__rail { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden auto; scrollbar-width: none; }
+.nt-sidebar.is-collapsed .nt-sidebar__label { opacity: 0; filter: blur(6px); transform: translateX(-14px); pointer-events: none; transition: opacity 0.2s ease, filter 0.2s ease, transform 0.3s ease; }
+.nt-sidebar.is-collapsed .hsb__panel-fill { opacity: 0; transform: scaleX(0); }
+.nt-root .nt-sidebar.is-collapsed .nt-sidebar__row:not(.nt-sidebar__new) { background: #161616; box-shadow: inset 0 0 0 1px #262626; }
+.nt-sidebar.is-collapsed .nt-sidebar__row:not(.nt-sidebar__new) .nt-sidebar__slot { color: #d4d4d4; }
+.nt-root .nt-sidebar.is-collapsed .nt-sidebar__row:not(.nt-sidebar__new):hover { background: #222; box-shadow: inset 0 0 0 1px #3a3a3a; }
+.nt-sidebar.is-collapsed .nt-sidebar__row:hover .nt-sidebar__slot { color: #fff; }
+.nt-sidebar.is-collapsed .nt-sidebar__search { cursor: pointer; }
+.nt-sidebar.is-collapsed .nt-sidebar__head { margin-bottom: 0; }
+/* Жолақтағы белсенді бөлім — ақ жиек */
+.nt-root .nt-sidebar.is-collapsed .nt-sidebar__rail .nt-sidebar__row.is-active { box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+
+/* Қойындылар — жазуы бар сегменттелген ауыстырғыш */
+.nt-sidebar__tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-top: 4px;
+  padding: 3px;
+  border-radius: var(--nt-radius);
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px var(--nt-border);
+}
+.nt-root .nt-sidebar__tab {
+  flex: 0 0 40px;
+  min-width: 0;
+  width: auto;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--nt-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.nt-sidebar__tab svg { font-size: 11px; }
+.nt-sidebar__tab span { display: none; overflow: hidden; text-overflow: ellipsis; }
+/* Белсенді қойынды — белгіше мен жазу, қалғандары тек белгіше */
+.nt-root .nt-sidebar__tab.is-active { flex: 1 1 auto; }
+.nt-sidebar__tab.is-active span { display: inline; }
+.nt-root .nt-sidebar__tab:hover { color: var(--nt-text); }
+.nt-root .nt-sidebar__tab.is-active { background: #1f1f1f; box-shadow: inset 0 0 0 1px #333; color: var(--nt-text); }
+.nt-sidebar__tab:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+
+/* Оң жақ панельдің белгіше қойындылары (санағымен) */
+.nt-root .nt-sidebar__tabs .nt-icon-btn { flex: 1; width: auto; height: 32px; gap: 6px; border-radius: 9px; }
+.nt-root .nt-sidebar__tabs .nt-icon-btn.is-active { background: #1f1f1f; box-shadow: inset 0 0 0 1px #333; color: var(--nt-text) !important; }
+.nt-sidebar__tabs .nt-icon-btn__badge { position: static; }
+
+/* Бөлім тақырыбы: сол жақта атау, оң жақта әрекеттер */
+.nt-sidebar__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  flex-shrink: 0;
+  padding-left: 8px;
+  color: var(--nt-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.nt-sidebar__tools { display: flex; gap: 2px; }
+
+.nt-sidebar__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.nt-sidebar__empty { margin: 1.25rem 0.5rem; text-align: center; color: var(--nt-muted); font-size: 0.85rem; line-height: 1.5; }
+
+.nt-sidebar__blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 2rem 0.5rem;
+  color: var(--nt-muted);
+  text-align: center;
+}
+.nt-sidebar__blank svg { font-size: 22px; opacity: 0.6; }
+.nt-sidebar__blank p { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+
+/* ── Файлдар ағашы ── */
+.nt-tree { flex: 1; min-height: 0; overflow: auto; margin: 0 -8px; padding: 2px 8px 24px; border-radius: var(--nt-radius); transition: background-color 0.15s ease; }
+.nt-tree.is-drop { background: var(--nt-accent-soft); }
+
+.nt-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding-right: 4px;
+  border-radius: 10px;
+  color: var(--nt-soft);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.nt-tree__row:hover { background: var(--nt-hover); color: var(--nt-text); }
+.nt-tree__row.is-active { background: #1c1c1c; color: var(--nt-text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--nt-border-strong); }
+.nt-tree__row.is-active .nt-tree__icon { color: var(--nt-text); }
+.nt-tree__row.is-drop { background: var(--nt-accent-soft); outline: 1px dashed var(--nt-accent); outline-offset: -1px; }
+
+.nt-tree__chevron { width: 10px; font-size: 10px; color: var(--nt-muted); transition: transform 0.2s var(--nt-ease); }
+.nt-tree__chevron.is-open { transform: rotate(90deg); }
+.nt-tree__row--note { padding-left: 26px; }
+.nt-tree__icon { width: 14px; font-size: 12px; color: var(--nt-muted); flex-shrink: 0; }
+.nt-tree__icon--folder { color: #bdbdbd; }
+.nt-tree__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-tree__star { font-size: 10px; color: #facc15; }
+
+.nt-tree__more {
+  display: none;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nt-muted) !important;
+  cursor: pointer;
+}
+.nt-tree__row:hover .nt-tree__more { display: inline-flex; align-items: center; justify-content: center; }
+.nt-tree__more:hover { background: #262626; color: var(--nt-text) !important; }
+
+.nt-tree__input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1.5px var(--nt-accent);
+  color: var(--nt-text);
+  font: inherit;
+}
+.nt-tree__input:focus { outline: none; }
+
+/* ── Іздеу және тегтер ── */
+.nt-search { display: flex; flex-direction: column; gap: 2px; }
+.nt-search__item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+  border: none;
+  border-radius: var(--nt-radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.nt-search__item:hover { background: var(--nt-hover); }
+.nt-search__title { font-weight: 700; }
+.nt-search__folder { font-size: 11px; color: var(--nt-muted); }
+.nt-search__snippet { font-size: 12px; line-height: 1.5; color: var(--nt-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.nt-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+
+/* ── Контекст мәзірі ── */
+.nt-menu {
+  position: fixed;
+  z-index: var(--z-modal, 11000);
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  background: #111;
+  box-shadow: var(--nt-pop-shadow);
+  animation: ntMenuIn 0.16s var(--nt-ease);
+  transform-origin: top right;
+}
+@keyframes ntMenuIn {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+}
+.nt-more { position: relative; }
+.nt-menu--right { position: absolute; top: calc(100% + 6px); right: 0; }
+.nt-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--nt-soft) !important;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nt-menu__item svg { width: 14px; color: var(--nt-muted); }
+.nt-menu__item:hover { background: #1c1c1c; color: #fff !important; }
+.nt-menu__item:hover svg { color: #fff; }
+.nt-menu__item.is-danger { color: var(--nt-danger) !important; }
+.nt-menu__item.is-danger:hover { background: rgba(248, 113, 113, 0.1); }
+.nt-menu__sep { height: 1px; margin: 6px 4px; background: var(--nt-border); }
+
+/* ── Редактор ── */
+.nt-editor { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+.nt-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--nt-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nt-editor__count { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--nt-muted); white-space: nowrap; }
+
+.nt-editor__body { flex: 1; display: flex; min-height: 0; }
+.nt-editor__pane { position: relative; flex: 1; min-width: 0; overflow: auto; }
+.nt-editor--split .nt-editor__pane--source { border-right: 1px solid var(--nt-border); }
+.nt-editor__pane--source { display: flex; overflow: hidden; }
+
+.nt-editor__textarea {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  padding: 28px max(24px, calc((100% - 760px) / 2)) 40vh;
+  border: none;
+  resize: none;
+  background: transparent;
+  color: var(--nt-text);
+  font: 15px/1.7 ui-monospace, 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  tab-size: 2;
+  box-sizing: border-box;
+}
+.nt-editor__textarea:focus { outline: none; }
+.nt-editor__textarea::placeholder { color: var(--nt-muted); }
+.nt-editor--split .nt-editor__textarea { padding-left: 24px; padding-right: 24px; }
+
+.nt-editor__pane--preview { padding: 28px max(24px, calc((100% - 760px) / 2)) 30vh; box-sizing: border-box; }
+.nt-editor--split .nt-editor__pane--preview { padding-left: 24px; padding-right: 24px; }
+
+/* [[ автотолтыру ] */
+.nt-suggest {
+  position: absolute;
+  z-index: 20;
+  width: 260px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-radius);
+  background: var(--nt-bg);
+  box-shadow: var(--shadow-xl);
+}
+.nt-suggest__item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.nt-suggest__item small { color: var(--nt-muted); font-size: 11px; }
+.nt-suggest__item.is-active, .nt-suggest__item:hover { background: var(--nt-accent-soft); }
+.nt-suggest__empty { padding: 8px; color: var(--nt-muted); font-size: 12px; }
+
+/* ── Markdown рендері ── */
+.nt-markdown { line-height: 1.7; font-size: 15.5px; overflow-wrap: anywhere; }
+.nt-markdown > :first-child { margin-top: 0; }
+.nt-markdown h1, .nt-markdown h2, .nt-markdown h3, .nt-markdown h4, .nt-markdown h5, .nt-markdown h6 {
+  margin: 1.4em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 700;
+  scroll-margin-top: 16px;
+}
+.nt-markdown h1 { font-size: 1.9em; }
+.nt-markdown h2 { font-size: 1.5em; padding-bottom: 0.2em; border-bottom: 1px solid var(--nt-border); }
+.nt-markdown h3 { font-size: 1.25em; }
+.nt-markdown p, .nt-markdown ul, .nt-markdown ol, .nt-markdown pre, .nt-markdown table, .nt-markdown blockquote { margin: 0 0 0.9em; }
+.nt-markdown ul, .nt-markdown ol { padding-left: 1.6em; }
+.nt-markdown li { margin: 0.15em 0; }
+.nt-markdown li:has(> .nt-task) { list-style: none; margin-left: -1.3em; }
+.nt-markdown .nt-task { margin-right: 6px; accent-color: var(--nt-accent); cursor: pointer; vertical-align: middle; }
+.nt-markdown li:has(> .nt-task:checked) { color: var(--nt-muted); text-decoration: line-through; }
+.nt-markdown a { color: var(--nt-link); text-decoration: none; }
+.nt-markdown a:hover { text-decoration: underline; }
+.nt-markdown .nt-wikilink { font-weight: 500; }
+.nt-markdown .nt-wikilink--missing { opacity: 0.6; text-decoration: underline dashed; }
+.nt-markdown .nt-wikilink--embed {
+  display: block;
+  padding: 8px 12px;
+  border-left: 3px solid var(--nt-link);
+  border-radius: 4px;
+  background: var(--nt-code-bg);
+}
+.nt-markdown .nt-tag {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--nt-accent-soft);
+  color: var(--nt-text);
+  font-size: 0.88em;
+}
+.nt-markdown mark { padding: 0 2px; border-radius: 3px; background: color-mix(in srgb, #facc15 45%, transparent); color: inherit; }
+.nt-markdown code { padding: 0.1em 0.4em; border-radius: 4px; background: var(--nt-code-bg); font: 0.88em ui-monospace, Menlo, Consolas, monospace; }
+.nt-markdown pre { padding: 12px 14px; border-radius: var(--nt-radius); background: var(--nt-code-bg); overflow: auto; }
+.nt-markdown pre code { padding: 0; background: none; }
+.nt-markdown blockquote { margin-left: 0; padding: 2px 14px; border-left: 3px solid var(--nt-border); color: var(--nt-muted); }
+.nt-markdown hr { border: none; border-top: 1px solid var(--nt-border); margin: 1.6em 0; }
+.nt-markdown table { border-collapse: collapse; display: block; overflow-x: auto; }
+.nt-markdown th, .nt-markdown td { padding: 6px 12px; border: 1px solid var(--nt-border); }
+.nt-markdown th { background: var(--nt-code-bg); }
+.nt-markdown img { max-width: 100%; border-radius: 6px; }
+
+/* Callout: > [!note] */
+.nt-markdown .nt-callout {
+  --c: #60a5fa;
+  padding: 10px 14px;
+  border-left: 3px solid var(--c);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c) 10%, transparent);
+  color: var(--nt-text);
+}
+.nt-callout__title { font-weight: 700; color: var(--c); margin-bottom: 4px; }
+.nt-callout--tip, .nt-callout--success { --c: #34d399; }
+.nt-callout--warning, .nt-callout--todo { --c: #f59e0b; }
+.nt-callout--danger, .nt-callout--bug { --c: #f87171; }
+.nt-callout--question, .nt-callout--example { --c: #a78bfa; }
+.nt-callout--quote, .nt-callout--abstract { --c: #9ca3af; }
+
+/* ── Оң жақ панель ── */
+.nt-right {
+  width: var(--nt-info-w);
+  flex-shrink: 0;
+}
+.nt-info { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 8px 8px 0; }
+.nt-info__heading { margin: 12px 6px 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nt-muted); }
+.nt-info__list { flex: 1; overflow: auto; margin: 0 -8px; padding: 0 8px 12px; }
+.nt-info__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--nt-soft) !important;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.nt-info__item:hover { background: var(--nt-hover); color: #fff !important; }
+.nt-info__item small { color: var(--nt-muted); font-size: 11px; }
+.nt-info__item.is-missing span { opacity: 0.6; text-decoration: underline dashed; }
+.nt-info__item--outline { padding-top: 6px; padding-bottom: 6px; font-size: 13px; }
+.nt-info__details { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; padding: 6px; font-size: 12px; overflow: auto; }
+.nt-info__details dt { color: var(--nt-muted); }
+.nt-info__details dd { margin: 0; overflow-wrap: anywhere; }
+.nt-info__details dd.nt-tags { grid-column: 1 / -1; }
+
+.nt-right__graph {
+  position: relative;
+  height: 240px;
+  flex-shrink: 0;
+  margin: 8px;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--nt-border);
+}
+
+/* ── Граф ── */
+.nt-graph { position: relative; flex: 1; min-height: 0; height: 100%; overflow: hidden; background: var(--nt-bg); }
+.nt-graph__canvas { display: block; cursor: grab; touch-action: none; }
+.nt-graph__stats { position: absolute; left: 10px; bottom: 8px; font-size: 11px; color: var(--nt-muted); pointer-events: none; }
+.nt-graph__toggle { position: absolute; top: 8px; right: 8px; background: var(--nt-panel); border: 1px solid var(--nt-border) !important; }
+.nt-graph__panel {
+  position: absolute;
+  top: 46px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+  padding: 10px;
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-radius);
+  background: var(--nt-panel);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+}
+.nt-graph__panel label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.nt-graph__panel input[type='checkbox'], .nt-graph__panel input[type='range'] { accent-color: var(--nt-accent); }
+.nt-graph--local .nt-graph__panel { top: 40px; width: 180px; }
+
+/* ── Canvas ── */
+.nt-canvas { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.nt-canvas__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--nt-border);
+}
+.nt-canvas__sep { width: 1px; height: 18px; margin: 0 6px; background: var(--nt-border); }
+.nt-canvas__zoom { font-size: 11px; color: var(--nt-muted); min-width: 36px; text-align: center; }
+
+.nt-canvas__viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-color: var(--nt-bg);
+  background-image: radial-gradient(circle, var(--nt-graph-missing) 1px, transparent 1.2px);
+}
+.nt-canvas__viewport:active { cursor: grabbing; }
+.nt-canvas__world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.nt-canvas__edges { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+.nt-canvas__edge-line { stroke: var(--nt-graph-node); stroke-width: 2; fill: none; pointer-events: none; }
+.nt-canvas__edge-line.is-draft { stroke-dasharray: 6 4; stroke: var(--nt-accent); }
+.nt-canvas__edge-hit { stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+.nt-canvas__edge.is-selected .nt-canvas__edge-line { stroke: var(--nt-accent); stroke-width: 3; }
+.nt-canvas__edge-label { fill: var(--nt-text); font-size: 13px; paint-order: stroke; stroke: var(--nt-bg); stroke-width: 4px; }
+.nt-canvas__arrow { fill: var(--nt-graph-node); }
+
+.nt-canvas__card {
+  --card: var(--nt-border);
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--card);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 8%, var(--nt-panel));
+  cursor: move;
+  box-shadow: var(--shadow-md);
+}
+.nt-canvas__card.is-selected { outline: 2px solid var(--nt-accent); outline-offset: 2px; }
+.nt-canvas__card-inner { width: 100%; height: 100%; overflow: hidden; padding: 10px 12px; box-sizing: border-box; display: flex; flex-direction: column; }
+.nt-canvas__card .nt-markdown { font-size: 14px; flex: 1; overflow: auto; cursor: auto; }
+.nt-canvas__card--note .nt-markdown { font-size: 13px; }
+.nt-canvas__textarea { flex: 1; width: 100%; border: none; resize: none; background: transparent; color: var(--nt-text); font: 14px/1.5 inherit; cursor: text; }
+.nt-canvas__textarea:focus { outline: none; }
+.nt-canvas__hint { margin: 0; color: var(--nt-muted); font-size: 13px; }
+.nt-canvas__note-title { display: flex; align-items: center; gap: 6px; margin: -2px 0 6px; padding: 0; border: none; background: none; font-weight: 700; text-align: left; cursor: pointer; }
+.nt-canvas__note-title:hover { color: var(--nt-link) !important; }
+.nt-canvas__link { display: flex; align-items: center; gap: 8px; height: 100%; color: var(--nt-link); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nt-canvas__connector {
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 2px solid var(--nt-bg);
+  border-radius: 50%;
+  background: var(--nt-accent);
+  cursor: crosshair;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.nt-canvas__resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+.nt-canvas__card:hover .nt-canvas__connector, .nt-canvas__card.is-selected .nt-canvas__connector { opacity: 1; }
+.nt-canvas__empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--nt-muted); pointer-events: none; text-align: center; padding: 16px; }
+
+.nt-canvas__swatch { width: 18px; height: 18px; margin: 0 2px; padding: 0; border: 2px solid var(--nt-border); border-radius: 50%; background: var(--card, transparent); cursor: pointer; }
+.nt-canvas__swatch.is-active { border-color: var(--nt-text); }
+.nt-color--none { --card: var(--nt-border); }
+.nt-canvas__swatch.nt-color--none { background: transparent; }
+.nt-color--red { --card: #f87171; }
+.nt-color--orange { --card: #fb923c; }
+.nt-color--yellow { --card: #facc15; }
+.nt-color--green { --card: #34d399; }
+.nt-color--cyan { --card: #22d3ee; }
+.nt-color--purple { --card: #a78bfa; }
+
+/* ── Жылдам таңдау терезесі ── */
+.nt-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 11000);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 16px 16px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  animation: ntFade 0.18s ease;
+}
+@keyframes ntFade {
+  from { opacity: 0; }
+}
+.nt-picker {
+  width: 100%;
+  max-width: 580px;
+  border: 1px solid #262626;
+  border-radius: 20px;
+  background: var(--nt-surface);
+  color: var(--nt-text);
+  box-shadow: var(--nt-pop-shadow);
+  overflow: hidden;
+  animation: ntRise 0.3s var(--nt-ease);
+}
+.nt-picker__input { width: 100%; height: 56px; padding: 0 20px; border: none; border-bottom: 1px solid var(--nt-border); background: transparent; color: var(--nt-text); font-size: 16px; box-sizing: border-box; }
+.nt-picker__input::placeholder { color: #6b6b6b; }
+.nt-picker__input:focus { outline: none; }
+.nt-picker__list { max-height: 50vh; overflow: auto; padding: 8px; }
+.nt-picker__item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 40px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; color: var(--nt-soft); text-align: left; cursor: pointer; }
+.nt-picker__item small { color: var(--nt-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-picker__item:hover { background: var(--nt-hover); }
+.nt-picker__item.is-active { background: var(--nt-accent); color: var(--nt-on-accent); font-weight: 600; }
+.nt-picker__item.is-active small { color: #525252; }
+.nt-picker__item--create span { font-style: italic; }
+
+/* ── Бос күй: басты беттегі Бүркіт hero-сы сияқты ── */
+.nt-welcome {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 24px 40px;
+}
+
+.nt-welcome__hero {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3.5rem 0 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Айналатын жарық жиегі бар белгіше */
+.nt-welcome__orb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 1.25rem;
+  border-radius: 22px;
+  isolation: isolate;
+  background: linear-gradient(145deg, #1f1f1f, #0f0f0f);
+  color: var(--nt-text);
+  font-size: 26px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 60px -10px rgba(255, 255, 255, 0.18);
+  animation: ntRise 0.6s var(--nt-ease) backwards;
+}
+.nt-welcome__orb::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  padding: 1px;
+  border-radius: 23px;
+  background: conic-gradient(from var(--nt-angle, 0deg), transparent 0%, rgba(255, 255, 255, 0.85) 12%, transparent 30%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: ntSpin 4s linear infinite;
+}
+@property --nt-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes ntSpin {
+  to { --nt-angle: 360deg; }
+}
+
+.nt-welcome__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  animation: ntRise 0.6s var(--nt-ease) 0.06s backwards;
+}
+.nt-welcome__text {
+  max-width: 520px;
+  margin: 0.6rem 0 0;
+  color: var(--nt-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  animation: ntRise 0.6s var(--nt-ease) 0.12s backwards;
+}
+
+.nt-welcome__actions {
+  width: 100%;
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* Әрекет картасы: белгіше, атау, перне — бәрі бірдей өлшемде */
+.nt-root .nt-action {
+  position: relative;
+  width: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 0 0 1px #262626;
+  color: #d4d4d4;
+  text-align: left;
+  cursor: pointer;
+  animation: ntRise 0.6s var(--nt-ease) backwards;
+  animation-delay: calc(0.2s + var(--d, 0) * 60ms);
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.nt-action__icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #2c2c2c, #191919);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  color: #ededed;
+  font-size: 14px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nt-action__label { max-width: 100%; overflow: hidden; font-size: 0.9rem; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.nt-action kbd { position: absolute; top: 14px; right: 14px; }
+.nt-root .nt-action:hover, .nt-root .nt-action:focus-visible { outline: none; background: var(--nt-raise); box-shadow: inset 0 0 0 1px #3a3a3a; color: #fff; transform: translateY(-2px); }
+.nt-action:hover .nt-action__icon { background: var(--nt-accent); color: var(--nt-on-accent); }
+.nt-action:active { transform: translateY(0) scale(0.98); }
+.nt-root .nt-action--primary { background: var(--nt-accent); box-shadow: none; color: var(--nt-on-accent); }
+.nt-action--primary .nt-action__icon, .nt-action--primary:hover .nt-action__icon { background: #0a0a0a; box-shadow: none; color: #fff; }
+.nt-action--primary kbd { background: rgba(0, 0, 0, 0.08); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); color: #525252; }
+.nt-root .nt-action--primary:hover, .nt-root .nt-action--primary:focus-visible { background: var(--nt-accent-hover); box-shadow: none; color: var(--nt-on-accent); }
+
+.nt-welcome__section {
+  max-width: 760px;
+  margin: 0 auto 2rem;
+  animation: ntRise 0.6s var(--nt-ease) 0.35s backwards;
+}
+.nt-welcome__label { margin: 0 0 10px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nt-muted); }
+
+.nt-welcome__recent {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+/* Жуырдағы жазба — sidebar-дағы жоба жолы сияқты карта */
+.nt-recent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 0 0 1px var(--nt-border);
+  text-align: left;
+  cursor: pointer;
+  animation: ntRise 0.5s var(--nt-ease) backwards;
+  animation-delay: calc(0.4s + var(--d, 0) * 40ms);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.nt-recent:hover { background: var(--nt-raise); box-shadow: inset 0 0 0 1px #333; }
+.nt-recent:active { transform: scale(0.98); }
+.nt-recent:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--nt-accent); }
+.nt-recent__mono {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #2c2c2c, #191919);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  color: #ededed;
+  font-size: 13px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nt-recent:hover .nt-recent__mono { background: var(--nt-accent); color: var(--nt-on-accent); }
+.nt-recent__text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nt-recent__title { overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.nt-recent__text small { overflow: hidden; color: var(--nt-muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+
+.nt-welcome__keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.nt-welcome__key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--nt-border);
+}
+.nt-welcome__key dt { margin: 0; }
+.nt-welcome__key kbd { height: 24px; padding: 0 8px; color: var(--nt-text); font-size: 12px; }
+.nt-welcome__key dd { margin: 0; color: var(--nt-muted); font-size: 13px; line-height: 1.5; }
+
+.nt-loading, .nt-error { margin: auto; padding: 24px; color: var(--nt-muted); }
+.nt-error { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: rgba(248, 113, 113, 0.12); color: var(--nt-danger); }
+
+/* ── Мазмұн бөліктерінің басты бет стиліне бейімделуі ── */
+.nt-editor__toolbar { padding: 6px 10px; gap: 2px; }
+.nt-editor__toolbar > .nt-icon-btn:is(:nth-child(1), :nth-child(5), :nth-child(8), :nth-child(10)) { margin-right: 9px; }
+.nt-editor__toolbar > .nt-icon-btn:is(:nth-child(1), :nth-child(5), :nth-child(8), :nth-child(10))::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: -6px;
+  bottom: 8px;
+  width: 1px;
+  background: #262626;
+}
+.nt-editor__textarea { caret-color: #fff; }
+.nt-editor__textarea::selection, .nt-markdown ::selection { background: rgba(255, 255, 255, 0.22); }
+.nt-markdown a { text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.3); text-underline-offset: 3px; }
+.nt-markdown a:hover { text-decoration-color: #fff; }
+.nt-markdown .nt-wikilink { font-weight: 600; }
+.nt-markdown .nt-wikilink--embed { border-left-color: #525252; border-radius: 10px; }
+.nt-markdown .nt-tag { padding: 1px 9px; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px #2a2a2a; }
+.nt-markdown pre { border-radius: var(--nt-radius); box-shadow: inset 0 0 0 1px var(--nt-border); }
+.nt-markdown .nt-callout { border-radius: 10px; }
+.nt-suggest, .nt-graph__panel { border-radius: 14px; border-color: #262626; background: #111; box-shadow: var(--nt-pop-shadow); }
+.nt-suggest__item { border-radius: 8px; }
+.nt-suggest__item.is-active, .nt-suggest__item:hover { background: #1c1c1c; }
+.nt-graph { background: transparent; }
+.nt-graph__toggle { border-radius: 10px; background: #111 !important; border: 1px solid #262626 !important; }
+.nt-graph__panel input[type='checkbox'], .nt-graph__panel input[type='range'] { accent-color: #fafafa; }
+.nt-canvas__toolbar { padding: 6px 10px; }
+.nt-canvas__viewport { background-color: transparent; background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1.2px); }
+.nt-canvas__card { border-width: 1.5px; border-radius: 14px; background: color-mix(in srgb, var(--card) 8%, #111); box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.8); }
+.nt-color--none { --card: #2e2e2e; }
+
+/* globals.css-тегі button[class*="icon"], [class*="menu"], [class*="toggle"] { width: auto }
+   ережесі мұндағы класс селекторларынан күшті — өлшемдерді қайта бекітеміз */
+.nt-root .nt-icon-btn { width: 36px; max-width: none; }
+.nt-root .nt-icon-btn--sm { width: 30px; }
+.nt-root .nt-segment .nt-icon-btn { width: 32px; }
+.nt-root .nt-menu__item { width: 100%; }
+.nt-root .nt-tree__more { width: 24px; }
+
+/* Жұмыс аймағы тарылғанда topbar сыйып тұруы үшін */
+@container ws (max-width: 820px) {
+  .nt-topbar__crumb { display: none; }
+  .nt-save { width: 24px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
+}
+@container ws (max-width: 640px) {
+  .nt-segment { display: none; }
+}
+@container ws (max-width: 480px) {
+  /* Телефонда Alt+← / Alt+→ жоқ — орын тақырыпқа берілсін */
+  .nt-topbar__nav { display: none; }
+  .nt-action kbd { display: none; }
+  .nt-welcome__actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Мобильді ── */
+/* Тар экранда .app-main-ға padding беріледі (globals.css) — панельдер шетке дейін жетсін */
+@media (max-width: 480px) {
+  .app-main:has(> .nt-root) { padding: 0; }
+}
+
+@media (max-width: 1200px) {
+  .nt-root { --nt-info-w: 260px; }
+}
+
+@media (max-width: 900px) {
+  .nt-root { --nt-gap: 8px; }
+  .nt-sidebar, .nt-right {
+    position: absolute;
+    top: var(--nt-gap);
+    bottom: var(--nt-gap);
+    z-index: 30;
+    box-shadow: var(--nt-pop-shadow);
+  }
+  .nt-sidebar { left: var(--nt-gap); width: min(85vw, var(--nt-sidebar-w)); }
+  .nt-right { right: var(--nt-gap); width: min(85vw, var(--nt-info-w)); }
+  .nt-backdrop { display: block; position: absolute; inset: 0; z-index: 29; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(3px); animation: ntFade 0.2s ease; }
+  .nt-topbar__crumb, .nt-save { display: none; }
+  .nt-editor--split .nt-editor__body { flex-direction: column; }
+  .nt-editor--split .nt-editor__pane--source { border-right: none; border-bottom: 1px solid var(--nt-border); }
+  .nt-editor__textarea, .nt-editor__pane--preview { padding-left: 16px !important; padding-right: 16px !important; }
+  .nt-editor__count { display: none; }
+  .nt-welcome { padding: 0 16px 32px; }
+  .nt-welcome__hero { padding-top: 2.5rem; }
+}
+
+@media (max-width: 560px) {
+  .nt-segment { display: none; }
+  .nt-topbar { gap: 2px; height: 52px; padding: 0 6px; }
+  .nt-topbar__side .nt-icon-btn { width: 32px; height: 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nt-sidebar, .nt-right, .nt-menu, .nt-picker, .nt-modal,
+  .nt-welcome__orb, .nt-welcome__orb::before, .nt-welcome__title, .nt-welcome__text,
+  .nt-action, .nt-welcome__section, .nt-recent {
+    animation: none;
+  }
+}

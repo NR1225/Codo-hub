@@ -6,6 +6,7 @@ import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
+import Turnstile, { TURNSTILE_ENABLED } from '../components/ui/Turnstile';
 import Parallax from 'parallax-js';
 import { imageStorage } from '../utils/imageStorage';
 import './Auth.css';
@@ -34,6 +35,8 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showLoginForm, setShowLoginForm] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
@@ -145,7 +148,7 @@ const Login: React.FC = () => {
 
     try {
       // Login with backend API
-      const response = await apiService.login(formData.emailOrUsername, formData.password);
+      const response = await apiService.login(formData.emailOrUsername, formData.password, captchaToken);
 
       // Check if 2FA is required
       if (response.requires_2fa) {
@@ -185,12 +188,16 @@ const Login: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       console.error('Login error:', err);
+      // Turnstile токені бір рет қана жарамды — келесі әрекетке жаңасын аламыз
+      setCaptchaResetKey((k) => k + 1);
       
       let errorMessage = t('login.error');
       const invalidCred = t('apiErrors.invalidCredentials');
 
       if (err.message) {
-        if (
+        if (err.message.includes('Captcha')) {
+          errorMessage = t('login.captchaFailed');
+        } else if (
           err.message === invalidCred ||
           err.message.includes('Invalid credentials') ||
           err.message.includes('User not found')
@@ -336,13 +343,15 @@ const Login: React.FC = () => {
               </div>
             </div>
 
+            <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
+
             {error && (
               <div className="form-error">
                 {error}
               </div>
             )}
 
-            <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            <Button type="submit" variant="primary" fullWidth disabled={loading || (TURNSTILE_ENABLED && !captchaToken)}>
               {loading ? t('login.submitting') : t('login.submit')}
             </Button>
 

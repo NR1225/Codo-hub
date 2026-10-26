@@ -26,7 +26,7 @@ class User(Base):
     id = Column(String(12), primary_key=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    phone = Column(String(20), unique=True, nullable=True, index=True)  # E.164, verified by SMS at registration
+    phone = Column(String(20), unique=True, nullable=True, index=True)  # ескі SMS тіркелуінен қалған; енді толтырылмайды
     password_hash = Column(String(255), nullable=True)  # Nullable for backward compatibility
     avatar = Column(String(500), nullable=True)
     bio = Column(String(500), nullable=True)
@@ -38,6 +38,7 @@ class User(Base):
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)  # Соңғы WebSocket қосылымы жабылған уақыт
+    burkit_api_key = Column(Text, nullable=True)  # Бүркіттің Gemini кілті — шифрланған (utils/secret_box)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -48,6 +49,7 @@ def init_db():
     _ensure_user_columns()
     _ensure_vibecoding_columns()
     _ensure_group_message_columns()
+    _drop_obsolete_tables()
     print(f"Database initialized at {DB_PATH}")
 
 
@@ -80,6 +82,8 @@ def _ensure_user_columns():
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_phone ON users (phone)"))
         if "last_seen_at" not in existing:
             conn.execute(text("ALTER TABLE users ADD COLUMN last_seen_at DATETIME"))
+        if "burkit_api_key" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN burkit_api_key TEXT"))
 
 
 def _ensure_vibecoding_columns():
@@ -94,6 +98,8 @@ def _ensure_vibecoding_columns():
     with engine.begin() as conn:
         if "folders" not in existing:
             conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN folders TEXT NOT NULL DEFAULT '[]'"))
+        if "notes_folder" not in existing:
+            conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN notes_folder VARCHAR(1024)"))
 
 
 def _ensure_group_message_columns():
@@ -108,6 +114,14 @@ def _ensure_group_message_columns():
     with engine.begin() as conn:
         if "extra" not in existing:
             conn.execute(text("ALTER TABLE chat_group_messages ADD COLUMN extra TEXT NOT NULL DEFAULT '{}'"))
+
+
+def _drop_obsolete_tables():
+    """Қолданылмайтын кестелерді өшіру (SMS тіркелу алынып тасталды)."""
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS sms_verifications"))
 
 
 def get_db():
@@ -131,22 +145,6 @@ class PasswordReset(Base):
     used = Column(Boolean, default=False)
 
 
-class SmsVerification(Base):
-    """SMS code sent to a phone during registration (only the hash is stored)"""
-    __tablename__ = "sms_verifications"
-
-    id = Column(String(36), primary_key=True)
-    phone = Column(String(20), nullable=False, index=True)
-    code_hash = Column(String(255), nullable=False)
-    attempts = Column(Integer, default=0)
-    used = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=func.now())
-    expires_at = Column(DateTime, nullable=False)
-
-
-
-
-
 class VibecodingProject(Base):
     """Vibecoding бетінде жасалған жоба — тек иесіне көрінеді"""
     __tablename__ = "vibecoding_projects"
@@ -156,6 +154,7 @@ class VibecodingProject(Base):
     name = Column(String(200), nullable=False)
     files = Column(Text, nullable=False, default="[]")  # JSON: [{id, name, path, content, language}]
     folders = Column(Text, nullable=False, default="[]")  # JSON: ["src", "src/utils"] — бос папкалар да сақталады
+    notes_folder = Column(String(1024), nullable=True)  # Notes-тағы байланысқан папка (services/project_notes.py)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -200,6 +199,57 @@ class ChatGroupMessage(Base):
     created_at = Column(DateTime, default=func.now(), index=True)
 
 
+class CodeRecord(Base):
+    """Код/папка. `data` — сервистер қолданатын толық JSON құжат; қалған бағандар іздеу үшін."""
+    __tablename__ = "codes"
+
+    id = Column(String(64), primary_key=True)
+    seq = Column(Integer, nullable=False, index=True)  # жадтағы тізімдегі рет
+    author = Column(String(64), nullable=True, index=True)
+    folder_id = Column(String(64), nullable=True, index=True)
+    data = Column(Text, nullable=False)
+
+
+class DirectMessageRecord(Base):
+    """Жеке (1:1) хабарлама"""
+    __tablename__ = "direct_messages"
+
+    id = Column(String(64), primary_key=True)
+    seq = Column(Integer, nullable=False, index=True)
+    from_user_id = Column(String(64), nullable=True, index=True)
+    to_user_id = Column(String(64), nullable=True, index=True)
+    data = Column(Text, nullable=False)
+
+
+class FriendRequestRecord(Base):
+    """Достық өтінімі"""
+    __tablename__ = "friend_requests"
+
+    id = Column(String(64), primary_key=True)
+    seq = Column(Integer, nullable=False, index=True)
+    from_user_id = Column(String(64), nullable=True, index=True)
+    to_user_id = Column(String(64), nullable=True, index=True)
+    data = Column(Text, nullable=False)
+
+
+class FriendListRecord(Base):
+    """Қолданушының достар тізімі (`data` — id-лер JSON массиві)"""
+    __tablename__ = "friend_lists"
+
+    id = Column(String(64), primary_key=True)  # user_id
+    seq = Column(Integer, nullable=False, index=True)
+    data = Column(Text, nullable=False)
+
+
+class LegacyUserRecord(Base):
+    """Ескі users.json-дағы қолданушылар — тек атын/аватарын көрсету үшін (кіре алмайды)"""
+    __tablename__ = "legacy_users"
+
+    id = Column(String(64), primary_key=True)
+    seq = Column(Integer, nullable=False, index=True)
+    data = Column(Text, nullable=False)
+
+
 class ChatPref(Base):
     """Қолданушының чатқа қойған белгілері: бекітілген, дыбысы өшірілген, мұрағатталған.
     chat_kind: 'dm' (chat_id — досының id-і) | 'group' (chat_id — топ id-і)"""
@@ -211,3 +261,30 @@ class ChatPref(Base):
     pinned_at = Column(DateTime, nullable=True)
     muted = Column(Boolean, nullable=False, default=False)
     archived = Column(Boolean, nullable=False, default=False)
+
+
+class Note(Base):
+    """Жазбалар (Obsidian сияқты) — әр қолданушының жеке vault-ы, тек иесіне көрінеді.
+    kind: 'note' (Markdown) | 'canvas' (JSON). links/tags — content-тен есептеледі (services/note_service.py)"""
+    __tablename__ = "notes"
+
+    id = Column(String(36), primary_key=True)
+    owner_id = Column(String(12), nullable=False, index=True)
+    folder = Column(String(1024), nullable=False, default="")  # "" — түбір, "Жобалар/2026"
+    title = Column(String(200), nullable=False)
+    kind = Column(String(16), nullable=False, default="note")
+    content = Column(Text, nullable=False, default="")
+    links = Column(Text, nullable=False, default="[]")  # JSON: ["Басқа жазба", ...] — [[сілтеме]] нысандары
+    tags = Column(Text, nullable=False, default="[]")  # JSON: ["идея", "жоба/kazakh-hub"]
+    starred = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class NoteVault(Base):
+    """Қолданушы vault-ының баптаулары: бос папкалар да сақталады"""
+    __tablename__ = "note_vaults"
+
+    owner_id = Column(String(12), primary_key=True)
+    folders = Column(Text, nullable=False, default="[]")  # JSON: ["Жобалар", "Жобалар/2026"]
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

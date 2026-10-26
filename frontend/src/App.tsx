@@ -33,6 +33,7 @@ const ContactPage = lazy(() => import('./pages/ContactPage'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VibecodingPage = lazy(() => import('./pages/VibecodingPage'));
+const NotesPage = lazy(() => import('./pages/NotesPage'));
 
 // Bridge: connect AuthContext token to apiService
 const AuthBridge: React.FC = () => {
@@ -105,6 +106,7 @@ const AppContent: React.FC = () => {
               <Route path="/privacy" element={<ProtectedRoute><PrivacyPage /></ProtectedRoute>} />
               <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
               <Route path="/vibecoding" element={<ProtectedRoute><VibecodingPage /></ProtectedRoute>} />
+              <Route path="/notes" element={<ProtectedRoute><NotesPage /></ProtectedRoute>} />
               <Route path="*" element={
                 <ProtectedRoute>
                   <div style={{ padding: '2rem', textAlign: 'center' }}>

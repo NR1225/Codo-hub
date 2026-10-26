@@ -12,4 +12,7 @@ pyotp>=2.9.0
 httpx>=0.24.0
 slowapi>=0.1.9
 filetype>=1.2.0
+# Windows-та нағыз терминал (ConPTY) — Linux/macOS-та стандартты pty қолданылады
+pywinpty>=2.0.13; sys_platform == "win32"
 
+cryptography>=42.0.0

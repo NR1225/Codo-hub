@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useState, useEffect, lazy, Suspense } from 'react';
 import { useVibecoding } from '../../contexts/VibecodingContext';
 import { EditorMetaProvider } from '../../contexts/EditorMetaContext';
+import { BurkitEditsProvider } from '../../contexts/BurkitEditsContext';
 import { useResizer } from '../../hooks/useResizer';
 import ResizeHandle from './ResizeHandle';
 import FileExplorerPanel from './FileExplorerPanel';
@@ -11,15 +12,61 @@ import EditorSettings from './EditorSettings';
 
 // TerminalPanel xterm-ді (~200KB) тартады — тек terminal ашылғанда жүктеу үшін lazy.
 const TerminalPanel = lazy(() => import('./TerminalPanel'));
+const PreviewPanel = lazy(() => import('./PreviewPanel'));
 
 const TerminalFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full text-sm opacity-60">…</div>
 );
 
+// Панель мазмұны жабылу анимациясы біткенше көрініп тұрады (басты беттің sidebar-ы сияқты
+// бірге сөнеді), ал ашылғанда біраз уақыт «entering» күйінде болады — толқын анимациясы үшін.
+const ENTER_MS = 900;
+const EXIT_MS = 450;
+type PanelPhase = 'entering' | 'open' | 'closing' | 'closed';
+
+function usePanelPresence(visible: boolean) {
+  const [phase, setPhase] = useState<PanelPhase>(visible ? 'entering' : 'closed');
+  useEffect(() => {
+    setPhase(visible ? 'entering' : (p) => (p === 'closed' ? p : 'closing'));
+    const timer = window.setTimeout(
+      () => setPhase(visible ? 'open' : 'closed'),
+      visible ? ENTER_MS : EXIT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [visible]);
+  return { phase, mounted: visible || phase !== 'closed' };
+}
+
 const IDELayout: React.FC = () => {
   const { state, dispatch, isMobile, isTablet, isDesktop } = useVibecoding();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Жобаны іске қосу — редактордың оң жағындағы алдын ала көрініс
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [runId, setRunId] = useState(0);
+  const [previewWidth, setPreviewWidth] = useState(45); // % — редактор+көрініс жолағынан
+  const [splitDragging, setSplitDragging] = useState(false);
+  const splitRef = useRef<HTMLDivElement>(null);
+
+  const onSplitDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const row = splitRef.current;
+    if (!row) return;
+    setSplitDragging(true);
+    const onMove = (ev: MouseEvent) => {
+      const rect = row.getBoundingClientRect();
+      const pct = ((rect.right - ev.clientX) / rect.width) * 100;
+      setPreviewWidth(Math.min(80, Math.max(20, pct)));
+    };
+    const onUp = () => {
+      setSplitDragging(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
 
   const { sizes, onDragStart } = useResizer({
     initialSizes: state.panelSizes,
@@ -42,7 +89,14 @@ const IDELayout: React.FC = () => {
   const rightWidth = isDesktop && state.rightPanelVisible ? sizes.right : 0;
   const bottomHeight = state.bottomPanelVisible ? sizes.bottom : 0;
 
-  const editorHeight = bottomHeight > 0 ? `${100 - bottomHeight}%` : '100%';
+  const leftPresence = usePanelPresence(state.leftPanelVisible);
+  const rightPresence = usePanelPresence(state.rightPanelVisible);
+  const bottomPresence = usePanelPresence(state.bottomPanelVisible);
+  // Терминал бір рет ашылса — панель жабылғанда да сессиялар (табтар) тірі қалады
+  const [terminalLoaded, setTerminalLoaded] = useState(state.bottomPanelVisible);
+  useEffect(() => {
+    if (state.bottomPanelVisible) setTerminalLoaded(true);
+  }, [state.bottomPanelVisible]);
 
   const closeLeftOverlay = useCallback(() => {
     dispatch({ type: 'SET_LEFT_PANEL_VISIBLE', payload: false });
@@ -56,16 +110,26 @@ const IDELayout: React.FC = () => {
   useEffect(() => {
     const onOpen = () => setShowSettings(true);
     const onToggle = () => setShowSettings(v => !v);
+    const onRun = () => {
+      setPreviewOpen(true);
+      setRunId(id => id + 1);
+    };
+    const onClosePreview = () => setPreviewOpen(false);
     window.addEventListener('vibecoding:open-settings', onOpen);
     window.addEventListener('vibecoding:toggle-settings', onToggle);
+    window.addEventListener('vibecoding:run', onRun);
+    window.addEventListener('vibecoding:close-preview', onClosePreview);
     return () => {
       window.removeEventListener('vibecoding:open-settings', onOpen);
       window.removeEventListener('vibecoding:toggle-settings', onToggle);
+      window.removeEventListener('vibecoding:run', onRun);
+      window.removeEventListener('vibecoding:close-preview', onClosePreview);
     };
   }, []);
 
   return (
     <EditorMetaProvider>
+    <BurkitEditsProvider>
       <div
         ref={containerRef}
         className="vibe-ide flex-1 flex flex-col overflow-hidden relative"
@@ -77,7 +141,8 @@ const IDELayout: React.FC = () => {
             <>
               <div
                 data-open={state.leftPanelVisible}
-                className="vibe-panel-left overflow-hidden transition-all duration-300 ease-in-out"
+                data-phase={leftPresence.phase}
+                className="vibe-panel-left overflow-hidden"
                 style={{
                   width: `${leftWidth}%`,
                   minWidth: state.leftPanelVisible ? '180px' : '0',
@@ -85,7 +150,7 @@ const IDELayout: React.FC = () => {
                   opacity: state.leftPanelVisible ? 1 : 0,
                 }}
               >
-                {state.leftPanelVisible && <FileExplorerPanel />}
+                {leftPresence.mounted && <FileExplorerPanel />}
               </div>
 
               {state.leftPanelVisible && (
@@ -117,29 +182,53 @@ const IDELayout: React.FC = () => {
 
           {/* Center - Editor + Terminal */}
           <div className="vibe-panel-center flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
-            {/* Editor */}
-            <div style={{ height: editorHeight }} className="overflow-hidden">
-              <EditorPanel />
+            {/* Editor (+ іске қосылған жобаның көрінісі) — қалған биіктікті алады */}
+            <div
+              ref={splitRef}
+              style={{ flex: '1 1 0', minHeight: 0 }}
+              className={`vx-split flex overflow-hidden relative ${splitDragging ? 'is-dragging' : ''}`}
+            >
+              <div style={{ flex: '1 1 0', minWidth: 0 }} className="overflow-hidden">
+                <EditorPanel />
+              </div>
+              {previewOpen && (
+                <>
+                  {isDesktop && <ResizeHandle type="vertical" onMouseDown={onSplitDragStart} />}
+                  <div
+                    className={isDesktop ? 'overflow-hidden' : 'vx-preview-overlay'}
+                    style={isDesktop ? { width: `${previewWidth}%`, flexShrink: 0, minWidth: 0 } : undefined}
+                  >
+                    <Suspense fallback={<TerminalFallback />}>
+                      <PreviewPanel runId={runId} onClose={() => setPreviewOpen(false)} />
+                    </Suspense>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Terminal - inline on all breakpoints */}
             <div
-              className="vibe-panel-bottom overflow-hidden transition-all duration-300 ease-in-out bg-[var(--ide-terminal-bg)]"
+              data-open={state.bottomPanelVisible}
+              data-phase={bottomPresence.phase}
+              className="vibe-panel-bottom overflow-hidden"
               style={{
                 height: state.bottomPanelVisible ? `${bottomHeight}%` : '0',
+                flexShrink: 0,
               }}
             >
-              {state.bottomPanelVisible && (
-                <>
-                  <ResizeHandle
-                    type="horizontal"
-                    onMouseDown={(e) => onDragStart(e, 'bottom', containerRef.current!)}
-                    onDoubleClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
-                  />
+              {bottomPresence.mounted && (
+                <ResizeHandle
+                  type="horizontal"
+                  onMouseDown={(e) => onDragStart(e, 'bottom', containerRef.current!)}
+                  onDoubleClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
+                />
+              )}
+              {terminalLoaded && (
+                <div className="vx-term-host" hidden={!bottomPresence.mounted}>
                   <Suspense fallback={<TerminalFallback />}>
                     <TerminalPanel />
                   </Suspense>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -156,7 +245,8 @@ const IDELayout: React.FC = () => {
               )}
               <div
                 data-open={state.rightPanelVisible}
-                className="vibe-panel-right overflow-hidden transition-all duration-300 ease-in-out"
+                data-phase={rightPresence.phase}
+                className="vibe-panel-right overflow-hidden"
                 style={{
                   width: `${rightWidth}%`,
                   minWidth: state.rightPanelVisible ? '250px' : '0',
@@ -164,7 +254,7 @@ const IDELayout: React.FC = () => {
                   opacity: state.rightPanelVisible ? 1 : 0,
                 }}
               >
-                {state.rightPanelVisible && <ChatPanel />}
+                {rightPresence.mounted && <ChatPanel />}
               </div>
             </>
           )}
@@ -199,6 +289,7 @@ const IDELayout: React.FC = () => {
         {/* Editor settings popover, anchored to bottom-right above the status bar */}
         {showSettings && <EditorSettings onClose={() => setShowSettings(false)} />}
       </div>
+    </BurkitEditsProvider>
     </EditorMetaProvider>
   );
 };

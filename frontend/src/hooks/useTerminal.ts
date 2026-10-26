@@ -2,22 +2,29 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import TerminalWebSocketService from '../utils/terminalWebSocket';
+import TerminalWebSocketService, { TerminalSessionInfo } from '../utils/terminalWebSocket';
+import type { WorkspaceChanges } from '../contexts/VibecodingContext';
 
-interface UseTerminalOptions {
-  onConnect?: (sessionId: string) => void;
+export interface UseTerminalOptions {
+  /** Терминал осы жобаның папкасында ашылады */
+  projectId?: string | null;
+  onConnect?: (info: TerminalSessionInfo) => void;
   onDisconnect?: () => void;
   onError?: (message: string) => void;
+  onFsChanges?: (projectId: string, changes: WorkspaceChanges) => void;
 }
 
 interface UseTerminalReturn {
   terminalRef: React.RefObject<HTMLDivElement | null>;
   isConnected: boolean;
-  sessionId: string | null;
+  session: TerminalSessionInfo | null;
   error: string | null;
   connect: (token: string) => void;
   disconnect: () => void;
   clear: () => void;
+  focus: () => void;
+  fit: () => void;
+  requestSync: () => void;
 }
 
 export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
@@ -25,9 +32,25 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<TerminalWebSocketService | null>(null);
+  const inputRef = useRef<{ dispose: () => void } | null>(null);
+  // Соңғы callback-тер — connect() қайта жасалмай-ақ жаңасын шақырады
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const [isConnected, setIsConnected] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [session, setSession] = useState<TerminalSessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Жасырын табта контейнердің өлшемі 0 — ол кезде fit жасамаймыз
+  const fit = useCallback(() => {
+    const el = containerRef.current;
+    const term = terminalRef.current;
+    if (!el || !term || !fitAddonRef.current || el.offsetWidth === 0 || el.offsetHeight === 0) return;
+    try {
+      fitAddonRef.current.fit();
+      const ws = wsRef.current;
+      if (ws?.isConnected()) ws.resize(term.cols, term.rows);
+    } catch { /* ignore fit errors during unmount */ }
+  }, []);
 
   // Initialize terminal instance
   useEffect(() => {
@@ -70,131 +93,134 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
-
-    // Small delay to ensure proper fit
-    setTimeout(() => {
-      fitAddon.fit();
-    }, 100);
-
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Write welcome message
-    term.writeln('\x1b[36m╔══════════════════════════════════════╗\x1b[0m');
-    term.writeln('\x1b[36m║     \x1b[33m🚀 Vibecoding Terminal\x1b[36m            ║\x1b[0m');
-    term.writeln('\x1b[36m╚══════════════════════════════════════╝\x1b[0m');
-    term.writeln('');
-    term.writeln('\x1b[33mТерминалға қосылу үшін «Қосылу» батырмасын басыңыз.\x1b[0m');
-    term.writeln('');
-
-    // Handle resize
-    const resizeObserver = new ResizeObserver(() => {
-      if (fitAddonRef.current && terminalRef.current) {
-        try {
-          fitAddonRef.current.fit();
-          const ws = wsRef.current;
-          if (ws?.isConnected()) {
-            ws.resize(terminalRef.current.cols, terminalRef.current.rows);
-          }
-        } catch { /* ignore fit errors during unmount */ }
+    // Ctrl+C белгіленген мәтінде — көшіру (белгі болмаса shell-ге SIGINT кетеді),
+    // Ctrl+V — қою. Браузердің өз мінез-құлқымен бірдей.
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown' || !e.ctrlKey || e.altKey) return true;
+      const key = e.key.toLowerCase();
+      if (key === 'c' && term.hasSelection()) {
+        navigator.clipboard?.writeText(term.getSelection()).catch(() => {});
+        term.clearSelection();
+        return false;
       }
+      if (key === 'v') return false; // xterm paste оқиғасы өзі өңдейді
+      if (key === 'j') return false; // Ctrl+J — панельді ашу/жабу (IDE деңгейінде)
+      return true;
     });
 
+    // Small delay to ensure proper fit
+    const timer = setTimeout(fit, 100);
+
+    // Handle resize
+    const resizeObserver = new ResizeObserver(() => fit());
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      clearTimeout(timer);
       resizeObserver.disconnect();
+      inputRef.current?.dispose();
+      inputRef.current = null;
+      wsRef.current?.disconnect();
+      wsRef.current = null;
       term.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, []);
+  }, [fit]);
 
   const connect = useCallback((token: string) => {
-    if (!terminalRef.current) return;
+    const term = terminalRef.current;
+    if (!term) return;
+
+    // Алдыңғы сессия болса — толық жабамыз
+    inputRef.current?.dispose();
+    wsRef.current?.disconnect();
 
     const ws = new TerminalWebSocketService();
 
     ws.setOnOutput((data: string) => {
-      if (terminalRef.current) {
-        terminalRef.current.write(data);
-      }
+      terminalRef.current?.write(data);
     });
 
-    ws.setOnConnect((id: string) => {
+    ws.setOnConnect((info) => {
       setIsConnected(true);
-      setSessionId(id);
+      setSession(info);
       setError(null);
-      if (terminalRef.current) {
-        terminalRef.current.writeln('');
-        terminalRef.current.writeln('\x1b[32m✓ Терминалға қосылды\x1b[0m');
-        terminalRef.current.writeln('');
-        // Resize terminal to match session
-        if (fitAddonRef.current) {
-          fitAddonRef.current.fit();
-          ws.resize(terminalRef.current.cols, terminalRef.current.rows);
-        }
+      if (info.mode === 'pipe') {
+        terminalRef.current?.writeln('\x1b[33m! Қарапайым режим: серверде pywinpty жоқ, тек жолдық командалар жұмыс істейді\x1b[0m');
       }
-      options?.onConnect?.(id);
+      fit();
+      optionsRef.current?.onConnect?.(info);
     });
 
     ws.setOnDisconnect(() => {
       setIsConnected(false);
-      if (terminalRef.current) {
-        terminalRef.current.writeln('');
-        terminalRef.current.writeln('\x1b[33m⚡ Терминал ажыратылды\x1b[0m');
-      }
-      options?.onDisconnect?.();
+      terminalRef.current?.writeln('\r\n\x1b[90m— терминал ажыратылды —\x1b[0m');
+      optionsRef.current?.onDisconnect?.();
     });
 
     ws.setOnError((message: string) => {
       setError(message);
-      if (terminalRef.current) {
-        terminalRef.current.writeln(`\x1b[31m✗ Қате: ${message}\x1b[0m`);
-      }
-      options?.onError?.(message);
+      terminalRef.current?.writeln(`\r\n\x1b[31m✗ ${message}\x1b[0m`);
+      optionsRef.current?.onError?.(message);
     });
 
     ws.setOnExit((code: number) => {
       setIsConnected(false);
-      if (terminalRef.current) {
-        terminalRef.current.writeln(`\x1b[33mПроцесс аяқталды (код: ${code})\x1b[0m`);
-      }
+      terminalRef.current?.writeln(`\r\n\x1b[90mПроцесс аяқталды (код: ${code})\x1b[0m`);
+    });
+
+    ws.setOnFsChanges((projectId, changes) => {
+      optionsRef.current?.onFsChanges?.(projectId, changes);
     });
 
     // Attach terminal input to WebSocket
-    const inputDisposable = terminalRef.current.onData((data: string) => {
+    inputRef.current = term.onData((data: string) => {
       ws.sendInput(data);
     });
 
     wsRef.current = ws;
-    ws.connect(token);
-
-    // Store disposable for cleanup
-    return () => {
-      inputDisposable.dispose();
-      ws.disconnect();
-    };
-  }, [options]);
+    ws.connect(token, {
+      projectId: optionsRef.current?.projectId,
+      cols: term.cols,
+      rows: term.rows,
+    });
+  }, [fit]);
 
   const disconnect = useCallback(() => {
+    inputRef.current?.dispose();
+    inputRef.current = null;
     wsRef.current?.disconnect();
     wsRef.current = null;
     setIsConnected(false);
-    setSessionId(null);
+    setSession(null);
   }, []);
 
   const clear = useCallback(() => {
     terminalRef.current?.clear();
   }, []);
 
+  const focus = useCallback(() => {
+    terminalRef.current?.focus();
+  }, []);
+
+  const requestSync = useCallback(() => {
+    wsRef.current?.requestSync();
+  }, []);
+
   return {
     terminalRef: containerRef,
     isConnected,
-    sessionId,
+    session,
     error,
     connect,
     disconnect,
     clear,
+    focus,
+    fit,
+    requestSync,
   };
 }

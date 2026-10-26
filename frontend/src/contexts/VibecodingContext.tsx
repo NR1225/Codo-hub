@@ -71,6 +71,8 @@ type VibecodingAction =
   | { type: 'CREATE_FOLDER'; payload: { path: string } }
   | { type: 'DELETE_FOLDER'; payload: { path: string } }
   | { type: 'RENAME_FILE'; payload: { fileId: string; name: string } }
+  /** Файлды/папканы жылжыту немесе атын өзгерту: from жолы (ішіндегілерімен) to жолына көшеді */
+  | { type: 'MOVE_PATH'; payload: { from: string; to: string } }
   | { type: 'UPDATE_FILE_CONTENT'; payload: { fileId: string; content: string } }
   | { type: 'OPEN_FILE'; payload: { fileId: string } }
   | { type: 'CLOSE_FILE'; payload: { fileId: string } }
@@ -90,7 +92,16 @@ type VibecodingAction =
   | { type: 'LOAD_STATE'; payload: VibecodingState }
   | { type: 'LOAD_PROJECTS'; payload: { projects: Project[]; ownerId: string } }
   | { type: 'UPSERT_PROJECT'; payload: { project: Project } }
-  | { type: 'OPEN_PROJECT_FILE'; payload: { projectId: string; path?: string } };
+  | { type: 'OPEN_PROJECT_FILE'; payload: { projectId: string; path?: string } }
+  /** Терминалда өзгерген файлдар (жоба папкасы → редактор) */
+  | { type: 'APPLY_WORKSPACE_CHANGES'; payload: { projectId: string; changes: WorkspaceChanges } };
+
+export interface WorkspaceChanges {
+  upserts: { path: string; content: string }[];
+  deletes: string[];
+  folders: string[];
+  deletedFolders: string[];
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -326,6 +337,41 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       };
     }
 
+    case 'MOVE_PATH': {
+      if (!state.activeProjectId) return state;
+      const from = normalizePath(action.payload.from);
+      const to = normalizePath(action.payload.to);
+      // Өзіне немесе өз ішіне жылжытуға болмайды
+      if (!from || !to || from === to || to.startsWith(`${from}/`)) return state;
+      const project = state.projects.find(p => p.id === state.activeProjectId);
+      if (!project) return state;
+      const taken = (p: string) => p === to || p.startsWith(`${to}/`);
+      if (project.files.some(f => taken(f.path)) || (project.folders ?? []).some(taken)) return state;
+      const remap = (p: string) => (p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : p);
+      const folders = new Set((project.folders ?? []).map(remap));
+      // Бастапқы папка бос қалса да жоғалмайды, жаңа орынның ата-папкалары қосылады
+      parentPaths(from).forEach(dir => folders.add(dir));
+      parentPaths(to).forEach(dir => folders.add(dir));
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === state.activeProjectId
+            ? {
+                ...p,
+                files: p.files.map(f => {
+                  const path = remap(f.path);
+                  if (path === f.path) return f;
+                  const name = path.split('/').pop() || path;
+                  return { ...f, path, name, language: detectLanguage(name), isDirty: true };
+                }),
+                folders: Array.from(folders),
+                updatedAt: new Date().toISOString(),
+              }
+            : p
+        ),
+      };
+    }
+
     case 'UPDATE_FILE_CONTENT': {
       if (!state.activeProjectId) return state;
       return {
@@ -474,6 +520,57 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       };
     }
 
+    case 'APPLY_WORKSPACE_CHANGES': {
+      const { projectId, changes } = action.payload;
+      const project = state.projects.find(p => p.id === projectId);
+      if (!project) return state;
+      const removed = new Set(changes.deletes.map(normalizePath));
+      const byPath = new Map(changes.upserts.map(u => [normalizePath(u.path), u.content]));
+      let changed = removed.size > 0;
+      const files = project.files
+        .filter(f => !removed.has(f.path))
+        .map(f => {
+          if (!byPath.has(f.path)) return f;
+          const content = byPath.get(f.path)!;
+          byPath.delete(f.path);
+          if (content === f.content) return f;
+          changed = true;
+          return { ...f, content, isDirty: false };
+        });
+      byPath.forEach((content, path) => {
+        changed = true;
+        const name = path.split('/').pop() || path;
+        files.push({ id: uuidv4(), name, path, content, language: detectLanguage(name), isDirty: false });
+      });
+      const gone = new Set(changes.deletedFolders.map(normalizePath));
+      // Ішінде файл қалған папка өшпейді
+      const folders = new Set((project.folders ?? []).filter(f => !gone.has(f) || files.some(x => x.path.startsWith(`${f}/`))));
+      changes.folders.forEach(f => {
+        const path = normalizePath(f);
+        if (path && !folders.has(path)) {
+          folders.add(path);
+          changed = true;
+        }
+      });
+      if (gone.size) changed = true;
+      if (!changed) return state;
+      const fileIds = new Set(files.map(f => f.id));
+      const isActive = state.activeProjectId === projectId;
+      const openFileIds = isActive ? state.openFileIds.filter(id => fileIds.has(id)) : state.openFileIds;
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? { ...p, files, folders: Array.from(folders), updatedAt: new Date().toISOString() }
+            : p
+        ),
+        openFileIds,
+        activeFileId: isActive && state.activeFileId && !fileIds.has(state.activeFileId)
+          ? (openFileIds[openFileIds.length - 1] || null)
+          : state.activeFileId,
+      };
+    }
+
     // Сервердегі жобалармен ауыстыру (сервер — негізгі дерек көзі)
     case 'LOAD_PROJECTS': {
       const { projects, ownerId } = action.payload;
@@ -511,6 +608,8 @@ interface VibecodingContextType {
   isDesktop: boolean;
   /** Сервердегі жобалар жүктеліп болды (немесе синхрондау қажет емес) */
   syncReady: boolean;
+  /** Күтіп тұрған өзгерістерді серверге дереу жіберу (мысалы, терминал ашылар алдында) */
+  flushProjects: () => Promise<void>;
 }
 
 const VibecodingContext = createContext<VibecodingContextType | undefined>(undefined);
@@ -680,20 +779,21 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
   }, [isAuthenticated, user?.id]);
 
   // Өзгерген жобаларды сақтау, жойылғандарын серверден өшіру
-  const flushToServer = useCallback(() => {
+  const flushToServer = useCallback(async () => {
     const synced = syncedRef.current;
     if (!synced) return;
     const projects = stateRef.current.projects;
     const current = new Set(projects.map(p => p.id));
+    const saves: Promise<unknown>[] = [];
 
     projects.forEach(project => {
       const snap = snapshotOf(project);
       if (synced.get(project.id) === snap) return;
       synced.set(project.id, snap); // қайталап жібермеу үшін алдын ала белгілейміз
-      apiService.saveVibecodingProject(project.id, toServerPayload(project)).catch(err => {
+      saves.push(apiService.saveVibecodingProject(project.id, toServerPayload(project)).catch(err => {
         synced.delete(project.id); // келесі жолы қайта жіберіледі
         console.error('Vibecoding project save failed:', err);
-      });
+      }));
     });
 
     Array.from(synced.keys()).forEach(id => {
@@ -701,6 +801,7 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
       synced.delete(id);
       apiService.deleteVibecodingProject(id).catch(err => console.error('Vibecoding project delete failed:', err));
     });
+    await Promise.all(saves);
   }, []);
 
   useEffect(() => {
@@ -710,7 +811,7 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
   }, [state.projects, isAuthenticated, flushToServer]);
 
   // Беттен шыққанда күтіп тұрған өзгерістерді бірден жіберу
-  useEffect(() => () => flushToServer(), [flushToServer]);
+  useEffect(() => () => { void flushToServer(); }, [flushToServer]);
 
   // Persist state to localStorage (debounced)
   useEffect(() => {
@@ -730,7 +831,8 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     isTablet,
     isDesktop,
     syncReady,
-  }), [state, activeProject, activeFile, openFiles, breakpoint, isMobile, isTablet, isDesktop, syncReady]);
+    flushProjects: flushToServer,
+  }), [state, activeProject, activeFile, openFiles, breakpoint, isMobile, isTablet, isDesktop, syncReady, flushToServer]);
 
   return (
     <VibecodingContext.Provider value={contextValue()}>

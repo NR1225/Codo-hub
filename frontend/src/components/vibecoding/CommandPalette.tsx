@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
-  FileIcon,
   FilePlusIcon,
   FolderPlusIcon,
   ExplorerIcon,
@@ -23,6 +22,7 @@ import {
   CommandIcon,
 } from './icons';
 import { langColor } from './langColors';
+import { FileTypeIcon } from './fileIcons';
 
 type Mode = 'files' | 'commands';
 
@@ -302,7 +302,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
                   onClick={() => execute(entry)}
                 >
                   <span className="vibe-cp-item-icon vibe-cp-item-icon--file" style={{ ['--lang' as string]: langColor(lang) }}>
-                    <FileIcon size={15} />
+                    <FileTypeIcon name={entry.file.name} size={18} />
                   </span>
                   <div className="vibe-cp-item-label">
                     <div className="vibe-cp-item-title">{highlightMatch(entry.file.name, query)}</div>

@@ -35,6 +35,10 @@ export function useResizer({
   // Use ref for callback to avoid infinite re-render loops
   const onSizesChangeRef = useRef(onSizesChange);
   onSizesChangeRef.current = onSizesChange;
+  // Latest sizes for the drag-end notification (calling the parent from inside a
+  // setSizes updater would update another component during render)
+  const sizesRef = useRef(sizes);
+  sizesRef.current = sizes;
 
   const onDragStart = useCallback((
     e: React.MouseEvent,
@@ -50,6 +54,7 @@ export function useResizer({
     containerRef.current = container;
     document.body.style.cursor = type === 'bottom' ? 'row-resize' : 'col-resize';
     document.body.style.userSelect = 'none';
+    document.body.classList.add('is-panel-resizing');
   }, [sizes]);
 
   useEffect(() => {
@@ -92,11 +97,9 @@ export function useResizer({
         dragType.current = null;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        document.body.classList.remove('is-panel-resizing');
         // Notify parent of final sizes when drag ends
-        setSizes(current => {
-          onSizesChangeRef.current?.(current);
-          return current;
-        });
+        onSizesChangeRef.current?.(sizesRef.current);
       }
     };
 

@@ -32,4 +32,5 @@ EXPOSE 8080
 ENV PORT=8080
 
 # Run the application
-CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1
+# --no-server-header: hide "server: uvicorn" (main.py sets server_header=False only for `python main.py`)
+CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1 --no-server-header

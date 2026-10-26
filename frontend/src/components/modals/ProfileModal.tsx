@@ -8,7 +8,8 @@ import {
   faSignOutAlt, 
   faMoon,
   faCloudSun,
-  faUser
+  faUser,
+  faBook
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import './ProfileModal.css';
@@ -100,6 +101,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
   };
 
   const menuItems = [
+    { path: '/notes', label: t('notes.title'), icon: <FontAwesomeIcon icon={faBook} /> },
     { path: '/settings', label: t('sidebar.settings'), icon: <FontAwesomeIcon icon={faCog} /> },
   ];
 

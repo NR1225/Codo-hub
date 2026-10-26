@@ -1632,3 +1632,10 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* Cloudflare Turnstile CAPTCHA widget */
+.auth-captcha {
+  display: flex;
+  justify-content: center;
+  min-height: 65px;
+}

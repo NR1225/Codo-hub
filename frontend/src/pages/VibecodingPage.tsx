@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, VibecodingProvider, Project, detectLanguage } from '../contexts/VibecodingContext';
 import { apiService } from '../utils/api';
-import { ExplorerIcon, MenuIcon, TerminalIcon, SparkleIcon, SearchIcon, CommandIcon } from '../components/vibecoding/icons';
+import { SearchIcon, CommandIcon, PanelLeftIcon, PanelBottomIcon, PanelRightIcon, PlayIcon } from '../components/vibecoding/icons';
 import IDELayout from '../components/vibecoding/IDELayout';
 import CommandPalette from '../components/vibecoding/CommandPalette';
 import './VibecodingPage.css';
@@ -12,7 +12,7 @@ import '../components/vibecoding/VibecodingPanels.css';
 /* ─── Main component ─── */
 const VibecodingPageInner: React.FC = () => {
   const { t } = useTranslation();
-  const { state, dispatch, activeFile, activeProject, isMobile, syncReady } = useVibecoding();
+  const { state, dispatch, syncReady } = useVibecoding();
 
   const [paletteMode, setPaletteMode] = useState<'files' | 'commands' | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,38 +72,45 @@ const VibecodingPageInner: React.FC = () => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
 
+      // F5 → жобаны іске қосу (алдын ала көрініс)
+      if (e.key === 'F5' && !mod) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('vibecoding:run'));
+        return;
+      }
+
       // Ctrl+P  → file palette
-      if (mod && !e.shiftKey && e.key.toLowerCase() === 'p') {
+      if (mod && !e.shiftKey && e.code === 'KeyP') {
         e.preventDefault();
         setPaletteMode('files');
         return;
       }
       // Ctrl+Shift+P → command palette
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'p') {
+      if (mod && e.shiftKey && e.code === 'KeyP') {
         e.preventDefault();
         setPaletteMode('commands');
         return;
       }
       // Ctrl+B → toggle explorer
-      if (mod && !e.shiftKey && e.key.toLowerCase() === 'b') {
+      if (mod && !e.shiftKey && e.code === 'KeyB') {
         e.preventDefault();
         dispatch({ type: 'TOGGLE_LEFT_PANEL' });
         return;
       }
       // Ctrl+J → toggle terminal
-      if (mod && !e.shiftKey && e.key.toLowerCase() === 'j') {
+      if (mod && !e.shiftKey && e.code === 'KeyJ') {
         e.preventDefault();
         dispatch({ type: 'TOGGLE_BOTTOM_PANEL' });
         return;
       }
       // Ctrl+I → toggle AI panel
-      if (mod && !e.shiftKey && e.key.toLowerCase() === 'i') {
+      if (mod && !e.shiftKey && e.code === 'KeyI') {
         e.preventDefault();
         dispatch({ type: 'TOGGLE_RIGHT_PANEL' });
         return;
       }
       // Ctrl+, → open settings
-      if (mod && e.key === ',') {
+      if (mod && e.code === 'Comma') {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('vibecoding:open-settings'));
         return;
@@ -125,94 +132,64 @@ const VibecodingPageInner: React.FC = () => {
     };
   }, []);
 
-  // Бет басты беттің дизайн тілінде: сайт хедері үстінде, қара фон,
-  // қалқымалы панельдер (Home.css, HomeSidebar.css)
+  // IDE стилі: беттің өз хедері сайт хедерінің астына жапсырылған,
+  // әсерлер аз — басты назар кодта
   return (
     <div className="vibe-root select-none">
-      {/* Фон: жоғарыдан түсетін жұмсақ жарық + нүктелі тор */}
-      <div className="vibe-ambient" aria-hidden="true">
-        <span className="vibe-ambient__glow vibe-ambient__glow--a" />
-        <span className="vibe-ambient__glow vibe-ambient__glow--b" />
-        <span className="vibe-ambient__grid" />
-      </div>
       <div className="vibe-content-layer">
-        {/* Құралдар панелі — IDE панельдерін басқару */}
+        {/* Беттің өз хедері — IDE панельдерін басқару */}
         <div className="vibe-toolbar">
-          <div className="vibe-toolbar__group">
+          <div className="vibe-toolbar__side" />
+
+          {/* Ортада — файл іздеу (VS Code-тағы command center сияқты) */}
+          <button
+            onClick={openFilePalette}
+            className="vibe-toolbar__search"
+            title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
+          >
+            <SearchIcon size={13} />
+            <span className="vibe-toolbar__search-text">{t('vibecoding.palette.searchFiles', 'Файл іздеу')}</span>
+          </button>
+
+          {/* Оң жақта — панельдерді ашып-жабатын белгішелер бір топта */}
+          <div className="vibe-toolbar__side vibe-toolbar__side--end">
             <button
-              onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
-              className={`vibe-header-tab ${state.leftPanelVisible ? 'active' : ''}`}
-              title={t('vibecoding.layout.toggleExplorer')}
+              onClick={() => window.dispatchEvent(new CustomEvent('vibecoding:run'))}
+              className="vibe-run-btn"
+              title={`${t('vibecoding.preview.run', 'Іске қосу')} (F5)`}
             >
-              <span className="vibe-header-tab__icon">
-                {isMobile ? <MenuIcon size={16} /> : <ExplorerIcon size={16} />}
-              </span>
-              <span className="vibe-header-tab__text">{t('vibecoding.fileExplorer.title', 'Эксплорер')}</span>
+              <PlayIcon size={13} />
+              <span className="vibe-run-btn__text">{t('vibecoding.preview.run', 'Іске қосу')}</span>
             </button>
-
-            <button
-              onClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
-              className={`vibe-header-tab ${state.bottomPanelVisible ? 'active' : ''}`}
-              title={t('vibecoding.layout.toggleTerminal')}
-            >
-              <span className="vibe-header-tab__icon">
-                <TerminalIcon size={16} />
-              </span>
-              <span className="vibe-header-tab__text">{t('vibecoding.terminal.title', 'Терминал')}</span>
-            </button>
-          </div>
-
-          {/* Ортада — жоба мен ашық файл */}
-          <div className="vibe-toolbar__title">
-            <span className="vibe-toolbar__brand">
-              <span className="vibe-toolbar__brand-dot" />
-              Vibecoding
-            </span>
-            {activeProject && !isMobile && (
-              <>
-                <span className="vibe-toolbar__sep">/</span>
-                <span className="vibe-toolbar__project">{activeProject.name}</span>
-              </>
-            )}
-            {activeFile && (
-              <>
-                <span className="vibe-toolbar__sep">/</span>
-                <span className="vibe-toolbar__file">{activeFile.name}</span>
-                {activeFile.isDirty && <span className="vibe-toolbar__dirty" aria-label="unsaved" />}
-              </>
-            )}
-          </div>
-
-          <div className="vibe-toolbar__group">
-            <button
-              onClick={openFilePalette}
-              className="vibe-toolbar__search"
-              title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
-            >
-              <SearchIcon size={15} />
-              <span className="vibe-toolbar__search-text">{t('vibecoding.palette.searchFiles', 'Файл іздеу')}</span>
-              <kbd>Ctrl P</kbd>
-            </button>
-
+            <span className="vibe-toolbar__divider" />
             <button
               onClick={openCommandPalette}
               className="vibe-header-tab vibe-header-tab--icon"
               title={t('vibecoding.status.commandPalette', 'Командалар палитрасы (Ctrl+Shift+P)')}
             >
-              <span className="vibe-header-tab__icon">
-                <CommandIcon size={16} />
-              </span>
+              <CommandIcon size={15} />
             </button>
-
+            <span className="vibe-toolbar__divider" />
+            <button
+              onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
+              className={`vibe-header-tab vibe-header-tab--icon ${state.leftPanelVisible ? 'active' : ''}`}
+              title={`${t('vibecoding.layout.toggleExplorer')} (Ctrl+B)`}
+            >
+              <PanelLeftIcon size={16} active={state.leftPanelVisible} />
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
+              className={`vibe-header-tab vibe-header-tab--icon ${state.bottomPanelVisible ? 'active' : ''}`}
+              title={`${t('vibecoding.layout.toggleTerminal')} (Ctrl+J)`}
+            >
+              <PanelBottomIcon size={16} active={state.bottomPanelVisible} />
+            </button>
             <button
               onClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
-              className={`vibe-header-tab ${state.rightPanelVisible ? 'active' : ''}`}
-              title={t('vibecoding.layout.toggleChat')}
+              className={`vibe-header-tab vibe-header-tab--icon ${state.rightPanelVisible ? 'active' : ''}`}
+              title={`${t('vibecoding.layout.toggleChat')} (Ctrl+I)`}
             >
-              <span className="vibe-header-tab__icon">
-                <SparkleIcon size={16} />
-              </span>
-              <span className="vibe-header-tab__text">ЖИ</span>
+              <PanelRightIcon size={16} active={state.rightPanelVisible} />
             </button>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
+import Turnstile, { TURNSTILE_ENABLED } from '../components/ui/Turnstile';
 import Parallax from 'parallax-js';
 import { imageStorage } from '../utils/imageStorage';
 import './Auth.css';
@@ -32,6 +33,8 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -148,6 +151,7 @@ const Register: React.FC = () => {
         formData.username,
         formData.email,
         formData.password,
+        captchaToken,
       );
 
       // Save user to localStorage
@@ -181,11 +185,15 @@ const Register: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       console.error('Registration error:', err);
+      // Turnstile токені бір рет қана жарамды — келесі әрекетке жаңасын аламыз
+      setCaptchaResetKey((k) => k + 1);
 
       let errorMessage = t('register.error');
 
       if (err.message) {
-        if (err.message.includes('already exists') || err.message.includes('User already exists')) {
+        if (err.message.includes('Captcha')) {
+          errorMessage = t('register.captchaFailed');
+        } else if (err.message.includes('already exists') || err.message.includes('User already exists')) {
           errorMessage = t('register.accountExists');
         } else if (err.message.includes('Password must be at least')) {
           errorMessage = t('register.passwordMinLength');
@@ -333,13 +341,15 @@ const Register: React.FC = () => {
               </div>
             </div>
 
+            <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
+
             {error && (
               <div className="form-error">
                 {error}
               </div>
             )}
 
-            <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            <Button type="submit" variant="primary" fullWidth disabled={loading || (TURNSTILE_ENABLED && !captchaToken)}>
               {loading ? t('register.submitting') : t('register.title')}
             </Button>
           </form>

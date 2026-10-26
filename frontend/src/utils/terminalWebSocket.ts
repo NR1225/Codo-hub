@@ -1,15 +1,36 @@
 import { API_BASE_URL } from './constants';
+import type { WorkspaceChanges } from '../contexts/VibecodingContext';
 
-type MessageType = 'input' | 'resize' | 'ping' | 'output' | 'connected' | 'disconnected' | 'exit' | 'error' | 'pong';
+type MessageType =
+  | 'input' | 'resize' | 'ping' | 'sync' | 'output' | 'connected' | 'disconnected'
+  | 'exit' | 'error' | 'pong' | 'fs-changes';
 
-interface TerminalMessage {
+interface TerminalMessage extends Partial<WorkspaceChanges> {
   type: MessageType;
   data?: string;
   cols?: number;
   rows?: number;
   sessionId?: string;
+  projectId?: string | null;
+  mode?: string;
+  platform?: string;
   code?: number;
   message?: string;
+}
+
+export interface TerminalSessionInfo {
+  sessionId: string;
+  /** Терминал ашылған жоба (null — жоба табылмаса, үй папкасында) */
+  projectId: string | null;
+  /** conpty / pty — нағыз терминал, pipe — қарапайым режим */
+  mode: string;
+  platform: string;
+}
+
+export interface TerminalConnectOptions {
+  projectId?: string | null;
+  cols?: number;
+  rows?: number;
 }
 
 class TerminalWebSocketService {
@@ -21,17 +42,22 @@ class TerminalWebSocketService {
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private onOutput: ((data: string) => void) | null = null;
   private onDisconnect: (() => void) | null = null;
-  private onConnect: ((sessionId: string) => void) | null = null;
+  private onConnect: ((info: TerminalSessionInfo) => void) | null = null;
   private onError: ((message: string) => void) | null = null;
   private onExit: ((code: number) => void) | null = null;
+  private onFsChanges: ((projectId: string, changes: WorkspaceChanges) => void) | null = null;
   private shouldReconnect = true;
 
-  connect(token: string): void {
+  connect(token: string, options: TerminalConnectOptions = {}): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     this.shouldReconnect = true;
     const wsBaseUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/\/api$/, '');
-    const url = `${wsBaseUrl}/api/ws/terminal?token=${encodeURIComponent(token)}`;
+    const params = new URLSearchParams({ token });
+    if (options.projectId) params.set('projectId', options.projectId);
+    if (options.cols) params.set('cols', String(options.cols));
+    if (options.rows) params.set('rows', String(options.rows));
+    const url = `${wsBaseUrl}/api/ws/terminal?${params.toString()}`;
 
     try {
       this.ws = new WebSocket(url);
@@ -53,12 +79,16 @@ class TerminalWebSocketService {
         }
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
         this.stopPing();
         if (this.onDisconnect) this.onDisconnect();
-        if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        // Шектеу/рұқсат қателерінде (4001, 4003, 4004, 4008) қайта қосылудың мәні жоқ
+        const fatal = event.code >= 4000 && event.code < 4100;
+        if (!fatal && this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
-          setTimeout(() => this.connect(token), this.reconnectDelay * this.reconnectAttempts);
+          setTimeout(() => {
+            if (this.shouldReconnect) this.connect(token, options);
+          }, this.reconnectDelay * this.reconnectAttempts);
         }
       };
 
@@ -75,12 +105,27 @@ class TerminalWebSocketService {
       case 'connected':
         this.sessionId = msg.sessionId || null;
         if (this.onConnect && msg.sessionId) {
-          this.onConnect(msg.sessionId);
+          this.onConnect({
+            sessionId: msg.sessionId,
+            projectId: msg.projectId ?? null,
+            mode: msg.mode || 'pty',
+            platform: msg.platform || '',
+          });
         }
         break;
       case 'output':
         if (this.onOutput && msg.data) {
           this.onOutput(msg.data);
+        }
+        break;
+      case 'fs-changes':
+        if (this.onFsChanges && msg.projectId) {
+          this.onFsChanges(msg.projectId, {
+            upserts: msg.upserts ?? [],
+            deletes: msg.deletes ?? [],
+            folders: msg.folders ?? [],
+            deletedFolders: msg.deletedFolders ?? [],
+          });
         }
         break;
       case 'pong':
@@ -100,24 +145,28 @@ class TerminalWebSocketService {
     }
   }
 
-  sendInput(data: string): void {
+  private send(payload: Record<string, unknown>): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'input', data }));
+      this.ws.send(JSON.stringify(payload));
     }
+  }
+
+  sendInput(data: string): void {
+    this.send({ type: 'input', data });
   }
 
   resize(cols: number, rows: number): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-    }
+    this.send({ type: 'resize', cols, rows });
+  }
+
+  /** Жоба папкасындағы өзгерістерді қазір сұрау */
+  requestSync(): void {
+    this.send({ type: 'sync' });
   }
 
   private startPing(): void {
-    this.pingInterval = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'ping' }));
-      }
-    }, 30000);
+    this.stopPing();
+    this.pingInterval = setInterval(() => this.send({ type: 'ping' }), 30000);
   }
 
   private stopPing(): void {
@@ -143,7 +192,7 @@ class TerminalWebSocketService {
   setOnDisconnect(callback: () => void): void {
     this.onDisconnect = callback;
   }
-  setOnConnect(callback: (sessionId: string) => void): void {
+  setOnConnect(callback: (info: TerminalSessionInfo) => void): void {
     this.onConnect = callback;
   }
   setOnError(callback: (message: string) => void): void {
@@ -151,6 +200,9 @@ class TerminalWebSocketService {
   }
   setOnExit(callback: (code: number) => void): void {
     this.onExit = callback;
+  }
+  setOnFsChanges(callback: (projectId: string, changes: WorkspaceChanges) => void): void {
+    this.onFsChanges = callback;
   }
 
   isConnected(): boolean {

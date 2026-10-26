@@ -49,7 +49,42 @@ export interface VibecodingProjectDTO {
   name: string;
   files: VibecodingProjectFile[];
   folders?: string[];
+  /** Notes-тағы байланысқан папка (сервер өзі береді) */
+  notesFolder?: string | null;
   createdAt: string;
+  updatedAt: string;
+}
+
+// Жазбалар (Obsidian сияқты жеке vault)
+export type NoteKind = 'note' | 'canvas';
+
+export interface NoteMeta {
+  id: string;
+  title: string;
+  folder: string;
+  kind: NoteKind;
+  links: string[];
+  tags: string[];
+  starred: boolean;
+  size: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoteDTO extends NoteMeta {
+  content: string;
+}
+
+export interface NoteVaultDTO {
+  notes: NoteMeta[];
+  folders: string[];
+}
+
+export interface NoteSearchResult {
+  id: string;
+  title: string;
+  folder: string;
+  snippet: string;
   updatedAt: string;
 }
 
@@ -295,6 +330,50 @@ export interface SiteConfig {
   termsContent?: { [locale: string]: { title: string; lastUpdated: string; sections: Array<{ title: string; description: string }> } };
   privacyContent?: { [locale: string]: { title: string; lastUpdated: string; sections: Array<{ title: string; description: string }> } };
   apiDisplayUrl?: string;
+}
+
+/** Бүркіт қай кілтпен жұмыс істейді: өз кілті, сервердің ортақ кілті, немесе кілт жоқ */
+export interface BurkitStatus {
+  provider: 'gemini';
+  model: string;
+  source: 'own' | 'shared' | 'none';
+  keyHint: string | null;
+}
+
+export interface BurkitChatPayload {
+  messages: { role: 'user' | 'assistant'; content: string }[];
+  /** Ашық файлдың жобадағы жолы және мазмұны */
+  fileName?: string;
+  fileContent?: string;
+  /** Ашық жоба: Бүркіт файлдарды көріп, path= блоктарымен оларға жаза алады */
+  projectName?: string;
+  projectFiles?: { path: string; content?: string }[];
+  /** Серверге сақталған жоба — оның Notes папкасындағы жазбалар да Бүркітке барады */
+  projectId?: string;
+  /** agent — Бүркіт файлдар мен жазбаларға жазады; ask — тек жауап береді */
+  mode?: 'agent' | 'ask';
+}
+
+/** Жобаға автоматты түрде байланысқан Notes папкасы */
+export interface ProjectNotesDTO {
+  folder: string;
+  notes: { id: string; title: string; folder: string }[];
+}
+
+export interface ProjectNoteWriteResult {
+  id: string;
+  title: string;
+  created: boolean;
+  /** Бұрынғы мазмұн («Қайтару» үшін); жаңа жазбада null */
+  previous: string | null;
+}
+
+/** Бүркіт сұрауының қатесі; status 403 — кілт енгізілмеген */
+export class BurkitError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'BurkitError';
+  }
 }
 
 class ApiService {
@@ -572,6 +651,46 @@ class ApiService {
     });
   }
 
+  // Жазбалар
+  async getNoteVault(): Promise<NoteVaultDTO> {
+    return this.request<NoteVaultDTO>('/notes');
+  }
+
+  async getNote(id: string): Promise<NoteDTO> {
+    return this.request<NoteDTO>(`/notes/${encodeURIComponent(id)}`);
+  }
+
+  async createNote(data: { title: string; folder?: string; kind?: NoteKind; content?: string }): Promise<NoteDTO> {
+    return this.request<NoteDTO>('/notes', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateNote(
+    id: string,
+    data: { title?: string; folder?: string; content?: string; starred?: boolean; updateLinks?: boolean }
+  ): Promise<NoteDTO & { updatedNotes: NoteMeta[] }> {
+    return this.request(`/notes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async deleteNote(id: string): Promise<void> {
+    await this.request(`/notes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  async searchNotes(q: string): Promise<NoteSearchResult[]> {
+    return this.request<NoteSearchResult[]>(`/notes/search?q=${encodeURIComponent(q)}`);
+  }
+
+  async createNoteFolder(path: string): Promise<{ folders: string[] }> {
+    return this.request('/notes/folders', { method: 'POST', body: JSON.stringify({ path }) });
+  }
+
+  async renameNoteFolder(path: string, newPath: string): Promise<NoteVaultDTO> {
+    return this.request<NoteVaultDTO>('/notes/folders', { method: 'PATCH', body: JSON.stringify({ path, newPath }) });
+  }
+
+  async deleteNoteFolder(path: string): Promise<NoteVaultDTO> {
+    return this.request<NoteVaultDTO>(`/notes/folders?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+  }
+
   async deleteMultipleCodes(ids: string[]): Promise<{ message: string; deletedCount: number }> {
     return this.request<{ message: string; deletedCount: number }>('/codes/delete-multiple', {
       method: 'POST',
@@ -636,44 +755,19 @@ class ApiService {
   }
 
   // Authentication
-  async register(username: string, email: string, password: string): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
+  async register(username: string, email: string, password: string, captchaToken?: string | null): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
     return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, captcha_token: captchaToken || undefined }),
     });
   }
 
-  // SMS phone verification (registration)
-  async getSmsConfig(): Promise<{ provider: 'firebase' | 'backend' }> {
-    return this.request('/auth/sms/config');
-  }
-
-  async sendSmsCode(phone: string): Promise<{ message: string; phone: string; resend_after: number }> {
-    return this.request('/auth/sms/send', {
-      method: 'POST',
-      body: JSON.stringify({ phone }),
-    });
-  }
-
-  async verifySmsCode(phone: string, code: string): Promise<{ phone_token: string; phone: string }> {
-    return this.request('/auth/sms/verify', {
-      method: 'POST',
-      body: JSON.stringify({ phone, code }),
-    });
-  }
-
-  async verifyFirebasePhone(idToken: string): Promise<{ phone_token: string; phone: string }> {
-    return this.request('/auth/sms/firebase', {
-      method: 'POST',
-      body: JSON.stringify({ id_token: idToken }),
-    });
-  }
-
-  async login(emailOrUsername: string, password: string): Promise<any> {
+  async login(emailOrUsername: string, password: string, captchaToken?: string | null): Promise<any> {
     const isEmail = emailOrUsername.includes('@');
+    const captcha_token = captchaToken || undefined;
     const body = isEmail
-      ? { email: emailOrUsername, password }
-      : { username: emailOrUsername, password };
+      ? { email: emailOrUsername, password, captcha_token }
+      : { username: emailOrUsername, password, captcha_token };
 
     return this.request('/auth/login', {
       method: 'POST',
@@ -1233,6 +1327,73 @@ class ApiService {
       console.error('User search error:', error);
       // Return empty array on error
       return [];
+    }
+  }
+
+  // ── Бүркіт (Gemini) ──
+  async getBurkitStatus(): Promise<BurkitStatus> {
+    return this.request<BurkitStatus>('/burkit/status');
+  }
+
+  async saveBurkitKey(apiKey: string): Promise<BurkitStatus> {
+    return this.request<BurkitStatus>('/burkit/key', {
+      method: 'PUT',
+      body: JSON.stringify({ apiKey }),
+    });
+  }
+
+  async deleteBurkitKey(): Promise<BurkitStatus> {
+    return this.request<BurkitStatus>('/burkit/key', { method: 'DELETE' });
+  }
+
+  async getProjectNotes(projectId: string): Promise<ProjectNotesDTO> {
+    return this.request<ProjectNotesDTO>(`/burkit/project-notes/${encodeURIComponent(projectId)}`);
+  }
+
+  async writeProjectNote(projectId: string, title: string, content: string): Promise<ProjectNoteWriteResult> {
+    return this.request<ProjectNoteWriteResult>(`/burkit/project-notes/${encodeURIComponent(projectId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, content }),
+    });
+  }
+
+  /**
+   * Бүркіттен жауап алу — мәтін бөлік-бөлік келеді (onChunk). request() жауапты
+   * толық күтетіндіктен, мұнда fetch тікелей қолданылады (401-де бір рет жаңартып қайталайды).
+   */
+  async streamBurkitChat(
+    payload: BurkitChatPayload,
+    onChunk: (text: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const send = (token: string | null) =>
+      fetch(`${this.baseUrl}/burkit/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include',
+        signal,
+      });
+
+    let response = await send(this._getToken ? this._getToken() : null);
+    if (response.status === 401 && this._refreshToken) {
+      const newToken = await this._refreshToken();
+      if (newToken) response = await send(newToken);
+    }
+    if (!response.ok || !response.body) {
+      const data = await response.json().catch(() => ({}));
+      throw new BurkitError(data.detail || tApi('apiErrors.burkitFailed'), response.status);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      onChunk(decoder.decode(value, { stream: true }));
     }
   }
 }

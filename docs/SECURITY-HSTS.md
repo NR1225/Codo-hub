@@ -12,45 +12,40 @@
 `https://` орнына `http://`-ке қайтарып, трафикті оқуға/өзгертуге тырысады. HSTS-пен браузер
 http-ге мүлде шықпайды, сондықтан токен/құпиясөз ашық кетпейді.
 
-## Неге қазір жергілікті жерде ҚОСПАЙМЫЗ
+## Қазіргі жағдай: код дайын
 
-- Қазір backend `http://localhost:3000`, frontend `http://localhost:5173` — HTTPS жоқ.
-- HSTS тақырыбын http-ке жіберсе, браузер оны елемейді (спецификация бойынша),
-  ал HTTPS-те жіберсеңіз — браузер `localhost`-ты да HTTPS-ке мәжбүрлеп, жергілікті
-  дамуды бұзуы мүмкін (әсіресе `includeSubDomains` + `preload`).
-- Сондықтан HSTS **код деңгейінде емес, деплой деңгейінде** (TLS аяқталатын жерде) қосылады.
+`backend/main.py` → `SecurityHeadersMiddleware` HSTS-ті **тек HTTPS сұранысында** жібереді
+(`X-Forwarded-Proto: https` немесе тікелей https):
 
-## Қанша уақыт алады
+```python
+proto = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
+if proto == "https":
+    hsts = f"max-age={HSTS_MAX_AGE}"
+    if HSTS_INCLUDE_SUBDOMAINS:
+        hsts += "; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = hsts
+```
 
-- Тақырыпты қосудың өзі — **1–2 минут** (бір жол).
-- Дұрыс әрі қауіпсіз енгізу (тек HTTPS-те, прокси тақырыбын ескеру, preload шешімі) —
-  негізінен **деплой баптауы**, ~15–30 минут + тестілеу.
+Баптау (`backend/.env`):
 
-## Қалай қосу керек (прод)
+| Айнымалы | Әдепкі | Түсінік |
+|---|---|---|
+| `HSTS_MAX_AGE` | `86400` (1 күн) | Тексергеннен кейін `31536000`-ға көтеріңіз. |
+| `HSTS_INCLUDE_SUBDOMAINS` | `false` | Барлық субдомен HTTPS болса ғана `true`. |
 
-### Нұсқа A — TLS аяқталатын жерде (ҰСЫНЫЛАДЫ)
-Егер Cloud Run / Nginx / Load Balancer алдыда HTTPS-ті аяқтаса, HSTS-ті сол жерде қосыңыз.
+- **Жергілікті `http://localhost`:** тақырып жіберілмейді, дамуға әсері жоқ.
+- **Cloud Run:** Google фронтенді `X-Forwarded-Proto: https` қояды, сондықтан тақырып
+  автоматты түрде қосылады.
+- `preload` әдейі қосылмаған — оны қайтару қиын.
 
-**Nginx:**
+## Балама: TLS аяқталатын жерде
+
+Алдыңда Nginx / Load Balancer болса, HSTS-ті сонда да қоюға болады (екеуін бірдей
+қоймаңыз — бір ғана көз болсын):
+
 ```nginx
 add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 ```
-
-**Cloud Run + Google HTTPS Load Balancer:** response-headers саясаты арқылы сол тақырыпты қосыңыз
-(Cloud Run-ның өзі TLS-ті аяқтайды; қосымша реверс-прокси болса, сонда қосқан жөн).
-
-### Нұсқа B — FastAPI ішінде (прокси жоқ болса)
-Тек нақты HTTPS болғанда жіберіңіз. `main.py`-дағы `SecurityHeadersMiddleware` ішіне:
-
-```python
-# HSTS тек HTTPS-те (прокси X-Forwarded-Proto-ны ескереміз).
-proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-if proto == "https":
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-```
-
-> Прокси артында тұрсаңыз, uvicorn-ды `--proxy-headers --forwarded-allow-ips="*"`
-> (немесе нақты IP) деп қосыңыз, әйтпесе `x-forwarded-proto` сенімсіз.
 
 ## Параметрлерді таңдау
 
@@ -70,6 +65,6 @@ if proto == "https":
 
 ## Қорытынды
 
-- **Жергілікті (қазір):** ештеңе істеудің қажеті жоқ — http-де HSTS мағынасыз.
-- **Прод:** TLS аяқталатын жерде (ҰСЫНЫЛАДЫ) немесе жоғарыдағы шартты код арқылы бір тақырып қосу.
-- Іс жүзіндегі жұмыс — код емес, **деплой баптауы**.
+- **Код:** дайын, тек HTTPS-те жұмыс істейді, env арқылы басқарылады.
+- **Прод-та қалғаны:** `HSTS_MAX_AGE`-ті кезеңмен 1 жылға көтеру, субдомендер
+  шешімі, қаласаңыз `preload`.

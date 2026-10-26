@@ -25,117 +25,252 @@
 }
 
 /* =========================================================
-   Фон: жарық пен нүктелі тор
+   Панельдерді ашу/жабу — басты беттің sidebar анимациясы (HomeSidebar.css):
+   ен серіппемен кеңейеді, жиек жарқ етеді, бетінен жарық сызығы өтеді,
+   мазмұны бұлдырдан анықталып сырғып шығады
    ========================================================= */
-.vibe-ambient {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
+.vibe-root {
+  /* Ашылу: сәл асып барып орнына түседі; жабылу: тез жиналады */
+  --vx-open-ease: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --vx-close-ease: cubic-bezier(0.7, 0, 0.2, 1);
 }
 
-.vibe-ambient__glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  animation: vxDrift 18s ease-in-out infinite alternate;
+/* linear() жоқ браузерде айнымалы жарамсыз болып, бүкіл transition өшіп қалмауы үшін */
+@supports (transition-timing-function: linear(0, 1)) {
+  .vibe-root {
+    --vx-open-ease: linear(0, 0.04 3%, 0.16 7%, 0.5 16%, 0.78 25%, 0.95 33%, 1.04 41%, 1.06 47%, 1.05 54%, 1.01 66%, 0.995 78%, 1);
+  }
 }
 
-.vibe-ambient__glow--a {
-  top: -260px;
-  left: 50%;
-  width: 900px;
-  height: 420px;
-  margin-left: -450px;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.09), transparent);
+.vibe-panel-left,
+.vibe-panel-right {
+  transition:
+    width 0.7s var(--vx-open-ease),
+    min-width 0.7s var(--vx-open-ease),
+    max-width 0.7s var(--vx-open-ease),
+    opacity 0.25s ease;
 }
 
-.vibe-ambient__glow--b {
-  right: -200px;
-  bottom: -220px;
-  width: 620px;
-  height: 420px;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.05), transparent);
-  animation-duration: 24s;
-  animation-direction: alternate-reverse;
+.vibe-panel-left[data-open="true"],
+.vibe-panel-right[data-open="true"] {
+  animation: vxPanelGlow 0.9s ease-out;
 }
 
-.vibe-ambient__grid {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 24px 24px;
-  mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 100%);
-  -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 100%);
+.vibe-panel-left[data-open="false"],
+.vibe-panel-right[data-open="false"] {
+  transition:
+    width 0.45s var(--vx-close-ease),
+    min-width 0.45s var(--vx-close-ease),
+    max-width 0.45s var(--vx-close-ease),
+    opacity 0.3s ease 0.15s;
 }
 
-@keyframes vxDrift {
-  from { transform: translate3d(-40px, 0, 0) scale(1); }
-  to { transform: translate3d(40px, 20px, 0) scale(1.08); }
+.vibe-panel-bottom {
+  transition: height 0.7s var(--vx-open-ease);
 }
 
-.vibe-root .vibe-content-layer { z-index: 1; }
+.vibe-panel-bottom[data-open="false"] {
+  transition: height 0.45s var(--vx-close-ease);
+}
 
-/* =========================================================
-   Карталардың жарық жиегі: жоғарғы шеттен түсетін жарық сызық,
-   ховерде күшейеді
-   ========================================================= */
-.vibe-toolbar::after,
+/* Панель бетінен өтетін жарық сызығы */
 .vibe-panel-left::after,
-.vibe-panel-right::after,
-.vibe-panel-center::after,
-.vibe-statusbar::after {
+.vibe-panel-right::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 3;
   border-radius: inherit;
-  padding: 1px;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 28%, transparent 60%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 150% 0;
+  opacity: 0;
 }
 
-.vibe-toolbar:hover::after,
-.vibe-panel-left:hover::after,
-.vibe-panel-right:hover::after,
-.vibe-panel-center:focus-within::after {
-  opacity: 1;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.06) 30%, rgba(255, 255, 255, 0.03) 100%);
+.vibe-panel-left[data-open="true"]::after {
+  animation: vxPanelSheen 0.9s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.vibe-panel-left[data-open="false"]::after,
-.vibe-panel-right[data-open="false"]::after { display: none; }
-
-/* Құралдар панелінің бренд нүктесі — жарқырайды */
-.vibe-toolbar__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+/* Оң панельде жарық оңнан солға өтеді */
+.vibe-panel-right[data-open="true"]::after {
+  animation: vxPanelSheen 0.9s cubic-bezier(0.4, 0, 0.2, 1) reverse;
 }
 
-.vibe-toolbar__brand-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #fafafa;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08), 0 0 14px 2px rgba(255, 255, 255, 0.45);
-  animation: vxBreath 3.2s ease-in-out infinite;
+/* Мазмұн панельдің ең кіші енінен сығылмайды — ен өзгергенде жолдар
+   қайта бөлінбей, шеті жай ғана жасырылады */
+.vibe-panel-left > * { min-width: 180px; }
+.vibe-panel-right > * { min-width: 250px; }
+
+/* Ашылу: мазмұн бұлдырдан анықталып, шетінен сырғып шығады */
+.vibe-panel-left[data-open="true"] > * {
+  animation: vxPanelContentIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
 }
 
-.vibe-header-tab.active .vibe-header-tab__icon {
-  box-shadow: 0 0 18px -2px rgba(255, 255, 255, 0.45);
+.vibe-panel-right[data-open="true"] > * {
+  --vx-from: 12px;
+  animation: vxPanelContentIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
 }
 
-@keyframes vxBreath {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.85); }
+.vibe-panel-bottom[data-open="true"] > :last-child {
+  --vx-from: 0px;
+  --vx-from-y: 10px;
+  animation: vxPanelContentIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.08s backwards;
 }
+
+/* Жабылу: мазмұн бірден жоғалмайды — панель жиналып жатқанда бұлдырап,
+   шетке қарай сырғып сөнеді (usePanelPresence) */
+.vibe-panel-left[data-open="false"] > * {
+  animation: vxPanelContentOut 0.32s var(--vx-close-ease) forwards;
+}
+
+.vibe-panel-right[data-open="false"] > * {
+  --vx-to: 12px;
+  animation: vxPanelContentOut 0.32s var(--vx-close-ease) forwards;
+}
+
+.vibe-panel-bottom[data-open="false"] > * {
+  --vx-to: 0px;
+  --vx-to-y: 10px;
+  animation: vxPanelContentOut 0.3s var(--vx-close-ease) forwards;
+}
+
+/* Толқын: ішкі блоктар мен файлдар тізімі кезекпен «секіріп» шығады
+   (басты беттің .hsb__row анимациясы) — тек панель ашылып жатқанда */
+.vibe-panel-left[data-phase="entering"] .vx-explorer > *,
+.vibe-panel-left[data-phase="entering"] .vx-tree [role="tree"] > *,
+.vibe-panel-right[data-phase="entering"] .vx-ai > * {
+  animation: vxPop 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(120ms + var(--d, 0) * 28ms);
+}
+
+.vibe-panel-right[data-phase="entering"] .vx-ai > * { --vx-pop-from: 12px; }
+
+.vx-explorer > :nth-child(2), .vx-ai > :nth-child(2) { --d: 1; }
+.vx-explorer > :nth-child(3), .vx-ai > :nth-child(3) { --d: 2; }
+.vx-explorer > :nth-child(4), .vx-ai > :nth-child(4) { --d: 3; }
+.vx-explorer > :nth-child(n+5), .vx-ai > :nth-child(n+5) { --d: 4; }
+
+.vx-tree [role="tree"] > :nth-child(1) { --d: 3; }
+.vx-tree [role="tree"] > :nth-child(2) { --d: 4; }
+.vx-tree [role="tree"] > :nth-child(3) { --d: 5; }
+.vx-tree [role="tree"] > :nth-child(4) { --d: 6; }
+.vx-tree [role="tree"] > :nth-child(5) { --d: 7; }
+.vx-tree [role="tree"] > :nth-child(6) { --d: 8; }
+.vx-tree [role="tree"] > :nth-child(7) { --d: 9; }
+.vx-tree [role="tree"] > :nth-child(8) { --d: 10; }
+.vx-tree [role="tree"] > :nth-child(9) { --d: 11; }
+.vx-tree [role="tree"] > :nth-child(n+10) { --d: 12; }
+
+/* Белгіше айналып, үлкейіп шығады (басты беттің .hsb__slot > svg сияқты) */
+.vibe-panel-left[data-phase="entering"] .vx-row svg,
+.vibe-panel-left[data-phase="entering"] .vx-mono {
+  animation: vxIconIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: calc(160ms + var(--d, 0) * 28ms);
+}
+
+@keyframes vxPop {
+  0% {
+    opacity: 0.4;
+    transform: translateX(var(--vx-pop-from, -12px)) scale(0.84);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vxIconIn {
+  0% { transform: rotate(-90deg) scale(0.4); }
+  100% { transform: none; }
+}
+
+@keyframes vxPanelContentOut {
+  0% {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate(var(--vx-to, -14px), var(--vx-to-y, 0px)) scale(0.97);
+  }
+}
+
+@keyframes vxPanelGlow {
+  0%, 100% {
+    border-color: var(--ide-border);
+  }
+  30% {
+    border-color: #3d3d3d;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 48px -6px rgba(255, 255, 255, 0.14);
+  }
+}
+
+@keyframes vxPanelSheen {
+  0% {
+    opacity: 1;
+    background-position: 150% 0;
+  }
+  100% {
+    opacity: 1;
+    background-position: -50% 0;
+  }
+}
+
+@keyframes vxPanelContentIn {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate(var(--vx-from, -12px), var(--vx-from-y, 0px)) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+/* Панельді сүйреп өлшегенде анимация кедергі келтірмейді (useResizer) */
+body.is-panel-resizing .vibe-panel-left,
+body.is-panel-resizing .vibe-panel-right,
+body.is-panel-resizing .vibe-panel-bottom {
+  transition: none;
+}
+
+/* Хедердегі макет белгішесі басқанда серіппемен басылып қайтады */
+.vibe-header-tab svg {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.vibe-header-tab:active svg {
+  transform: scale(0.82);
+  transition-duration: 0.1s;
+}
+
+/* Хедердегі макет белгішелері: боялған бөлік жиналып-жазылады */
+.vx-panel-fill {
+  opacity: 0.4;
+  transform-box: fill-box;
+  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.34s ease;
+}
+
+.vx-panel-fill--left { transform-origin: left center; }
+.vx-panel-fill--right { transform-origin: right center; }
+.vx-panel-fill--bottom { transform-origin: center bottom; }
+
+.vx-panel-fill[data-active="false"] { opacity: 0; }
+.vx-panel-fill--left[data-active="false"],
+.vx-panel-fill--right[data-active="false"] { transform: scaleX(0); }
+.vx-panel-fill--bottom[data-active="false"] { transform: scaleY(0); }
 
 /* =========================================================
    Ортақ элементтер: батырмалар, иконка батырмалары, орб, мәзір
@@ -241,36 +376,19 @@
 /* Айналатын жарық жиегі бар белгіше (Сайт ЖИ-дегі .sai__orb сияқты) */
 .vx-orb {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  margin: 0 auto 18px;
-  border-radius: 20px;
-  isolation: isolate;
-  background: linear-gradient(145deg, #1f1f1f, #0f0f0f);
-  color: #f5f5f5;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 60px -10px rgba(255, 255, 255, 0.2);
-  animation: vxRise 0.6s var(--vx-ease) backwards;
+  margin: 0 auto 14px;
+  border-radius: 12px;
+  background: #141414;
+  color: #d4d4d4;
+  box-shadow: inset 0 0 0 1px var(--vx-line-strong);
 }
 
-.vx-orb--spin::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  z-index: -1;
-  border-radius: 21px;
-  padding: 1px;
-  background: conic-gradient(from var(--vx-angle, 0deg), transparent 0%, rgba(255, 255, 255, 0.9) 12%, transparent 30%, transparent 100%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  animation: vxSpin 4s linear infinite;
-}
-
-.vx-orb svg { animation: vxPulse 3s ease-in-out infinite; }
+/* Айналатын жиек өшірілген — назар кодта болуы үшін */
+.vx-orb--spin::before { display: none; }
 
 @keyframes vxSpin { to { --vx-angle: 360deg; } }
 
@@ -381,6 +499,20 @@
 
 .vx-menu__item.is-danger .vx-menu__icon { color: inherit; }
 
+.vx-menu__label--stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.vx-menu__label--stack small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vx-dim);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
 .vx-menu__label {
   flex: 1;
   min-width: 0;
@@ -407,255 +539,476 @@
 }
 
 /* =========================================================
-   Эксплорер (сайдбар)
+   Эксплорер (сайдбар) — VS Code стилі: жинақы ағаш, 22px жолдар,
+   тілге қарай боялған белгішелер, контекст мәзірі
    ========================================================= */
 .vx-explorer {
   height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 8px;
   box-sizing: border-box;
-  gap: 8px;
   color: var(--ide-text);
+  font-size: 14px;
 }
 
-.vx-explorer__overlay-head {
+/* Тақырып жолы */
+.vx-explorer__head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 2px 6px;
-  font-size: 13px;
-  font-weight: 700;
-  border-bottom: 1px solid var(--vx-line);
+  gap: 4px;
+  height: 38px;
+  padding: 0 6px 0 12px;
 }
 
-.vx-project { position: relative; flex-shrink: 0; }
+.vx-explorer__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vx-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
-.vx-project__btn {
-  width: 100%;
+/* Әрекеттер панельге тінтуір апарғанда ғана көрінеді (VS Code сияқты) */
+.vx-explorer__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.vx-explorer:hover .vx-explorer__actions,
+.vx-explorer:focus-within .vx-explorer__actions,
+.vx-explorer__actions:has(.is-on) {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .vx-explorer__actions { opacity: 1; }
+}
+
+.vx-explorer .vx-icon-btn--sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.vx-explorer .vx-icon-btn:hover {
+  background: var(--ide-hover);
+  box-shadow: none;
+}
+
+.vx-explorer .vx-icon-btn.is-on {
+  background: var(--ide-active);
+  color: var(--ide-text);
+  box-shadow: none;
+}
+
+.vx-icon-btn--xs {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+/* Сүзгі өрісі */
+.vx-filter {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 0 8px 6px;
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--vx-line-strong);
+  border-radius: 5px;
+  background: #0a0a0a;
+  color: var(--vx-dim);
+  transition: border-color 0.15s ease;
+}
+
+.vx-filter:focus-within {
+  border-color: #555;
+  color: var(--vx-muted);
+}
+
+.vx-filter input {
+  flex: 1;
+  min-width: 0;
   border: 0;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.025);
-  box-shadow: inset 0 0 0 1px var(--vx-line);
+  outline: 0;
+  background: transparent;
+  color: var(--ide-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.vx-filter input::placeholder { color: var(--vx-dim); }
+
+.vx-filter__count {
+  flex-shrink: 0;
+  color: var(--vx-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Жоба жолы (ағаштың түбірі) */
+.vx-proj {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding-right: 6px;
+}
+
+.vx-proj__toggle {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 0 4px;
+  border: 0;
+  background: transparent;
   color: var(--ide-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.15s ease, box-shadow 0.2s ease;
 }
 
-.vx-project__btn:hover,
-.vx-project__btn.is-open {
-  background: var(--vx-raise);
-  box-shadow: inset 0 0 0 1px #333, 0 0 28px -12px rgba(255, 255, 255, 0.3);
+.vx-proj__toggle:focus-visible {
+  outline: 1px solid #555;
+  outline-offset: -1px;
 }
 
-.vx-project__info {
-  flex: 1;
+.vx-proj__name {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.vx-project__name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.vx-project__meta {
-  color: var(--vx-dim);
-  font-size: 11px;
-}
-
-.vx-project__dirty { color: var(--ide-dirty); }
-
-.vx-project__chevron {
-  display: grid;
-  place-items: center;
-  color: var(--vx-muted);
-  transition: transform 0.25s var(--vx-ease);
-}
-
-.vx-project__btn.is-open .vx-project__chevron { transform: rotate(180deg); }
-
-/* Іздеу өрісі */
-.vx-search,
-.vx-create {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 6px 0 10px;
-  border-radius: 11px;
-  background: #0a0a0a;
-  box-shadow: inset 0 0 0 1px var(--vx-line);
-  color: var(--vx-dim);
-  transition: box-shadow 0.2s ease, color 0.2s ease;
-}
-
-.vx-search:focus-within {
-  color: var(--ide-text);
-  box-shadow: inset 0 0 0 1px #3a3a3a, 0 0 0 3px rgba(255, 255, 255, 0.04), 0 0 24px -10px rgba(255, 255, 255, 0.35);
-}
-
-.vx-search input,
-.vx-create input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--ide-text);
-  font: inherit;
   font-size: 12px;
-}
-
-.vx-search input::placeholder,
-.vx-create input::placeholder { color: var(--vx-dim); }
-
-/* Жаңа файл енгізу — жарық жиек */
-.vx-create {
-  color: var(--ide-text);
-  box-shadow: inset 0 0 0 1px #4a4a4a, 0 0 0 3px rgba(255, 255, 255, 0.05), 0 0 26px -8px rgba(255, 255, 255, 0.4);
-  animation: vxRise 0.25s var(--vx-ease);
-}
-
-.vx-create__icon { display: grid; place-items: center; color: var(--vx-muted); }
-
-.vx-create__parent {
-  max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--vx-dim);
-  font-size: 11px;
-}
-
-/* Бөлім тақырыбы */
-.vx-section {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px 2px 0 8px;
-}
-
-.vx-section__title {
-  color: var(--vx-dim);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.vx-section__actions { display: flex; gap: 2px; }
+.vx-proj__dirty {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--ide-dirty);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+}
 
-/* Файлдар ағашы */
+.vx-proj .vx-icon-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.vx-proj:hover .vx-icon-btn,
+.vx-proj .vx-icon-btn.is-on,
+.vx-proj .vx-icon-btn:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .vx-proj .vx-icon-btn { opacity: 1; }
+}
+
+.vx-menu--projects {
+  left: 6px;
+  right: 6px;
+  top: calc(100% + 4px);
+}
+
+/* Контекст мәзірі — тінтуір тұрған жерде ашылады */
+.vx-menu--context {
+  position: fixed;
+  right: auto;
+  z-index: 300;
+  min-width: 200px;
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.vx-menu--context .vx-menu__item {
+  height: auto;
+  min-height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-radius: 6px;
+}
+
+/* Ағаш */
 .vx-tree {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  margin: 0 -2px;
-  padding: 0 2px 4px;
+  overflow-x: hidden;
+  padding: 2px 0 12px;
 }
+
+/* Папка тобы: ашық папканың ішіндегілері бір блокта — жабысқақ тақырып
+   осы блоктың ішінде ғана жабысады, бағыттаушы сызық блоктың бойымен жүреді */
+.vx-group { position: relative; }
+
+.vx-group__children { position: relative; }
+
+.vx-group__children::before {
+  content: '';
+  position: absolute;
+  left: var(--guide-x, 0);
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 1px;
+  background: #1c1c1c;
+  pointer-events: none;
+  transition: background-color 0.15s ease;
+}
+
+/* Тінтуір ағашта тұрғанда бағыттаушы сызықтар анығырақ (VS Code сияқты) */
+.vx-tree:hover .vx-group__children::before { background: #2e2e2e; }
+
+/* Сүйреп тастау: файл түсетін папка тобы белгіленеді */
+.vx-group.is-drop {
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px #3a3a3a;
+}
+
+.vx-group.is-drop > .vx-row--dir { background: #1a1a1a; }
+
+.vx-tree.is-drop { box-shadow: inset 0 0 0 1px #3a3a3a; }
 
 .vx-tree__empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 32px 12px;
+  padding: 20px 12px;
   color: var(--vx-dim);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
-}
-
-.vx-tree__empty-icon {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 13px;
-  background: var(--vx-raise);
-  box-shadow: inset 0 0 0 1px var(--vx-line);
-  color: var(--vx-muted);
 }
 
 .vx-row {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding-right: 4px;
-  border-radius: 9px;
-  color: var(--ide-text);
-  font-size: 12.5px;
+  gap: 4px;
+  height: 26px;
+  padding-right: 10px;
+  box-sizing: border-box;
+  color: #cfcfcf;
   cursor: pointer;
-  transition: background-color 0.12s ease, box-shadow 0.15s ease;
+  outline: none;
+  white-space: nowrap;
 }
 
-.vx-row:hover { background: var(--vx-raise-2); }
+.vx-row:hover { background: var(--ide-hover); }
 
-.vx-row__guide {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--vx-line);
+.vx-row:focus-visible {
+  box-shadow: inset 0 0 0 1px #555;
 }
+
+/* Жабысқақ папка тақырыбы (VS Code sticky scroll): top мен z-index деңгейге
+   қарай JS-те беріледі, фон мөлдір емес — астындағы жолдар көрінбейді */
+.vx-row--dir {
+  position: sticky;
+  background: var(--vibe-panel-bg, #0e0e0e);
+}
+
+.vx-row--dir:hover { background: #1a1a1a; }
+
+/* Ықшам папканың алдыңғы бөліктері ("src/components/") */
+.vx-row__compact { color: var(--vx-muted); }
+
+/* Таңдалған жол — ағашта фокус болғанда ғана жиегі көрінеді */
+.vx-tree:focus-within .vx-row.is-selected {
+  box-shadow: inset 0 0 0 1px #4a4a4a;
+}
+
+.vx-row[draggable="true"]:active { cursor: grabbing; }
 
 .vx-row__chevron {
-  width: 14px;
-  display: grid;
-  place-items: center;
-  color: var(--vx-dim);
-  transition: transform 0.2s var(--vx-ease), color 0.15s ease;
-}
-
-.vx-row--dir.is-open .vx-row__chevron { transform: rotate(90deg); color: var(--vx-muted); }
-
-.vx-row__folder {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   color: var(--vx-muted);
-  transition: color 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
-.vx-row--dir:hover .vx-row__folder,
-.vx-row--dir.is-open .vx-row__folder { color: #e5e5e5; }
+.vx-row.is-open > .vx-row__chevron,
+.vx-proj__toggle.is-open > .vx-row__chevron {
+  transform: rotate(90deg);
+}
 
-.vx-row--dir .vx-row__name { font-weight: 600; }
-
-.vx-row__file {
-  position: relative;
+.vx-row__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
-  color: var(--vx-dim);
-  transition: color 0.15s ease;
 }
 
-/* Тілдің түсті жарық нүктесі */
-.vx-row__lang {
-  position: absolute;
-  right: -2px;
-  bottom: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--lang, #737373);
-  box-shadow: 0 0 0 2px #0e0e0e, 0 0 8px var(--lang, #737373);
+/* Файл/папка түріне қарай түсті белгішелер (fileIcons.tsx) */
+.vx-ficon { display: block; flex-shrink: 0; }
+
+/* Папка жолындағы жылдам батырмалар: тінтуір апарғанда ғана */
+.vx-row__actions {
+  display: none;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+}
+
+.vx-row--dir:hover .vx-row__actions,
+.vx-row--dir:focus-within .vx-row__actions { display: flex; }
+
+@media (hover: none) {
+  .vx-row--dir.is-selected .vx-row__actions { display: flex; }
+}
+
+.vx-explorer .vx-icon-btn--xs {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+/* Жаңа файл/папка жолы + кеңес */
+.vx-create {
+  position: relative;
+  z-index: 50;
+  background: var(--vibe-panel-bg, #0e0e0e);
+}
+
+.vx-create__hint {
+  padding: 2px 10px 6px;
+  color: var(--vx-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.vx-create__hint code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--vx-raise-2);
+  color: #cfcfcf;
+  font-family: var(--vx-mono);
+  font-size: 10.5px;
+}
+
+/* Бос жоба: не істеуге болатыны бірден көрінеді */
+.vx-start {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 10px;
+}
+
+.vx-start__title {
+  margin: 0 2px 4px;
+  color: var(--vx-muted);
+  font-size: 12px;
+}
+
+.vx-start__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--vx-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.vx-start__item:hover,
+.vx-start__item:focus-visible {
+  border-color: #333;
+  background: var(--ide-hover);
+  color: var(--ide-text);
+  outline: none;
+}
+
+.vx-start__item span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vx-start__item b {
+  color: var(--ide-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vx-start__item small {
+  color: var(--vx-dim);
+  font-size: 11px;
+}
+
+.vx-start__tips {
+  margin: 8px 2px 0;
+  padding: 0;
+  list-style: none;
+  color: var(--vx-dim);
+  font-size: 11px;
+  line-height: 1.9;
+}
+
+.vx-start__tips kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--vx-raise-2);
+  color: #cfcfcf;
+  font-family: inherit;
+  font-size: 10.5px;
+}
+
+/* Төменгі жол: жоба көлемі және жаңа файлдар жасалатын папка */
+.vx-explorer__foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border-top: 1px solid var(--vx-line);
+  color: var(--vx-dim);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.vx-explorer__target {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vx-muted);
 }
 
 .vx-row__name {
@@ -663,76 +1016,80 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-
-.vx-row__ext {
-  flex-shrink: 0;
-  color: var(--vx-dim);
-  font-family: var(--vx-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.04em;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.vx-row--file:hover .vx-row__ext { opacity: 1; }
 
 .vx-row__dirty {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--ide-dirty);
-  box-shadow: 0 0 8px rgba(251, 191, 36, 0.7);
 }
 
-.vx-row__actions {
-  position: relative;
-  display: flex;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-
-.vx-row:hover .vx-row__actions,
-.vx-row.is-active .vx-row__actions,
-.vx-row__actions:focus-within { opacity: 1; }
-
-.vx-row__rename {
-  flex: 1;
-  min-width: 0;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 7px;
-  outline: none;
-  background: #0a0a0a;
-  box-shadow: inset 0 0 0 1px #555, 0 0 16px -4px rgba(255, 255, 255, 0.35);
-  color: var(--ide-text);
-  font: inherit;
-  font-size: 12px;
-}
-
-/* Белсенді файл — жарық жолақ пен жұмсақ сәуле */
+/* Белсенді файл — тегіс фон, жарқылсыз */
 .vx-row--file.is-active {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
-  box-shadow: inset 0 0 0 1px #2f2f2f;
+  background: var(--ide-active);
+  color: var(--ide-text);
 }
 
+/* Ашық файлдың сол жағындағы жанып тұрған сызық — чат тізіміндегідей
+   (ChatPage.css, .cht-item.is-active::before): файл ауысқанда серіппемен өсіп шығады */
 .vx-row--file.is-active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 7px;
-  bottom: 7px;
+  top: 50%;
+  z-index: 1;
   width: 3px;
+  height: 16px;
   border-radius: 0 3px 3px 0;
   background: #fafafa;
-  box-shadow: 0 0 10px 1px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.45);
+  transform: translateY(-50%);
+  animation: vxMarkIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.vx-row--file.is-active .vx-row__file { color: #fafafa; }
-.vx-row--file.is-active .vx-row__name { font-weight: 600; }
+@keyframes vxMarkIn {
+  from {
+    transform: translateY(-50%) scaleY(0);
+  }
+}
+
+/* Атауын өзгерту / жаңа файл енгізу */
+.vx-row--create { cursor: default; }
+.vx-row--create:hover { background: transparent; }
+
+.vx-row__input {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid #666;
+  border-radius: 3px;
+  outline: 0;
+  background: #0a0a0a;
+  color: var(--ide-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* Жоба жоқ күй */
+.vx-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 20px;
+  text-align: center;
+}
+
+.vx-empty__title {
+  margin: 0 0 10px;
+  color: var(--vx-muted);
+  font-size: 12px;
+}
 
 /* =========================================================
    Редактор: қойындылар, бос күй
@@ -807,6 +1164,12 @@
   bottom: -1px;
   height: 1px;
   background: var(--ide-editor-bg);
+}
+
+.vx-tab__icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
 }
 
 .vx-tab__badge {
@@ -907,10 +1270,9 @@
 .vx-welcome__title {
   margin: 0;
   color: var(--ide-text);
-  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 700;
   letter-spacing: -0.025em;
-  animation: vxRise 0.6s var(--vx-ease) 0.06s backwards;
 }
 
 .vx-welcome__sub {
@@ -919,7 +1281,6 @@
   color: var(--vx-muted);
   font-size: 13px;
   line-height: 1.6;
-  animation: vxRise 0.6s var(--vx-ease) 0.12s backwards;
 }
 
 .vx-welcome__actions {
@@ -928,7 +1289,6 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 22px;
-  animation: vxRise 0.6s var(--vx-ease) 0.18s backwards;
 }
 
 .vx-welcome__keys {
@@ -936,7 +1296,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-top: 28px;
-  animation: vxRise 0.6s var(--vx-ease) 0.24s backwards;
 }
 
 .vx-welcome__key {
@@ -961,8 +1320,7 @@
 
 .vx-welcome__kbd { display: flex; gap: 3px; }
 
-.vx-welcome__kbd kbd,
-.vx-ai__hint kbd {
+.vx-welcome__kbd kbd {
   min-width: 18px;
   padding: 2px 5px;
   border-radius: 6px;
@@ -1012,7 +1370,9 @@
 .vibe-root .vibe-breadcrumb-sep { display: inline-grid; place-items: center; opacity: 0.6; }
 
 /* =========================================================
-   ЖИ панелі
+   Бүркіт (ЖИ панелі) — басты беттегі Бүркіттің (SiteAI.css) дизайнында:
+   жаңа чатта ортада жарық жиекті белгіше, дөңгелек дайын сұраулар,
+   көпіршіксіз жауаптар, жазу картасының жиегінде қозғалмалы жарық
    ========================================================= */
 .vx-ai {
   position: relative;
@@ -1021,199 +1381,341 @@
   flex-direction: column;
   min-height: 0;
   color: var(--ide-text);
+  font-size: 13px;
+  background: radial-gradient(120% 50% at 50% 0%, rgba(255, 255, 255, 0.04) 0%, transparent 60%);
 }
 
+/* Жаңа чатта фонда нүктелі тор — ортасына қарай сөнеді */
 .vx-ai.is-empty::before {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(80% 45% at 50% 30%, rgba(255, 255, 255, 0.05), transparent 70%);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(70% 45% at 50% 32%, #000 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(70% 45% at 50% 32%, #000 0%, transparent 100%);
 }
 
+/* ── Тақырып жолы (белгішесіз) ── */
 .vx-ai__bar {
   position: relative;
+  z-index: 1;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 10px 10px 12px;
+  gap: 4px;
+  height: 42px;
+  padding: 0 6px 0 14px;
   border-bottom: 1px solid var(--vx-line);
 }
 
-.vx-ai__bar-orb {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #fafafa;
-  color: #0a0a0a;
-  box-shadow: 0 0 22px -4px rgba(255, 255, 255, 0.55);
-}
-
-.vx-ai__bar-text { flex: 1; min-width: 0; }
-
 .vx-ai__bar-title {
-  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
-.vx-ai__status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--vx-muted);
-  font-size: 10.5px;
+.vx-ai__bar-actions { display: flex; gap: 2px; }
+
+.vx-ai .vx-icon-btn--sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
 }
 
-.vx-ai__status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ide-success);
-  box-shadow: 0 0 8px var(--ide-success);
-  animation: vxBreath 2.4s ease-in-out infinite;
+.vx-ai .vx-icon-btn--xs {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.vx-ai .vx-icon-btn:hover {
+  background: var(--ide-hover);
+  box-shadow: none;
+}
+
+.vx-ai .vx-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+
+.vx-ai .vx-icon-btn.is-done { color: var(--ide-success); }
+
+.vx-ai .vx-icon-btn.is-on {
+  background: var(--ide-active);
+  color: var(--ide-text);
+  box-shadow: none;
 }
 
 .vx-ai__scroll {
   position: relative;
+  z-index: 1;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 14px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
+/* ── Жаңа чат ── */
 .vx-ai__hero {
-  margin: auto 0;
-  padding: 12px 4px;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
   text-align: center;
+}
+
+/* Айналатын жарық жиегі бар белгіше — тек осы бетте */
+.vx-ai__orb {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  border-radius: 19px;
+  isolation: isolate;
+  background: linear-gradient(145deg, #1f1f1f, #0f0f0f);
+  color: #f5f5f5;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 60px -10px rgba(255, 255, 255, 0.2);
+  animation: vxRise 0.6s var(--vx-ease) backwards;
+}
+
+.vx-ai__orb::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: 20px;
+  padding: 1px;
+  background: conic-gradient(from var(--vx-angle, 0deg), transparent 0%, rgba(255, 255, 255, 0.9) 12%, transparent 30%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: vxSpin 4s linear infinite;
+}
+
+.vx-ai__orb svg { animation: vxOrbPulse 3s ease-in-out infinite; }
+
+@keyframes vxOrbPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .vx-ai__hero-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   animation: vxRise 0.6s var(--vx-ease) 0.06s backwards;
 }
 
 .vx-ai__hero-sub {
-  max-width: 240px;
-  margin: 6px auto 0;
+  max-width: 300px;
+  margin: 6px 0 0;
   color: var(--vx-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   animation: vxRise 0.6s var(--vx-ease) 0.12s backwards;
 }
 
+.vx-ai__hero-sub b { color: var(--ide-text); font-weight: 600; }
+
+/* Дөңгелек дайын сұраулар */
 .vx-ai__chips {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
-  margin-top: 18px;
+  margin-top: 20px;
 }
 
 .vx-ai__chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px 0 14px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px 0 11px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.03);
   box-shadow: inset 0 0 0 1px #262626;
   color: #d4d4d4;
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  text-align: left;
   cursor: pointer;
   animation: vxRise 0.6s var(--vx-ease) backwards;
-  animation-delay: calc(0.18s + var(--d, 0) * 60ms);
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  animation-delay: calc(0.2s + var(--d, 0) * 60ms);
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
-.vx-ai__chip svg {
-  color: var(--vx-dim);
-  transition: transform 0.2s var(--vx-ease), color 0.15s ease;
-}
-
-.vx-ai__chip:hover {
+.vx-ai__chip:hover,
+.vx-ai__chip:focus-visible {
+  outline: none;
   background: var(--vx-raise);
-  box-shadow: inset 0 0 0 1px #3a3a3a, 0 0 24px -10px rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 0 1px #3a3a3a;
   color: #fff;
 }
 
-.vx-ai__chip:hover svg { color: #fff; transform: translateX(3px); }
-.vx-ai__chip:active { transform: scale(0.98); }
+.vx-ai__chip:active { transform: scale(0.97); }
 
-.vx-ai__msg {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  animation: vxRise 0.4s var(--vx-ease) backwards;
-}
-
-.vx-ai__msg--user { justify-content: flex-end; }
-
-.vx-ai__avatar {
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
+.vx-ai__chip-icon {
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #262626, #121212);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 16px -6px rgba(255, 255, 255, 0.4);
-  color: #f5f5f5;
-}
-
-.vx-ai__avatar--user {
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
   color: var(--vx-muted);
 }
 
-.vx-ai__avatar.is-thinking svg { animation: vxRotate 1.4s linear infinite; }
+.vx-ai__chip:hover .vx-ai__chip-icon { color: #fff; }
 
-.vx-ai__content { min-width: 0; max-width: 88%; }
+/* Соңғы сөйлесулер — жылдам оралу */
+.vx-ai__recent {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 24px;
+  text-align: left;
+  animation: vxRise 0.6s var(--vx-ease) 0.45s backwards;
+}
+
+.vx-ai__recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 4px 6px;
+  color: var(--vx-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vx-ai__recent-head button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: none;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.vx-ai__recent-head button:hover { color: var(--ide-text); }
+
+.vx-ai__recent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.vx-ai__recent-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vx-ai__recent-item:hover {
+  background: var(--ide-hover);
+  color: var(--ide-text);
+}
+
+/* ── Сөйлесу ── */
+.vx-ai__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 14px 8px;
+}
+
+.vx-ai__msg {
+  display: flex;
+  flex-direction: column;
+  animation: vxRise 0.4s var(--vx-ease) backwards;
+}
+
+/* Қолданушы хабары — оң жақта, жұмсақ көпіршік */
+.vx-ai__msg--user { align-items: flex-end; }
+
+.vx-ai__msg--user .vx-ai__content {
+  max-width: 88%;
+  padding: 9px 14px;
+  border-radius: 16px 16px 5px 16px;
+  background: #1c1c1c;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+}
 
 .vx-ai__text {
   color: #e5e5e5;
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.65;
   overflow-wrap: anywhere;
+  user-select: text;
 }
 
-.vx-ai__msg--assistant .vx-ai__content { flex: 1; padding-top: 3px; }
+.vx-ai__msg--user .vx-ai__text { color: var(--ide-text); white-space: pre-wrap; }
 
-/* Қолданушы хабары — жұмсақ көпіршік */
-.vx-ai__msg--user .vx-ai__text {
-  padding: 8px 12px;
-  border-radius: 14px 14px 5px 14px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: var(--ide-text);
-  white-space: pre-wrap;
+/* Хабармен бірге жіберілген файл */
+.vx-ai__ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  color: var(--vx-dim);
+  font-size: 11px;
+}
+
+/* Хабар астындағы құралдар — тінтуір апарғанда анықталады */
+.vx-ai__msg-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.vx-ai__msg:hover .vx-ai__msg-tools,
+.vx-ai__msg:focus-within .vx-ai__msg-tools,
+.vx-ai__msg:last-child .vx-ai__msg-tools { opacity: 1; }
+
+@media (hover: none) {
+  .vx-ai__msg-tools { opacity: 1; }
 }
 
 .vx-ai__time {
-  margin-top: 4px;
+  margin-right: 4px;
   color: var(--vx-dim);
-  font-size: 9.5px;
+  font-size: 10.5px;
 }
 
-.vx-ai__msg--user .vx-ai__time { text-align: right; }
-
-.vx-ai__heading { margin-top: 4px; font-size: 13px; font-weight: 800; }
+.vx-ai__heading { margin-top: 6px; font-size: 14px; font-weight: 700; }
 
 .vx-ai__li {
   display: flex;
@@ -1226,10 +1728,10 @@
   width: 5px;
   height: 5px;
   flex-shrink: 0;
-  margin-top: 8px;
+  margin-top: 9px;
   border-radius: 50%;
   background: #fafafa;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
 .vx-ai__inline-code {
@@ -1239,13 +1741,14 @@
   box-shadow: inset 0 0 0 1px #2a2a2a;
   color: #fafafa;
   font-family: var(--vx-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .vx-ai__link { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
 
+/* Код блогы: тіл белгісі + көшіру / файлға қою / жаңа файл */
 .vx-ai__code {
-  margin-top: 8px;
+  margin-top: 10px;
   overflow: hidden;
   border-radius: 12px;
   background: #0a0a0a;
@@ -1257,62 +1760,44 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 5px 6px 5px 12px;
+  height: 34px;
+  padding: 0 4px 0 12px;
   border-bottom: 1px solid var(--vx-line);
   background: #111;
 }
 
 .vx-ai__code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--vx-muted);
   font-family: var(--vx-mono);
-  font-size: 10px;
-  text-transform: lowercase;
+  font-size: 11px;
 }
 
-.vx-ai__code-actions { display: flex; gap: 4px; }
+.vx-ai__code-actions { display: flex; gap: 2px; }
 
 .vx-ai__code pre {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   overflow-x: auto;
   color: #e5e5e5;
   font-family: var(--vx-mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
+  user-select: text;
 }
 
-.vx-chip-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: var(--vx-muted);
-  font: inherit;
-  font-size: 10.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.vx-chip-btn:hover {
-  background: #fafafa;
-  box-shadow: none;
-  color: #0a0a0a;
-}
-
-.vx-chip-btn.is-done { color: var(--ide-success); box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.35); }
-
-.vx-ai__dots {
+/* Бүркіт ойланып жатыр */
+.vx-ai__thinking {
   display: flex;
   align-items: center;
-  gap: 5px;
-  height: 26px;
+  gap: 10px;
+  color: var(--vx-muted);
+  font-size: 12.5px;
 }
+
+.vx-ai__dots { display: inline-flex; align-items: center; gap: 4px; height: 20px; }
 
 .vx-ai__dots span {
   width: 6px;
@@ -1326,170 +1811,679 @@
 .vx-ai__dots span:nth-child(3) { animation-delay: 0.3s; }
 
 @keyframes vxDot {
-  0%, 100% { opacity: 0.3; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-3px); background: #fafafa; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); background: #fafafa; }
 }
 
-/* Жазу өрісі — фокуста айналатын жарық жиек */
+/* ── Жазу картасы ── */
 .vx-ai__composer {
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
-  padding: 10px;
-  border-top: 1px solid var(--vx-line);
+  padding: 8px 12px 10px;
 }
 
 .vx-ai__box {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 6px 6px 6px 12px;
-  border-radius: 14px;
   isolation: isolate;
-  background: #0a0a0a;
-  box-shadow: inset 0 0 0 1px #262626;
-  transition: box-shadow 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 8px 8px 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #171717 0%, #111 100%);
+  box-shadow:
+    inset 0 0 0 1px #2a2a2a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+  cursor: text;
+  transition: box-shadow 0.25s ease, transform 0.25s var(--vx-ease);
 }
 
+/* Жиек бойымен үнемі айналып жүретін жарық: тыныш күйде бәсең,
+   фокуста және Бүркіт жауап жазып жатқанда — жарқын */
 .vx-ai__box::before {
   content: '';
   position: absolute;
   inset: -1px;
   z-index: -1;
-  border-radius: 15px;
-  padding: 1px;
-  background: conic-gradient(from var(--vx-angle, 0deg), transparent 0%, rgba(255, 255, 255, 0.85) 14%, transparent 32%, transparent 100%);
+  padding: 1.5px;
+  border-radius: 19px;
+  background: conic-gradient(
+    from var(--vx-angle, 0deg),
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.95) 10%,
+    rgba(255, 255, 255, 0.08) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.95) 60%,
+    rgba(255, 255, 255, 0.08) 75%
+  );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  opacity: 0;
+  opacity: 0.35;
   transition: opacity 0.3s ease;
-  animation: vxSpin 3.5s linear infinite;
+  animation: vxSpin 4s linear infinite;
 }
 
+.vx-ai__box:hover::before { opacity: 0.55; }
+
 .vx-ai__box:focus-within {
-  box-shadow: inset 0 0 0 1px #333, 0 0 32px -10px rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px transparent,
+    0 0 0 4px rgba(255, 255, 255, 0.04),
+    0 0 50px -10px rgba(255, 255, 255, 0.14),
+    0 18px 40px -18px rgba(0, 0, 0, 0.95);
 }
 
 .vx-ai__box:focus-within::before { opacity: 1; }
 
+/* Жауап жазылып жатқанда жарық жылдамырақ айналады */
+.vx-ai__box.is-busy::before {
+  opacity: 1;
+  animation-duration: 1.6s;
+}
+
 .vx-ai__input {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 0;
+  width: 100%;
+  min-height: 22px;
+  max-height: 168px;
+  padding: 0;
   border: 0;
   outline: none;
   resize: none;
   background: transparent;
   color: var(--ide-text);
   font: inherit;
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: 13.5px;
+  line-height: 1.6;
   user-select: text;
 }
 
-.vx-ai__input::placeholder { color: var(--vx-dim); }
+.vx-ai__input::placeholder { color: #6b6b6b; }
 
+.vx-ai__box-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Контекст файлы — Copilot-тағы «Current file» белгісі */
+.vx-ai__ctx {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 9px 0 6px;
+  border: 1px dashed #333;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vx-dim);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.vx-ai__ctx.is-on {
+  border-style: solid;
+  border-color: #2e2e2e;
+  background: rgba(255, 255, 255, 0.04);
+  color: #d4d4d4;
+}
+
+.vx-ai__ctx:not(.is-on) .vx-ficon { opacity: 0.45; }
+
+.vx-ai__ctx:hover { color: var(--ide-text); border-color: #444; }
+
+.vx-ai__ctx-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vx-ai__ctx-empty { color: var(--vx-dim); font-size: 11.5px; }
+
+/* Дөңгелек жіберу батырмасы (басты беттегідей) */
 .vx-ai__send {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 50%;
   background: #fafafa;
   color: #0a0a0a;
   cursor: pointer;
-  box-shadow: 0 0 20px -4px rgba(255, 255, 255, 0.55);
-  transition: transform 0.15s var(--vx-spring), opacity 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 14px -4px rgba(255, 255, 255, 0.35);
+  transition: background-color 0.15s ease, box-shadow 0.2s ease, transform 0.2s var(--vx-ease);
 }
 
-.vx-ai__send:hover:not(:disabled) { transform: translateY(-1px) scale(1.04); }
+.vx-ai__send svg { transition: transform 0.2s var(--vx-ease); }
+.vx-ai__send:hover:not(:disabled) { background: #fff; transform: scale(1.06); }
+.vx-ai__send:hover:not(:disabled) svg { transform: translateY(-2px); }
+.vx-ai__send:active:not(:disabled) { transform: scale(0.92); }
 
 .vx-ai__send:disabled {
-  background: #262626;
-  color: var(--vx-dim);
+  background: #222;
+  color: #555;
   box-shadow: none;
   cursor: not-allowed;
 }
 
+/* Тоқтату батырмасы */
+.vx-ai__stop {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: currentColor;
+}
+
 .vx-ai__hint {
-  margin: 7px 2px 0;
-  color: var(--vx-dim);
-  font-size: 10px;
+  margin: 8px 0 0;
+  color: #5c5c5c;
+  font-size: 10.5px;
   text-align: center;
 }
+
+.vx-ai__hint kbd {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #161616;
+  color: #8a8a8a;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+/* «/» командалары — жазу картасының үстінде */
+.vx-ai__slash {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% - 2px);
+  z-index: 20;
+  padding: 5px;
+  border: 1px solid var(--vx-line-strong);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #171717 0%, #0e0e0e 100%);
+  box-shadow: 0 -16px 40px -12px rgba(0, 0, 0, 0.9);
+  animation: vxMenuIn 0.14s var(--vx-ease);
+}
+
+.vx-ai__slash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vx-ai__slash-item b {
+  color: var(--ide-text);
+  font-family: var(--vx-mono);
+  font-weight: 600;
+}
+
+.vx-ai__slash-item.is-active { background: var(--ide-active); color: #d4d4d4; }
+
+/* =========================================================
+   Бүркіт тарихы
+   ========================================================= */
+.vx-hist {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vx-hist__count {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--vx-raise-2);
+  color: var(--vx-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.vx-hist__search {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin: 10px 12px 4px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--vx-line-strong);
+  border-radius: 10px;
+  background: #0a0a0a;
+  color: var(--vx-dim);
+  transition: border-color 0.15s ease;
+}
+
+.vx-hist__search:focus-within { border-color: #555; color: var(--vx-muted); }
+
+.vx-hist__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ide-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.vx-hist__search input::placeholder { color: var(--vx-dim); }
+
+.vx-hist__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+}
+
+.vx-hist__group + .vx-hist__group { margin-top: 10px; }
+
+.vx-hist__label {
+  margin: 8px 6px 4px;
+  color: var(--vx-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vx-hist__item {
+  position: relative;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  outline: none;
+  animation: vxRise 0.35s var(--vx-ease) backwards;
+  animation-delay: calc(var(--d, 0) * 30ms);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vx-hist__item:hover,
+.vx-hist__item:focus-visible { background: var(--ide-hover); }
+
+.vx-hist__item:focus-visible { box-shadow: inset 0 0 0 1px #4a4a4a; }
+
+/* Ашық сөйлесу — чат тізіміндегідей сол жақта жанып тұрған сызық */
+.vx-hist__item.is-active { background: var(--ide-active); }
+
+.vx-hist__item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 3px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: #fafafa;
+  box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.45);
+  transform: translateY(-50%);
+  animation: vxMarkIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.vx-hist__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vx-hist__pin { display: grid; color: var(--ide-text); }
+
+.vx-hist__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vx-hist__time {
+  flex-shrink: 0;
+  color: var(--vx-dim);
+  font-size: 11px;
+}
+
+.vx-hist__rename {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #666;
+  border-radius: 5px;
+  outline: 0;
+  background: #0a0a0a;
+  color: var(--ide-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.vx-hist__preview {
+  margin: 3px 0 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--vx-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.vx-hist__meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  color: var(--vx-dim);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.vx-hist__file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Әрекеттер — тінтуір апарғанда оң жақ жоғарғы бұрышта */
+.vx-hist__actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 8px;
+  background: #1f1f1f;
+  box-shadow: 0 0 0 1px #2e2e2e, -12px 0 12px -4px var(--ide-hover);
+}
+
+.vx-hist__item:hover .vx-hist__actions,
+.vx-hist__item:focus-within .vx-hist__actions { display: flex; }
+
+@media (hover: none) {
+  .vx-hist__actions { display: flex; }
+}
+
+.vx-hist__confirm {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vx-hist__confirm:hover { background: var(--ide-hover); color: var(--ide-text); }
+.vx-hist__confirm.is-danger { color: #f87171; }
+.vx-hist__confirm.is-danger:hover { background: rgba(248, 113, 113, 0.12); }
+
+.vx-hist__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 40px 16px;
+  color: var(--vx-muted);
+  text-align: center;
+}
+
+.vx-hist__empty p { margin: 0; font-size: 13px; font-weight: 600; color: var(--ide-text); }
+.vx-hist__empty small { color: var(--vx-dim); font-size: 12px; }
+
+.vx-hist__empty-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: #161616;
+  box-shadow: inset 0 0 0 1px var(--vx-line-strong);
+}
+
+.vx-hist__new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-top: 14px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #fafafa;
+  color: #0a0a0a;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vx-hist__new:hover { background: #fff; }
+
+.vx-hist__foot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-top: 1px solid var(--vx-line);
+  color: var(--vx-muted);
+  font-size: 11.5px;
+}
+
+.vx-hist__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vx-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vx-hist__clear:hover { background: rgba(248, 113, 113, 0.1); color: #f87171; }
 
 /* =========================================================
    Терминал
    ========================================================= */
+/* Басты беттің sidebar-ы (.hsb) сияқты қалқымалы карта: градиент фон,
+   ішкі жарық сызығы, ашылғанда жиегі жарқырап, бетінен жарық өтеді */
+.vx-term-wrap {
+  height: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
 .vx-term {
+  --term-line: #1f1f1f;
+  --term-chip-bg: #1c1c1c;
+  --term-chip-border: #2e2e2e;
+  --term-hover: #1a1a1a;
+  --term-text: #f5f5f5;
+  --term-muted: #8f8f8f;
+  --term-step: 32ms;
+
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--ide-terminal-bg);
+  overflow: hidden;
+  border: 1px solid var(--term-line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #121212 0%, #0a0a0a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  color: var(--term-text);
+  animation: vxTermGlow 0.9s ease-out;
+}
+
+/* Панель бетінен өтетін жарық сызығы */
+.vx-term::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.08) 50%, transparent 65%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 150% 0;
+  opacity: 0;
+  animation: vxTermSheen 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes vxTermGlow {
+  0%, 100% { border-color: var(--term-line); }
+  30% {
+    border-color: #3d3d3d;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 0 48px -6px rgba(255, 255, 255, 0.14),
+      0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  }
+}
+
+@keyframes vxTermSheen {
+  0% { opacity: 1; background-position: 150% 0; }
+  100% { opacity: 1; background-position: -50% 0; }
 }
 
 .vx-term.is-max {
   position: fixed;
-  inset: 12px;
+  inset: 16px;
   z-index: 300;
-  overflow: hidden;
-  border: 1px solid #2a2a2a;
-  border-radius: 18px;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.7), 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 60px -20px rgba(255, 255, 255, 0.2);
+  border-color: #2a2a2a;
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 100vmax rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 30px 80px rgba(0, 0, 0, 0.8);
+  animation: vxTermPop 0.45s var(--vx-spring) both;
 }
 
+@keyframes vxTermPop {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Тақырып ---------- */
 .vx-term__bar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 38px;
-  padding: 0 6px 0 8px;
-  border-bottom: 1px solid var(--vx-line);
-  background: linear-gradient(180deg, #111 0%, #0c0c0c 100%);
+  height: 46px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--term-line);
+  background: rgba(255, 255, 255, 0.015);
 }
 
-.vx-term__tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 8px;
-  background: #1a1a1a;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: var(--ide-text);
-  font-size: 11.5px;
+.vx-term__icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid var(--term-chip-border);
+  background: var(--term-chip-bg);
+  color: #e5e5e5;
+  animation: vxTermIconIn 0.7s var(--vx-spring) 0.05s backwards;
+}
+
+@keyframes vxTermIconIn {
+  from { opacity: 0; transform: scale(0.4) rotate(-90deg); }
+  to { opacity: 1; transform: none; }
+}
+
+.vx-term__title {
+  font-size: 13px;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .vx-term__status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--vx-muted);
+  height: 22px;
+  padding: 0 9px 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px var(--term-line);
+  color: var(--term-muted);
   font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .vx-term__dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #525252;
 }
 
-.vx-term__status.is-on { color: var(--ide-success); }
+.vx-term__status.is-on {
+  color: var(--ide-success);
+  background: color-mix(in srgb, var(--ide-success) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ide-success) 25%, transparent);
+}
 .vx-term__status.is-on .vx-term__dot {
   background: var(--ide-success);
   box-shadow: 0 0 10px var(--ide-success);
   animation: vxBreath 2.4s ease-in-out infinite;
 }
 
-.vx-term__status.is-wait { color: var(--ide-dirty); }
+.vx-term__status.is-wait {
+  color: var(--ide-dirty);
+  background: color-mix(in srgb, var(--ide-dirty) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ide-dirty) 25%, transparent);
+}
 .vx-term__status.is-wait .vx-term__dot {
   background: var(--ide-dirty);
   box-shadow: 0 0 10px var(--ide-dirty);
@@ -1497,6 +2491,14 @@
 }
 
 .vx-term__error {
+  min-width: 0;
+  max-width: 40%;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.25);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1507,15 +2509,367 @@
 .vx-term__actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   margin-left: auto;
+}
+
+.vx-term__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--term-line);
+}
+
+.vx-term__action {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--term-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.vx-term__action:hover {
+  background: var(--term-hover);
+  color: var(--term-text);
+  box-shadow: inset 0 0 0 1px var(--term-chip-border);
+}
+
+.vx-term__action:active { transform: scale(0.9); }
+
+.vx-term__action--danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.25);
+}
+
+.vx-term__connect,
+.vx-term__card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: #fafafa;
+  color: #0a0a0a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vx-term__connect:hover:not(:disabled),
+.vx-term__card-btn:hover:not(:disabled) {
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px -6px rgba(255, 255, 255, 0.35);
+}
+
+.vx-term__connect:active:not(:disabled),
+.vx-term__card-btn:active:not(:disabled) { transform: scale(0.97); }
+
+.vx-term__connect:disabled,
+.vx-term__card-btn:disabled { opacity: 0.55; cursor: wait; }
+
+.vx-term__action:focus-visible,
+.vx-term__connect:focus-visible,
+.vx-term__card-btn:focus-visible {
+  outline: 2px solid #fafafa;
+  outline-offset: 2px;
+}
+
+/* ---------- Экран ---------- */
+.vx-term__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .vx-term__screen {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 8px 0 0 12px;
+  padding: 10px 0 0 14px;
+}
+
+/* Панель жабылғанда да терминалдар тірі қалады — тек жасырылады */
+.vx-term-host { height: 100%; }
+.vx-term-host[hidden] { display: none; }
+
+/* ---------- Табтар (бір таб = бір shell сессиясы) ---------- */
+.vx-term__tabs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vx-term__tabs::-webkit-scrollbar { display: none; }
+
+.vx-term__tab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 190px;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border-radius: 9px;
+  color: var(--term-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  animation: vxTermTabIn 0.35s var(--vx-spring) backwards;
+}
+
+@keyframes vxTermTabIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+.vx-term__tab:hover {
+  background: var(--term-hover);
+  color: var(--term-text);
+}
+
+.vx-term__tab.is-active {
+  background: var(--term-chip-bg);
+  color: var(--term-text);
+  box-shadow: inset 0 0 0 1px var(--term-chip-border), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.vx-term__tab:focus-visible {
+  outline: 2px solid #fafafa;
+  outline-offset: 1px;
+}
+
+.vx-term__tab-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #525252;
+}
+.vx-term__tab-dot.is-on { background: var(--ide-success); box-shadow: 0 0 8px var(--ide-success); }
+.vx-term__tab-dot.is-wait { background: var(--ide-dirty); animation: vxBreath 0.9s ease-in-out infinite; }
+
+.vx-term__tab-icon { display: inline-flex; flex-shrink: 0; opacity: 0.75; }
+
+.vx-term__tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vx-term__tab-close {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.vx-term__tab:hover .vx-term__tab-close,
+.vx-term__tab.is-active .vx-term__tab-close { opacity: 0.7; }
+.vx-term__tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.vx-term__add:disabled { opacity: 0.35; cursor: not-allowed; }
+.vx-term__action:disabled { opacity: 0.35; cursor: default; box-shadow: none; background: transparent; }
+
+/* Әр таб өз экранына ие; белсенді емесі жасырын, бірақ сессиясы жұмыс істей береді */
+.vx-term__pane {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+.vx-term__pane.is-active { display: flex; }
+
+.vx-term__offline {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 2;
+  animation: vxTermTabIn 0.35s var(--vx-spring) backwards;
+}
+
+/* ---------- Бастапқы карточка ---------- */
+.vx-term__intro {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  overflow: auto;
+  background:
+    radial-gradient(ellipse 60% 70% at 50% 40%, rgba(255, 255, 255, 0.045), transparent 70%),
+    linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
+}
+
+.vx-term__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(440px, 100%);
+  text-align: center;
+}
+
+/* Элементтер толқын тәрізді кезекпен «секіреді» — sidebar жолдары сияқты */
+.vx-term__card > *,
+.vx-term__keys > * {
+  animation: vxTermRise 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(0.12s + var(--d, 0) * var(--term-step));
+}
+
+.vx-term__card > .vx-term__keys { animation: none; }
+
+@keyframes vxTermRise {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.vx-term__card-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 13px;
+  border: 1px solid var(--term-chip-border);
+  background: linear-gradient(180deg, #222 0%, #161616 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 32px -8px rgba(255, 255, 255, 0.25);
+  color: #fafafa;
+}
+
+.vx-term__card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.vx-term__card-text {
+  max-width: 340px;
+  margin: 0;
+  color: var(--term-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.vx-term__preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 11px;
+  background: #050505;
+  box-shadow: inset 0 0 0 1px var(--term-line);
+  font-family: var(--vx-mono);
+  font-size: 12px;
+}
+
+.vx-term__preview-user { color: #e5e5e5; font-weight: 700; }
+.vx-term__preview-path { color: var(--term-muted); }
+.vx-term__preview-sign { color: var(--ide-success); }
+
+.vx-term__preview-cursor {
+  width: 7px;
+  height: 14px;
+  border-radius: 1.5px;
+  background: #fafafa;
+  animation: vxTermBlink 1.1s steps(1) infinite;
+}
+
+@keyframes vxTermBlink {
+  50% { opacity: 0; }
+}
+
+.vx-term__card-btn {
+  height: 38px;
+  margin-top: 8px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.vx-term__keys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.vx-term__key {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px 0 12px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 0 0 1px var(--term-line);
+  color: var(--term-muted);
+  font-size: 12px;
+  transition: color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.vx-term__key:hover {
+  color: var(--term-text);
+  box-shadow: inset 0 0 0 1px #333, 0 0 22px -10px rgba(255, 255, 255, 0.35);
+}
+
+.vx-term__kbd { display: flex; gap: 3px; }
+
+.vx-term__kbd kbd {
+  min-width: 18px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: var(--term-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--term-chip-border), inset 0 -1px 0 #000;
+  color: #d4d4d4;
+  font-family: var(--vx-mono);
+  font-size: 10px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .vx-term__status-text,
+  .vx-term__connect span { display: none; }
+  .vx-term__connect { width: 30px; padding: 0; }
+  .vx-term__error { max-width: 30%; }
+  .vx-term__keys { grid-template-columns: 1fr; }
+  .vx-term.is-max { inset: 0; border-radius: 0; }
 }
 
 .vibe-root .vx-term .xterm,
@@ -1643,21 +2997,7 @@
 }
 
 /* Файл белгішесіндегі тілдің жарық нүктесі */
-.vibe-root .vibe-cp-item-icon--file::after {
-  content: '';
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--lang, #737373);
-  box-shadow: 0 0 0 2px #1c1c1c, 0 0 8px var(--lang, #737373);
-}
-
-.vibe-root .vibe-cp-item.selected .vibe-cp-item-icon--file::after {
-  box-shadow: 0 0 0 2px #fafafa, 0 0 8px var(--lang, #737373);
-}
+/* Файл түрі енді белгішенің өзінде (fileIcons.tsx) — бұрынғы түсті нүкте қажет емес */
 
 .vibe-root .vibe-cp-item-kbd {
   background: #1c1c1c;
@@ -1741,17 +3081,21 @@
 /* =========================================================
    Қозғалысты азайту
    ========================================================= */
+/* Панельдерді ашу/жабу анимациясы бұл ережеге кірмейді — басты беттің
+   sidebar-ы сияқты әрқашан ойнайды (Home.css) */
 @media (prefers-reduced-motion: reduce) {
-  .vibe-ambient__glow,
-  .vibe-toolbar__brand-dot,
   .vx-orb,
   .vx-orb svg,
   .vx-orb--spin::before,
-  .vx-ai__box::before,
-  .vx-ai__chip,
   .vx-ai__msg,
-  .vx-ai__status-dot,
   .vx-term__dot,
+  .vx-term,
+  .vx-term::after,
+  .vx-term.is-max,
+  .vx-term__icon,
+  .vx-term__card > *,
+  .vx-term__keys > *,
+  .vx-term__preview-cursor,
   .vx-welcome__title,
   .vx-welcome__sub,
   .vx-welcome__actions,
@@ -1759,3 +3103,429 @@
     animation: none !important;
   }
 }
+
+/* Бүркіт: Gemini кілтін енгізу картасы */
+.vx-ai__key {
+  width: 100%;
+  max-width: 320px;
+  margin: 18px auto 0;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #171717 0%, #111 100%);
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  text-align: left;
+  animation: vxRise 0.5s var(--vx-ease) 0.2s backwards;
+}
+
+.vx-ai__scroll > .vx-ai__key { margin: 4px auto 14px; animation: none; }
+
+.vx-ai__key-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+  color: var(--ide-text);
+  font-size: 12.5px;
+}
+
+.vx-ai__key-text,
+.vx-ai__key-note {
+  margin: 6px 0 10px;
+  color: var(--vx-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.vx-ai__key-text code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #1c1c1c;
+  color: #fafafa;
+  font-family: var(--vx-mono);
+}
+
+.vx-ai__key-note { margin: 8px 0 0; color: #5c5c5c; font-size: 10.5px; }
+
+.vx-ai__key-row { display: flex; gap: 6px; }
+
+.vx-ai__key-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #0d0d0d;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+  color: var(--ide-text);
+  font-family: var(--vx-mono);
+  font-size: 12px;
+  outline: none;
+}
+
+.vx-ai__key-input:focus { box-shadow: inset 0 0 0 1px #525252; }
+
+.vx-ai__key-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #fafafa;
+  color: #0a0a0a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vx-ai__key-btn:disabled { opacity: 0.4; cursor: default; }
+
+.vx-ai__key-error { margin: 8px 0 0; color: #f87171; font-size: 12px; }
+
+.vx-ai__key-remove {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #f87171;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vx-ai__key-remove:hover { text-decoration: underline; }
+
+.vx-ai__msg.is-error .vx-ai__text { color: #fca5a5; }
+
+/* ── Бүркіт Agent: файлдарға/жазбаларға жазу (Cursor сияқты) ── */
+
+/* path=/note= блогы: ұзын файл чатты толтырмасын */
+.vx-ai__code--target pre { max-height: 220px; overflow: auto; }
+
+.vx-ai__writing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--vx-muted);
+  font-size: 12px;
+}
+
+.vx-ai__writing b { color: var(--ide-text); font-weight: 600; }
+
+.vx-ai__edits {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 4px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px #262626;
+}
+
+.vx-ai__edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 4px 0 8px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.vx-ai__edit.is-pending { background: rgba(255, 255, 255, 0.03); }
+
+.vx-ai__edit-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ide-text);
+  font: inherit;
+  font-family: var(--vx-mono);
+  font-size: 11.5px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.vx-ai__edit-name:hover { text-decoration: underline; }
+
+.vx-ai__edit-tag {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #22c55e1f;
+  color: #4ade80;
+  font-size: 10.5px;
+}
+
+.vx-ai__edit-stats { display: inline-flex; gap: 6px; font-family: var(--vx-mono); font-size: 11px; }
+
+.vx-ai__edit-stats .is-add,
+.vx-review__stat.is-add { color: #4ade80; }
+
+.vx-ai__edit-stats .is-del,
+.vx-review__stat.is-del { color: #f87171; }
+
+.vx-ai__edit-actions { display: inline-flex; gap: 2px; margin-left: auto; }
+
+.vx-ai__edit-done { margin-left: auto; color: #5c5c5c; font-size: 11px; }
+
+/* Қаралмаған өзгерістер жолағы — жазу картасының үстінде */
+.vx-ai__review {
+  margin-bottom: 8px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #111;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+}
+
+.vx-ai__review-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 6px 6px;
+  color: var(--vx-muted);
+  font-size: 12px;
+}
+
+.vx-ai__review-head > span { margin-right: auto; }
+.vx-ai__review-head b { color: var(--ide-text); }
+
+.vx-ai__review-btn,
+.vx-review__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d4d4d4;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.vx-ai__review-btn:hover,
+.vx-review__btn:hover { background: rgba(255, 255, 255, 0.09); }
+
+.vx-ai__review-btn.is-primary,
+.vx-review__btn.is-primary { background: #fafafa; color: #0a0a0a; font-weight: 600; }
+
+.vx-ai__review-list { max-height: 132px; overflow-y: auto; }
+
+/* Agent / Ask ауыстырғышы */
+.vx-ai__foot-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+.vx-ai__mode {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 999px;
+  background: #0d0d0d;
+  box-shadow: inset 0 0 0 1px #262626;
+}
+
+.vx-ai__mode button {
+  height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vx-ai__mode button.is-on { background: #262626; color: #fafafa; }
+
+/* Жобаға байланысқан Notes папкасы */
+.vx-ai__notes-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px #262626;
+  color: #d4d4d4;
+  font-size: 12px;
+  text-decoration: none;
+  animation: vxRise 0.6s var(--vx-ease) 0.18s backwards;
+}
+
+.vx-ai__notes-link:hover { background: rgba(255, 255, 255, 0.04); }
+.vx-ai__notes-count { color: var(--vx-muted); }
+
+/* Редактордағы diff-тің үстіндегі жолақ */
+.vx-review {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--ide-border-soft);
+  background: #0f0f0f;
+  color: var(--ide-text);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.vx-review__label { font-weight: 600; }
+.vx-review__stat { font-family: var(--vx-mono); font-size: 11.5px; }
+.vx-review__actions { display: inline-flex; gap: 6px; margin-left: auto; }
+
+/* ═══ Алдын ала көрініс (жобаны іске қосу) ═══ */
+/* Бөлгішті сүйрегенде iframe тышқанды «жұтып» қоймауы үшін */
+.vx-split.is-dragging { cursor: col-resize; user-select: none; }
+.vx-split.is-dragging iframe { pointer-events: none; }
+
+/* Планшет/телефонда көрініс редактордың үстіне жабылады */
+.vx-preview-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #000;
+}
+
+.vx-preview__entry {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vx-mono);
+  font-size: 11px;
+  color: var(--term-muted);
+}
+
+.vx-preview__auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--term-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.vx-preview__auto input { accent-color: #51cf66; margin: 0; }
+
+.vx-preview__body {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  background: #fff;
+}
+
+.vx-preview__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.vx-preview__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: #0a0a0a;
+  color: var(--term-muted);
+  font-size: 13px;
+}
+
+.vx-preview__empty p { max-width: 320px; margin: 0; line-height: 1.5; }
+
+.vx-preview__console {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--term-line);
+  background: #0a0a0a;
+}
+
+.vx-preview__console.is-open { height: 32%; min-height: 90px; }
+
+.vx-preview__console-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 4px 0 6px;
+}
+
+.vx-preview__console-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--term-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vx-preview__console-toggle:hover { background: var(--term-hover); }
+
+.vx-preview__chevron {
+  display: inline-grid;
+  transform: rotate(-90deg);
+  transition: transform 0.2s var(--vx-ease);
+}
+
+.vx-preview__console.is-open .vx-preview__chevron { transform: none; }
+
+.vx-preview__count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--term-chip-bg);
+  color: var(--term-muted);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.vx-preview__count.is-error { background: rgba(255, 107, 107, 0.15); color: #ff8787; }
+
+.vx-preview__logs {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 0 6px;
+  font-family: var(--vx-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.vx-preview__log {
+  padding: 2px 10px;
+  border-bottom: 1px solid #141414;
+  color: #d4d4d4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vx-preview__log.is-empty { border: 0; color: var(--term-muted); font-family: inherit; }
+.vx-preview__log.is-info { color: #74c0fc; }
+.vx-preview__log.is-debug { color: var(--term-muted); }
+.vx-preview__log.is-warn { background: rgba(255, 212, 59, 0.06); color: #ffe066; }
+.vx-preview__log.is-error { background: rgba(255, 107, 107, 0.07); color: #ff8787; }

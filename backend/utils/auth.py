@@ -12,7 +12,6 @@ from config import (
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
     JWT_REFRESH_TOKEN_EXPIRE_DAYS,
     JWT_2FA_TEMP_TOKEN_EXPIRE_MINUTES,
-    JWT_PHONE_TOKEN_EXPIRE_MINUTES,
 )
 from db import get_db, User
 
@@ -45,13 +44,6 @@ def create_temp_2fa_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_2FA_TEMP_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire, "type": "2fa_temp"})
-    return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-
-
-def create_phone_token(phone: str) -> str:
-    """Proof that `phone` passed SMS verification; consumed by /auth/register."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_PHONE_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"phone": phone, "exp": expire, "type": "phone_verified"}
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 

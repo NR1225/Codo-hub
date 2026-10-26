@@ -1,5 +1,7 @@
 """Vibecoding жобалары — әр қолданушының жеке жобалары (тек иесіне қолжетімді)"""
+import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import List, Optional
@@ -13,9 +15,12 @@ from sqlalchemy.orm import Session
 from database import messages as direct_messages
 from db import ChatGroupMessage, User, VibecodingProject, get_db
 from services.group_service import GroupService
+from services import project_notes, terminal_workspace
+from services.terminal_service import terminal_manager
 from utils.auth import get_current_user
 
 router = APIRouter()
+logger = logging.getLogger("kazakh_hub.vibecoding")
 limiter = Limiter(key_func=get_remote_address)
 
 MAX_PROJECTS_PER_USER = 100
@@ -65,6 +70,7 @@ def _to_dict(project: VibecodingProject) -> dict:
         "name": project.name,
         "files": _load_json_list(project.files),
         "folders": _load_json_list(project.folders),
+        "notesFolder": project.notes_folder,
         "createdAt": _iso(project.created_at),
         "updatedAt": _iso(project.updated_at),
     }
@@ -84,7 +90,17 @@ async def list_projects(
         .order_by(VibecodingProject.updated_at.desc())
         .all()
     )
+    for p in projects:
+        _link_notes(db, p)
     return [_to_dict(p) for p in projects]
+
+
+def _link_notes(db: Session, project: VibecodingProject) -> None:
+    """Жобаның Notes папкасын қамтамасыз ету; Notes шегіне жетсе — жобаны сақтауға кедергі жасамайды"""
+    try:
+        project_notes.ensure_folder(db, project)
+    except HTTPException:
+        db.rollback()
 
 
 @router.put("/vibecoding/projects/{project_id}")
@@ -134,6 +150,16 @@ async def save_project(
 
     db.commit()
     db.refresh(project)
+    if not project.notes_folder:
+        _link_notes(db, project)
+    # Жоба терминалда ашылған болса — оның папкасын да жаңарту
+    try:
+        await asyncio.to_thread(
+            terminal_workspace.push, user.id, project.id, project.name,
+            _load_json_list(project.files), _load_json_list(project.folders),
+        )
+    except Exception as e:
+        logger.error("Terminal workspace push failed for %s: %s", project.id, e)
     return _to_dict(project)
 
 
@@ -151,6 +177,9 @@ async def delete_project(
         raise HTTPException(status_code=404, detail="Жоба табылмады")
     db.delete(project)
     db.commit()
+    # Алдымен терминалдарды жабамыз — әйтпесе shell папканы бос жібермейді (Windows)
+    await terminal_manager.close_project_sessions(user.id, project_id)
+    await asyncio.to_thread(terminal_workspace.remove, user.id, project_id)
     return {"message": "Жоба жойылды"}
 
 

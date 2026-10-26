@@ -14,24 +14,18 @@ JWT_ALGORITHM = "HS256"
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE", "30"))
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE", "30"))
 JWT_2FA_TEMP_TOKEN_EXPIRE_MINUTES = 5
-# Phone verified via SMS -> short-lived token the register call must carry
-JWT_PHONE_TOKEN_EXPIRE_MINUTES = 15
-
-# SMS verification (registration).
-# SMS_PROVIDER: "firebase" (Firebase Phone Auth sends the SMS from the browser),
-# "mobizon" (backend sends the code via Mobizon.kz) or "console" (dev only:
-# the code is printed to the server log instead of being sent).
-SMS_PROVIDER = os.getenv("SMS_PROVIDER", "console").lower()
-MOBIZON_API_KEY = os.getenv("MOBIZON_API_KEY", "")
-MOBIZON_API_DOMAIN = os.getenv("MOBIZON_API_DOMAIN", "api.mobizon.kz")
-MOBIZON_SENDER = os.getenv("MOBIZON_SENDER", "")  # Approved alpha-name; empty = Mobizon default
-SMS_CODE_TTL_MINUTES = int(os.getenv("SMS_CODE_TTL_MINUTES", "5"))
-SMS_CODE_MAX_ATTEMPTS = int(os.getenv("SMS_CODE_MAX_ATTEMPTS", "5"))
-SMS_RESEND_COOLDOWN_SECONDS = int(os.getenv("SMS_RESEND_COOLDOWN_SECONDS", "60"))
 
 # Per-account login brute-force protection (independent of the IP rate limiter)
 LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
 LOGIN_LOCKOUT_MINUTES = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "15"))
+
+# Cloudflare Turnstile CAPTCHA (register + login). Empty = disabled (local dev).
+TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY", "")
+
+# HSTS: sent only on HTTPS requests (see docs/SECURITY-HSTS.md).
+# Start small (1 day), raise to 31536000 once everything works over HTTPS.
+HSTS_MAX_AGE = int(os.getenv("HSTS_MAX_AGE", "86400"))
+HSTS_INCLUDE_SUBDOMAINS = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "false").lower() == "true"
 
 # SMTP / Email Configuration
 SMTP_ENABLED = os.getenv("SMTP_ENABLED", "false").lower() == "true"
@@ -52,7 +46,7 @@ TERMINAL_WORKSPACE_DIR = os.getenv(
     "TERMINAL_WORKSPACE_DIR",
     os.path.join(os.path.dirname(__file__), "data", "terminal_workspaces"),
 )
-TERMINAL_MAX_SESSIONS_PER_USER = int(os.getenv("TERMINAL_MAX_SESSIONS_PER_USER", "2"))
+TERMINAL_MAX_SESSIONS_PER_USER = int(os.getenv("TERMINAL_MAX_SESSIONS_PER_USER", "5"))
 TERMINAL_MAX_SESSIONS_TOTAL = int(os.getenv("TERMINAL_MAX_SESSIONS_TOTAL", "50"))
 TERMINAL_IDLE_TIMEOUT_SECONDS = int(os.getenv("TERMINAL_IDLE_TIMEOUT_SECONDS", "900"))      # 15 min
 TERMINAL_MAX_LIFETIME_SECONDS = int(os.getenv("TERMINAL_MAX_LIFETIME_SECONDS", "3600"))     # 1 hour
@@ -65,6 +59,23 @@ TERMINAL_RLIMIT_CPU_SECONDS = int(os.getenv("TERMINAL_RLIMIT_CPU_SECONDS", "120"
 TERMINAL_RLIMIT_MEM_MB = int(os.getenv("TERMINAL_RLIMIT_MEM_MB", "512"))
 TERMINAL_RLIMIT_NPROC = int(os.getenv("TERMINAL_RLIMIT_NPROC", "64"))
 TERMINAL_RLIMIT_FSIZE_MB = int(os.getenv("TERMINAL_RLIMIT_FSIZE_MB", "100"))
+
+# ── Бүркіт (Google Gemini) ──
+# Әр қолданушы өз кілтін енгізеді (базада шифрланып сақталады). Сервердің ортақ
+# кілті (GEMINI_API_KEY) тек BURKIT_SHARED_KEY_USER_IDS тізіміндегі аккаунттарға
+# беріледі — ID бойынша, өйткені username ауыстыруға болады.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+# Негізгі модель бос болмаса (503) немесе лимиті таусылса (429) — кезекпен осылар сұралады
+GEMINI_FALLBACK_MODELS = [
+    m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite").split(",") if m.strip()
+]
+BURKIT_SHARED_KEY_USER_IDS = {
+    uid.strip() for uid in os.getenv("BURKIT_SHARED_KEY_USER_IDS", "").split(",") if uid.strip()
+}
+# Қолданушы кілттерін шифрлайтын құпия. Бос болса — JWT_SECRET-тен алынады
+# (онда JWT_SECRET ауысса, сақталған кілттерді қайта енгізу керек болады).
+BURKIT_ENCRYPTION_KEY = os.getenv("BURKIT_ENCRYPTION_KEY", "") or JWT_SECRET_KEY
 
 # Data file paths
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")

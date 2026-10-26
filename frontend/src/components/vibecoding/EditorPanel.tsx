@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { useEditorMeta } from '../../contexts/EditorMetaContext';
 import EditorTabBar from './EditorTabBar';
-import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
-import { CodeIcon, ExplorerIcon, FilePlusIcon, ChevronIcon } from './icons';
+import Editor, { BeforeMount, DiffEditor, OnMount } from '@monaco-editor/react';
+import { CodeIcon, ExplorerIcon, FilePlusIcon, ChevronIcon, SparkleIcon, CheckIcon, CloseIcon } from './icons';
+import { useBurkitEdits, lineStats } from '../../contexts/BurkitEditsContext';
 
 // Monaco тақырыбы — беттің қара монохром палитрасымен бірдей
 const KH_THEME = 'kh-dark';
@@ -36,6 +37,11 @@ const defineTheme: BeforeMount = (monaco) => {
       'scrollbarSlider.hoverBackground': '#ffffff24',
       'scrollbarSlider.activeBackground': '#ffffff33',
       'minimap.background': '#0a0a0a',
+      // Бүркіт өзгерістерінің diff-і
+      'diffEditor.insertedLineBackground': '#22c55e1a',
+      'diffEditor.insertedTextBackground': '#22c55e33',
+      'diffEditor.removedLineBackground': '#ef44441a',
+      'diffEditor.removedTextBackground': '#ef444433',
     },
   });
 };
@@ -44,6 +50,13 @@ const EditorPanel: React.FC = () => {
   const { t } = useTranslation();
   const { dispatch, activeFile, activeProject, editorSettings } = useVibecoding();
   const { setMeta } = useEditorMeta();
+  const burkitEdits = useBurkitEdits();
+  // Бүркіт өзгерткен, әлі қаралмаған файл — diff көрсетіледі
+  const pendingEdit = activeFile ? burkitEdits.pendingFor(activeFile.path) : undefined;
+  const pendingStats = useMemo(
+    () => (pendingEdit && activeFile ? lineStats(pendingEdit.original, activeFile.content) : null),
+    [pendingEdit, activeFile]
+  );
   const editorRef = useRef<any>(null);
   const formatHandlerRef = useRef<(() => void) | null>(null);
 
@@ -102,7 +115,7 @@ const EditorPanel: React.FC = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === 's') {
+      if (mod && e.code === 'KeyS') {
         e.preventDefault();
         if (activeFile) dispatch({ type: 'SAVE_FILE', payload: { fileId: activeFile.id } });
       }
@@ -213,7 +226,54 @@ const EditorPanel: React.FC = () => {
         ))}
       </div>
 
+      {pendingEdit && pendingStats && (
+        <div className="vx-review">
+          <SparkleIcon size={13} />
+          <span className="vx-review__label">
+            {pendingEdit.original === null ? 'Бүркіт жасаған файл' : 'Бүркіттің өзгерісі'}
+          </span>
+          <span className="vx-review__stat is-add">+{pendingStats.added}</span>
+          <span className="vx-review__stat is-del">−{pendingStats.removed}</span>
+          <div className="vx-review__actions">
+            <button type="button" className="vx-review__btn" onClick={() => burkitEdits.undo(pendingEdit.path)}>
+              <CloseIcon size={12} />
+              Қайтару
+            </button>
+            <button type="button" className="vx-review__btn is-primary" onClick={() => burkitEdits.keep(pendingEdit.path)}>
+              <CheckIcon size={12} />
+              Қабылдау
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden">
+        {pendingEdit ? (
+          // Cursor сияқты inline diff: қызыл — өшірілгені, жасыл — қосылғаны
+          <DiffEditor
+            height="100%"
+            language={editorLanguage}
+            theme={KH_THEME}
+            beforeMount={defineTheme}
+            original={pendingEdit.original ?? ''}
+            modified={activeFile.content}
+            options={{
+              renderSideBySide: false,
+              readOnly: true,
+              originalEditable: false,
+              automaticLayout: true,
+              scrollBeyondLastLine: false,
+              minimap: { enabled: false },
+              fontSize: editorSettings.fontSize,
+              fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+              fontLigatures: editorSettings.fontLigatures,
+              wordWrap: editorSettings.wordWrap,
+              padding: { top: 12, bottom: 12 },
+              renderOverviewRuler: false,
+              scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false },
+            }}
+          />
+        ) : (
         <Editor
           height="100%"
           language={editorLanguage}
@@ -267,6 +327,7 @@ const EditorPanel: React.FC = () => {
             </div>
           }
         />
+        )}
       </div>
     </div>
   );

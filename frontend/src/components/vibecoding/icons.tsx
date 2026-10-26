@@ -339,3 +339,82 @@ export const PaletteIcon: React.FC<P> = ({ size }) => (
     <circle cx="14.5" cy="7.8" r="0.9" fill="currentColor" />
   </Icon>
 );
+
+/* VS Code сияқты макет белгішелері: панель ашық болса, оның бөлігі боялады
+   (басты беттің sidebar белгішесі сияқты жиналып-жазылады — VibecodingPanels.css) */
+type PanelP = P & { active?: boolean };
+
+export const PanelLeftIcon: React.FC<PanelP> = ({ size, active }) => (
+  <Icon size={size}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <rect className="vx-panel-fill vx-panel-fill--left" data-active={!!active} x="3.5" y="4.5" width="6" height="15" rx="2" fill="currentColor" stroke="none" />
+    <path d="M9.5 4.5v15" />
+  </Icon>
+);
+
+export const PanelBottomIcon: React.FC<PanelP> = ({ size, active }) => (
+  <Icon size={size}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <rect className="vx-panel-fill vx-panel-fill--bottom" data-active={!!active} x="3.5" y="13.5" width="17" height="6" rx="2" fill="currentColor" stroke="none" />
+    <path d="M3.5 13.5h17" />
+  </Icon>
+);
+
+export const PanelRightIcon: React.FC<PanelP> = ({ size, active }) => (
+  <Icon size={size}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <rect className="vx-panel-fill vx-panel-fill--right" data-active={!!active} x="14.5" y="4.5" width="6" height="15" rx="2" fill="currentColor" stroke="none" />
+    <path d="M14.5 4.5v15" />
+  </Icon>
+);
+
+/* Эксплорердегі «Құрылым қосу» — бір-бірінің үстіндегі қабаттар */
+export const LayersIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <path d="m12 4 8.5 4.5L12 13 3.5 8.5Z" />
+    <path d="m3.5 12.5 8.5 4.5 8.5-4.5" />
+    <path d="m3.5 16.5 8.5 4.5 8.5-4.5" />
+  </Icon>
+);
+
+/* Бүркіт тарихы */
+export const HistoryIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <path d="M4 12a8 8 0 1 0 2.3-5.6" />
+    <path d="M4 4.5v4h4" />
+    <path d="M12 8v4.2l2.8 1.8" />
+  </Icon>
+);
+
+export const PinIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <path d="M9 4h6l-1 5.5 3 3V14H7v-1.5l3-3Z" />
+    <path d="M12 14v6" />
+  </Icon>
+);
+
+export const DownloadIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14" />
+  </Icon>
+);
+
+export const RefreshIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+    <path d="M20 4v7h-7" />
+  </Icon>
+);
+
+export const PlayIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <path d="M7.5 5.6v12.8a1 1 0 0 0 1.5.86l10.4-6.4a1 1 0 0 0 0-1.72L9 4.74a1 1 0 0 0-1.5.86Z" />
+  </Icon>
+);
+
+export const GlobeIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5s1.2-6.1 3.5-8.5Z" />
+  </Icon>
+);
