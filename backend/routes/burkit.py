@@ -33,6 +33,25 @@ class BurkitProjectFile(BaseModel):
     content: Optional[str] = Field(default=None, max_length=100_000)
 
 
+class BurkitEditorState(BaseModel):
+    path: str = Field(max_length=512)
+    line: int = Field(ge=0, le=10_000_000)
+    column: int = Field(ge=0, le=10_000_000)
+    selection: Optional[str] = Field(default=None, max_length=10_000)
+
+
+class BurkitWorkspace(BaseModel):
+    """Vibecoding бетінің ағымдағы күйі: Бүркіт қолданушы не істеп жатқанын көреді"""
+    events: list[str] = Field(default_factory=list, max_length=100)
+    terminal: Optional[str] = Field(default=None, max_length=15_000)
+    terminalConnected: bool = False
+    preview: Optional[str] = Field(default=None, max_length=512)
+    previewConsole: list[str] = Field(default_factory=list, max_length=200)
+    editor: Optional[BurkitEditorState] = None
+    problems: list[str] = Field(default_factory=list, max_length=100)
+    openFiles: list[str] = Field(default_factory=list, max_length=200)
+
+
 # Бір сұраудағы жоба файлдарының жалпы көлемі (символ)
 MAX_PROJECT_CHARS = 200_000
 
@@ -47,6 +66,9 @@ class BurkitChatRequest(BaseModel):
     projectFiles: list[BurkitProjectFile] = Field(default_factory=list, max_length=500)
     # agent — Бүркіт path= блоктарымен жоба файлдарына жазады; ask — тек жауап береді
     mode: Literal["agent", "ask"] = "ask"
+    workspace: Optional[BurkitWorkspace] = None
+    # Сайт интерфейсінің тілі — Бүркіт осы тілде жауап береді
+    uiLanguage: Optional[Literal["kk", "ru", "en"]] = None
 
 
 def _status(user: User) -> dict:
@@ -161,6 +183,8 @@ async def chat(
         agent=body.mode == "agent",
         notes_folder=notes_folder,
         notes=notes,
+        workspace=body.workspace.model_dump() if body.workspace else None,
+        ui_language=body.uiLanguage,
     )
     chunks = await burkit_service.open_stream(key, payload)
     return StreamingResponse(

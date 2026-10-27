@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Kazakh Hub - Run Backend and Frontend
+# Codo Hub - Run Backend and Frontend
 # This script runs both the backend server and frontend dev server
 
 # Colors for output
@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-echo -e "${BLUE}Starting Kazakh Hub...${NC}\n"
+echo -e "${BLUE}Starting Codo Hub...${NC}\n"
 
 # Function to cleanup background processes on exit
 cleanup() {

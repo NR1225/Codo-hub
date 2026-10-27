@@ -150,7 +150,7 @@ const Header: React.FC = () => {
             alt=""
             className="w-[34px] h-[25px] sm:w-[42px] sm:h-[34px]"
           />
-          <span className="bg-accent-gradient bg-clip-text text-transparent font-extrabold text-[21px] sm:text-[25px] tracking-[-0.32px] truncate">
+          <span className="text-sky-400 dark:text-sky-300 font-extrabold text-[21px] sm:text-[25px] tracking-[-0.32px] truncate">
             {t('header.appName')}
           </span>
         </Link>

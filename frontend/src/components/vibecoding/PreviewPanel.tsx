@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, normalizePath } from '../../contexts/VibecodingContext';
 import { buildPreview, pickEntry, resolvePath, PREVIEW_MSG } from './previewBuilder';
+import { setPreview, pushPreviewConsole, clearPreviewConsole } from '../../utils/vibeActivity';
 import { PlayIcon, GlobeIcon, RefreshIcon, CloseIcon, TrashIcon, TerminalIcon, ChevronDownIcon } from './icons';
 
 interface ConsoleLine {
@@ -58,12 +59,20 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ runId, onClose }) => {
     lastDoc.current = next;
     setSrcDoc(next);
     setLines([]);
+    clearPreviewConsole();
   }, [activeProject, entry]);
+
+  // Бүркіт қай бет іске қосылғанын білуі үшін
+  useEffect(() => {
+    setPreview(entry?.path ?? null);
+  }, [entry?.path]);
+  useEffect(() => () => setPreview(null), []);
 
   // Қолмен қайта жүктеу / жаңа іске қосу — бірден (iframe key арқылы қайта құрылады)
   useEffect(() => {
     build();
     setLines([]);
+    clearPreviewConsole();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey, entryPath]);
 
@@ -83,6 +92,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ runId, onClose }) => {
       if (data.type === 'console') {
         const line: ConsoleLine = { id: ++lineId.current, level: data.level, text: String(data.text ?? '') };
         setLines(prev => [...prev.slice(-(MAX_LINES - 1)), line]);
+        pushPreviewConsole(line.level, line.text);
       } else if (data.type === 'navigate' && entryPath && typeof data.href === 'string') {
         setEntryPath(resolvePath(entryPath, data.href));
       }
@@ -158,7 +168,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ runId, onClose }) => {
             </button>
             <button
               type="button"
-              onClick={() => setLines([])}
+              onClick={() => { setLines([]); clearPreviewConsole(); }}
               className="vx-term__action"
               title={t('vibecoding.preview.clearConsole', 'Консольді тазалау')}
             >

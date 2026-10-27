@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import i18n from '../i18n/config';
 import '@xterm/xterm/css/xterm.css';
-import TerminalWebSocketService, { TerminalSessionInfo } from '../utils/terminalWebSocket';
+import TerminalWebSocketService, { TerminalSessionInfo, TerminalConnState } from '../utils/terminalWebSocket';
 import type { WorkspaceChanges } from '../contexts/VibecodingContext';
+import { appendTerminalOutput, trackTerminalInput, setTerminalConnected, logEvent } from '../utils/vibeActivity';
 
 export interface UseTerminalOptions {
   /** Терминал осы жобаның папкасында ашылады */
@@ -17,9 +19,10 @@ export interface UseTerminalOptions {
 interface UseTerminalReturn {
   terminalRef: React.RefObject<HTMLDivElement | null>;
   isConnected: boolean;
+  status: TerminalConnState;
   session: TerminalSessionInfo | null;
   error: string | null;
-  connect: (token: string) => void;
+  connect: (getToken: () => Promise<string | null>) => void;
   disconnect: () => void;
   clear: () => void;
   focus: () => void;
@@ -33,10 +36,14 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<TerminalWebSocketService | null>(null);
   const inputRef = useRef<{ dispose: () => void } | null>(null);
+  const tabIdRef = useRef(Math.random().toString(36).slice(2));
   // Соңғы callback-тер — connect() қайта жасалмай-ақ жаңасын шақырады
   const optionsRef = useRef(options);
   optionsRef.current = options;
-  const [isConnected, setIsConnected] = useState(false);
+  // Терминал ашыла сала қосылады, сондықтан бастапқы күй — connecting
+  // (әйтпесе бірінші кадрда «Қосылу» батырмасы жылт етеді)
+  const [status, setStatus] = useState<TerminalConnState>('connecting');
+  const isConnected = status === 'open';
   const [session, setSession] = useState<TerminalSessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,7 +138,7 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     };
   }, [fit]);
 
-  const connect = useCallback((token: string) => {
+  const connect = useCallback((getToken: () => Promise<string | null>) => {
     const term = terminalRef.current;
     if (!term) return;
 
@@ -141,36 +148,44 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
 
     const ws = new TerminalWebSocketService();
 
+    // Бүркіт терминалда не болып жатқанын көруі үшін шығыс пен оқиғалар vibeActivity-ге де барады
     ws.setOnOutput((data: string) => {
       terminalRef.current?.write(data);
+      appendTerminalOutput(data);
     });
 
+    ws.setOnState(setStatus);
+
     ws.setOnConnect((info) => {
-      setIsConnected(true);
+      setTerminalConnected(tabIdRef.current, true);
       setSession(info);
       setError(null);
       if (info.mode === 'pipe') {
-        terminalRef.current?.writeln('\x1b[33m! Қарапайым режим: серверде pywinpty жоқ, тек жолдық командалар жұмыс істейді\x1b[0m');
+        terminalRef.current?.writeln(`\x1b[33m! ${i18n.t('vibecoding.terminal.msg.pipeMode')}\x1b[0m`);
       }
       fit();
       optionsRef.current?.onConnect?.(info);
     });
 
-    ws.setOnDisconnect(() => {
-      setIsConnected(false);
-      terminalRef.current?.writeln('\r\n\x1b[90m— терминал ажыратылды —\x1b[0m');
+    ws.setOnDisconnect((willRetry) => {
+      setTerminalConnected(tabIdRef.current, false);
+      terminalRef.current?.writeln(`\r\n\x1b[90m— ${i18n.t(willRetry
+        ? 'vibecoding.terminal.msg.reconnecting'
+        : 'vibecoding.terminal.msg.disconnected')} —\x1b[0m`);
       optionsRef.current?.onDisconnect?.();
     });
 
     ws.setOnError((message: string) => {
       setError(message);
+      logEvent(`Терминал қатесі: ${message}`);
       terminalRef.current?.writeln(`\r\n\x1b[31m✗ ${message}\x1b[0m`);
       optionsRef.current?.onError?.(message);
     });
 
     ws.setOnExit((code: number) => {
-      setIsConnected(false);
-      terminalRef.current?.writeln(`\r\n\x1b[90mПроцесс аяқталды (код: ${code})\x1b[0m`);
+      setTerminalConnected(tabIdRef.current, false);
+      logEvent(`Терминал процесі аяқталды (код: ${code})`);
+      terminalRef.current?.writeln(`\r\n\x1b[90m${i18n.t('vibecoding.terminal.msg.exited', { code })}\x1b[0m`);
     });
 
     ws.setOnFsChanges((projectId, changes) => {
@@ -179,11 +194,12 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
 
     // Attach terminal input to WebSocket
     inputRef.current = term.onData((data: string) => {
+      trackTerminalInput(data);
       ws.sendInput(data);
     });
 
     wsRef.current = ws;
-    ws.connect(token, {
+    void ws.connect(getToken, {
       projectId: optionsRef.current?.projectId,
       cols: term.cols,
       rows: term.rows,
@@ -195,7 +211,8 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     inputRef.current = null;
     wsRef.current?.disconnect();
     wsRef.current = null;
-    setIsConnected(false);
+    setStatus('closed');
+    setTerminalConnected(tabIdRef.current, false);
     setSession(null);
   }, []);
 
@@ -214,6 +231,7 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
   return {
     terminalRef: containerRef,
     isConnected,
+    status,
     session,
     error,
     connect,

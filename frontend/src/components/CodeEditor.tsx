@@ -31,6 +31,9 @@ SyntaxHighlighter.registerLanguage('css', css);
 SyntaxHighlighter.registerLanguage('json', json);
 SyntaxHighlighter.registerLanguage('markdown', markdown);
 
+// Бұдан үлкен файлда синтаксис бояуы браузерді қатырады — қарапайым мәтін көрсетіледі
+const HIGHLIGHT_LIMIT = 200 * 1024;
+
 interface CodeEditorProps {
   code: string;
   language: string;
@@ -74,6 +77,30 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     };
     return langMap[lang.toLowerCase()] || 'plaintext';
   };
+
+  if (readOnly && content.length > HIGHLIGHT_LIMIT) {
+    return (
+      <div className="code-editor read-only">
+        <div className="code-editor-content">
+          <pre
+            style={{
+              margin: 0,
+              borderRadius: '8px',
+              padding: '1.5rem',
+              fontSize: '0.9rem',
+              lineHeight: '1.6',
+              overflowX: 'auto',
+              background: '#1e1e1e',
+              color: '#d4d4d4',
+              boxSizing: 'border-box',
+            }}
+          >
+            {content}
+          </pre>
+        </div>
+      </div>
+    );
+  }
 
   if (readOnly) {
     return (

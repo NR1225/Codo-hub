@@ -30,11 +30,13 @@ async def get_codes(
 
 @router.get("/codes/{code_id}")
 @limiter.limit("60/minute")
-async def get_code(request: Request, code_id: str):
-    """Get a code by ID"""
+async def get_code(request: Request, code_id: str, lite: bool = Query(False)):
+    """Get a code by ID. lite=true — папка болса, ауыр content/folderStructure жіберілмейді"""
     code = CodeService.find_code_by_id(code_id)
     if not code:
         raise HTTPException(status_code=404, detail="Code file not found")
+    if lite and code.get('isFolder'):
+        return CodeService.to_lite(code)
     return code
 
 

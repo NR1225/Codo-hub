@@ -6,6 +6,27 @@ from database import codes, save_codes, FIRESTORE_SYNC_AVAILABLE, FIRESTORE_SYNC
 from utils.validators import validate_file_on_server
 
 
+_folder_stats_cache: Dict[int, tuple] = {}
+
+
+def _folder_stats(structure: Any) -> Dict[str, Any]:
+    """folderStructure → {files, folders, names}; бір құрылым үшін бір рет есептеледі"""
+    if not isinstance(structure, dict):
+        return {'files': 0, 'folders': 0, 'names': []}
+    cached = _folder_stats_cache.get(id(structure))
+    if cached and cached[0] is structure and cached[1] == len(structure):
+        return cached[2]
+    entries = [v for v in structure.values() if isinstance(v, dict)]
+    names = sorted(entries, key=lambda v: (v.get('type') != 'folder', str(v.get('name', '')).lower()))[:5]
+    stats = {
+        'files': sum(1 for v in entries if v.get('type') == 'file'),
+        'folders': sum(1 for v in entries if v.get('type') == 'folder'),
+        'names': [{'name': v.get('name', ''), 'type': v.get('type', 'file')} for v in names],
+    }
+    _folder_stats_cache[id(structure)] = (structure, len(structure), stats)
+    return stats
+
+
 class CodeService:
     """Service for code-related operations"""
     
@@ -14,6 +35,20 @@ class CodeService:
         """Find code by ID"""
         return next((code for code in codes if code['id'] == code_id), None)
     
+    @staticmethod
+    def to_lite(code: Dict[str, Any]) -> Dict[str, Any]:
+        """Тізім/шапка үшін жеңіл нұсқа: content және толық folderStructure жоқ.
+
+        Үлкен жобада folderStructure ондаған мың жазба (node_modules қоса), ал
+        папканың content-і — бүкіл манифест, сондықтан олар бірнеше МБ болады.
+        Олардың орнына folderStats (саны + алғашқы 5 атау) қайтарылады.
+        """
+        lite = {k: v for k, v in code.items() if k not in ('content', 'folderStructure')}
+        lite['hasContent'] = bool(code.get('content'))
+        if code.get('isFolder'):
+            lite['folderStats'] = _folder_stats(code.get('folderStructure'))
+        return lite
+
     @staticmethod
     def get_codes(
         folder_id: Optional[str] = None,
@@ -38,12 +73,7 @@ class CodeService:
         
         # Remove content field if not needed (to reduce payload size)
         if not include_content:
-            result_codes = []
-            for code in paginated_codes:
-                code_copy = {k: v for k, v in code.items() if k != 'content'}
-                code_copy['hasContent'] = bool(code.get('content'))
-                result_codes.append(code_copy)
-            paginated_codes = result_codes
+            paginated_codes = [CodeService.to_lite(code) for code in paginated_codes]
         
         return {
             'codes': paginated_codes,
@@ -308,7 +338,7 @@ class CodeService:
         if user_id not in code['likes']:
             code['likes'].append(user_id)
             code['updatedAt'] = datetime.now().isoformat()
-            save_codes()
+            save_codes([code_id])
             
             # Firestore sync
             if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
@@ -331,7 +361,7 @@ class CodeService:
         
         code['likes'] = [id for id in code['likes'] if id != user_id]
         code['updatedAt'] = datetime.now().isoformat()
-        save_codes()
+        save_codes([code_id])
         
         # Firestore sync
         if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
@@ -344,43 +374,22 @@ class CodeService:
     
     @staticmethod
     def view_code(code_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
-        """Increment view count for a code"""
+        """Increment view count for a code. Жеңіл нұсқа қайтарады (views/viewedBy жаңарту үшін)"""
         code = CodeService.find_code_by_id(code_id)
         if not code:
             raise ValueError("Code file not found")
-        
-        if 'views' not in code:
-            code['views'] = 0
-        if 'viewedBy' not in code:
-            code['viewedBy'] = []
-        
-        if user_id:
-            if user_id not in code['viewedBy']:
-                code['viewedBy'].append(user_id)
-                code['views'] = (code.get('views', 0) or 0) + 1
-                code['updatedAt'] = datetime.now().isoformat()
-                save_codes()
-                
-                # Firestore sync
-                if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
-                    try:
-                        FIRESTORE_SYNC_CODE(code)
-                    except Exception as e:
-                        print(f'Warning: Firestore sync failed for view: {e}')
-        else:
+
+        viewed_by = code.setdefault('viewedBy', [])
+        if not user_id or user_id not in viewed_by:
+            if user_id:
+                viewed_by.append(user_id)
             code['views'] = (code.get('views', 0) or 0) + 1
             code['updatedAt'] = datetime.now().isoformat()
-            save_codes()
-            
-            # Firestore sync
-            if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
-                try:
-                    FIRESTORE_SYNC_CODE(code)
-                except Exception as e:
-                    print(f'Warning: Firestore sync failed for view: {e}')
-        
-        return code
-    
+            # save_codes өзгерген кодты Firestore-ға да синхрондайды
+            save_codes([code_id])
+
+        return CodeService.to_lite(code)
+
     @staticmethod
     def add_comment(code_id: str, author: str, content: str, parent_id: Optional[str] = None) -> Dict[str, Any]:
         """Add a comment to a code"""
@@ -403,7 +412,7 @@ class CodeService:
         
         code['comments'].append(new_comment)
         code['updatedAt'] = datetime.now().isoformat()
-        save_codes()
+        save_codes([code_id])
         
         # Firestore sync
         if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
@@ -430,7 +439,7 @@ class CodeService:
         
         comment['content'] = content
         code['updatedAt'] = datetime.now().isoformat()
-        save_codes()
+        save_codes([code_id])
         
         # Firestore sync
         if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
@@ -457,7 +466,7 @@ class CodeService:
         
         code['comments'].pop(comment_index)
         code['updatedAt'] = datetime.now().isoformat()
-        save_codes()
+        save_codes([code_id])
         
         # Firestore sync
         if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
@@ -489,7 +498,7 @@ class CodeService:
             comment['likes'].append(user_id)
         
         code['updatedAt'] = datetime.now().isoformat()
-        save_codes()
+        save_codes([code_id])
         
         # Firestore sync
         if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:

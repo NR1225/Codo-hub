@@ -16,6 +16,9 @@ export interface BurkitMessage {
   error?: boolean;
   /** Бүркіт (Agent) жобаға жазған файлдар мен Notes жазбалары */
   edits?: BurkitEdit[];
+  /** Жауап аяқталмай қалды (бет жаңартылды / панель жабылды) — қайта ашылғанда жалғасады.
+      user хабарында — жауап әлі басталмаған, assistant хабарында — жартылай жазылған */
+  pending?: boolean;
 }
 
 export interface BurkitEdit {
@@ -40,6 +43,15 @@ export interface BurkitConversation {
 const MAX_CONVERSATIONS = 100;
 
 const storageKey = (userId?: string) => `vibe-burkit-history:${userId ?? 'guest'}`;
+// Қай сөйлесу ашық тұрғаны — бет жаңартылғанда сол чатқа қайту үшін
+const activeKey = (historyKey: string) => historyKey.replace('vibe-burkit-history:', 'vibe-burkit-active:');
+
+export type BurkitView = 'chat' | 'history';
+
+export interface BurkitActiveState {
+  conversationId: string | null;
+  view: BurkitView;
+}
 
 function load(key: string): BurkitConversation[] {
   try {
@@ -106,7 +118,33 @@ export function useBurkitHistory() {
 
   const clearAll = useCallback(() => update((list) => list.filter((c) => c.pinned)), [update]);
 
-  return { conversations, upsert, remove, rename, togglePin, clearAll };
+  /** Сақталған ашық чат (тарихтан тікелей оқылады — React күйі әлі жаңармаса да) */
+  const readActive = useCallback((): { state: BurkitActiveState; conversation: BurkitConversation | null } => {
+    let state: BurkitActiveState = { conversationId: null, view: 'chat' };
+    try {
+      const raw = JSON.parse(localStorage.getItem(activeKey(key)) || 'null');
+      if (raw && typeof raw === 'object') {
+        state = {
+          conversationId: typeof raw.conversationId === 'string' ? raw.conversationId : null,
+          view: raw.view === 'history' ? 'history' : 'chat',
+        };
+      }
+    } catch {
+      // бұзылған жазба — жаңа чаттан бастаймыз
+    }
+    const conversation = state.conversationId ? load(key).find((c) => c.id === state.conversationId) ?? null : null;
+    return { state, conversation };
+  }, [key]);
+
+  const saveActive = useCallback((state: BurkitActiveState) => {
+    try {
+      localStorage.setItem(activeKey(key), JSON.stringify(state));
+    } catch {
+      // сақталмаса — тек осы сессияда
+    }
+  }, [key]);
+
+  return { key, conversations, upsert, remove, rename, togglePin, clearAll, readActive, saveActive };
 }
 
 // Сөйлесуді Markdown файлына айналдыру (жүктеп алу үшін)

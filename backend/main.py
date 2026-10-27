@@ -1,4 +1,4 @@
-"""Kazakh Hub Backend API - Main application file"""
+"""Codo Hub Backend API - Main application file"""
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -98,7 +98,7 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI app with lifespan
 app = FastAPI(
-    title="Kazakh Hub API",
+    title="Codo Hub API",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -172,7 +172,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 async def root():
     """Root endpoint"""
     return {
-        "message": "Kazakh Hub Backend API",
+        "message": "Codo Hub Backend API",
         "note": "This is the backend server. Please use the frontend at http://localhost:5174",
         "api": "http://localhost:3000/api",
         "frontend": "http://localhost:5174"
@@ -182,7 +182,7 @@ async def root():
 async def api_root():
     """API root endpoint with documentation"""
     return {
-        "message": "Kazakh Hub API",
+        "message": "Codo Hub API",
         "version": "1.0.0",
         "endpoints": {
             "health": "GET /api/health",
@@ -220,7 +220,7 @@ async def api_root():
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "message": "Kazakh Hub API is running"}
+    return {"status": "ok", "message": "Codo Hub API is running"}
 
 # Include API routes
 app.include_router(api_router)
@@ -393,15 +393,22 @@ from config import (
     TERMINAL_INPUT_RATE_MAX, TERMINAL_INPUT_RATE_WINDOW,
 )
 
+# Қосылғаннан кейін токен келуін қанша күтеміз
+TERMINAL_AUTH_TIMEOUT_SECONDS = 10
+
 @app.websocket("/api/ws/terminal")
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
-    token: str = Query(None),
     project_id: str = Query(None, alias="projectId", max_length=64),
     cols: int = Query(80, ge=1, le=1000),
     rows: int = Query(24, ge=1, le=1000),
+    lang: str = Query("kk", max_length=8),
 ):
-    """WebSocket endpoint for terminal sessions in Vibecoding (requires JWT token)"""
+    """WebSocket endpoint for terminal sessions in Vibecoding.
+
+    The JWT is sent as the first message (``{"type": "auth", "token": ...}``),
+    not in the URL, so it never lands in server / proxy access logs.
+    """
     # Feature kill-switch.
     if not TERMINAL_ENABLED:
         await websocket.close(code=4004, reason="Terminal is disabled")
@@ -415,10 +422,19 @@ async def terminal_websocket_endpoint(
         await websocket.close(code=4003, reason="Origin not allowed")
         return
 
+    # Accept first: close codes sent before accept never reach the browser
+    # (it only sees 1006), and the token arrives as the first message.
+    await websocket.accept()
+
     # Validate JWT access token. Same strict validation as get_current_user
     # (type=="access" + live session_id match) so a revoked session can't open
     # a terminal WebSocket either.
-    if not token:
+    try:
+        auth_msg = await asyncio.wait_for(websocket.receive_json(), timeout=TERMINAL_AUTH_TIMEOUT_SECONDS)
+    except Exception:
+        auth_msg = None
+    token = auth_msg.get("token") if isinstance(auth_msg, dict) and auth_msg.get("type") == "auth" else None
+    if not isinstance(token, str) or not token:
         await websocket.close(code=4001, reason="Authentication required")
         return
 
@@ -445,9 +461,6 @@ async def terminal_websocket_endpoint(
     finally:
         db.close()
 
-    # Accept the WebSocket connection
-    await websocket.accept()
-
     # Create a new terminal session (enforces per-user / global caps)
     session = None
     output_task = None
@@ -467,9 +480,10 @@ async def terminal_websocket_endpoint(
         try:
             session = await terminal_manager.create_session(
                 user_id, cols, rows, cwd=cwd, project_id=project["id"] if project else None,
+                lang=lang,
             )
         except TerminalLimitError as e:
-            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.send_json({"type": "error", "code": e.code, "message": str(e)})
             await websocket.close(code=4008, reason="Session limit")
             return
 
@@ -494,6 +508,8 @@ async def terminal_websocket_endpoint(
                             "type": "exit",
                             "code": session.exit_code
                         })
+                        # Сокетті жабамыз — сессия лимиттегі орнын бос ұстамасын
+                        await websocket.close(code=1000, reason="Process exited")
                         break
                     await websocket.send_json({
                         "type": "output",
@@ -545,7 +561,7 @@ async def terminal_websocket_endpoint(
                     rate_count = 0
                 rate_count += 1
                 if rate_count > TERMINAL_INPUT_RATE_MAX:
-                    await websocket.send_json({"type": "error", "message": "Input rate limit exceeded"})
+                    await websocket.send_json({"type": "error", "code": "rateLimit", "message": "Input rate limit exceeded"})
                     await websocket.close(code=4008, reason="Rate limit")
                     break
 
@@ -577,7 +593,7 @@ async def terminal_websocket_endpoint(
     except Exception as e:
         logger.error(f"Terminal WebSocket error for user {user_id}: {e}")
         try:
-            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.send_json({"type": "error", "code": "serverError", "message": str(e)})
         except Exception:
             pass
     finally:

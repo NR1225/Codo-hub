@@ -56,7 +56,7 @@ def _build_reset_email_html(reset_link: str, username: str) -> str:
 <body>
 <div class="container">
   <div class="header">
-    <h1>Kazakh Hub</h1>
+    <h1>Codo Hub</h1>
   </div>
   <div class="body">
     <p>{greeting}</p>
@@ -82,7 +82,7 @@ def _build_reset_email_html(reset_link: str, username: str) -> str:
     </div>
   </div>
   <div class="footer">
-    <p>© Kazakh Hub — kazakhhub.com</p>
+    <p>© Codo Hub — kazakhhub.com</p>
   </div>
 </div>
 </body>
@@ -114,7 +114,7 @@ To reset your password, visit:
 
 This link expires in 1 hour.
 
-— Kazakh Hub
+— Codo Hub
 """
 
 

@@ -72,13 +72,26 @@ _UNIX_ENV_KEEP = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TZ")
 class TerminalLimitError(Exception):
     """Raised when a new session would exceed a configured cap."""
 
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        # Клиент осы код бойынша хабарды сайт тілінде көрсетеді
+        self.code = code
+
+
+# Сайт тілі → shell хабарларының тілі (gettext / .NET UI culture)
+_LANG_LOCALES = {
+    "kk": ("kk_KZ.UTF-8", "kk", "kk-KZ"),
+    "ru": ("ru_RU.UTF-8", "ru", "ru-RU"),
+    "en": ("en_US.UTF-8", "en", "en-US"),
+}
+
 
 def _safe_user_dir(user_id: str) -> str:
     """Per-user workspace directory, with the id sanitised to a safe basename."""
     return user_root(user_id)
 
 
-def _build_env(workspace: str) -> Dict[str, str]:
+def _build_env(workspace: str, lang: str = "en") -> Dict[str, str]:
     """Minimal, secret-free environment for the shell."""
     env: Dict[str, str] = {}
     keep = _WIN_ENV_KEEP if IS_WINDOWS else _UNIX_ENV_KEEP
@@ -105,6 +118,10 @@ def _build_env(workspace: str) -> Dict[str, str]:
         env["HOME"] = workspace
         env["TMPDIR"] = workspace
         env.setdefault("LANG", "C.UTF-8")
+        # Хабарлар сайт тілінде (аудармасы орнатылған бағдарламаларда ғана)
+        posix_locale, language, _ = _LANG_LOCALES.get(lang, _LANG_LOCALES["en"])
+        env["LC_MESSAGES"] = posix_locale
+        env["LANGUAGE"] = language
         # Промпт Windows-тағыдай: "kazakh-hub ~/жоба $"
         env["PS1"] = r"\[\e[1;36m\]kazakh-hub\[\e[0m\] \[\e[90m\]\w\[\e[0m\] \[\e[32m\]\$\[\e[0m\] "
     return env
@@ -136,7 +153,124 @@ def _unix_preexec():
     _set(resource.RLIMIT_CORE, (0, 0))
 
 
-def _shell_command() -> list:
+# `help` (аргументсіз) — сайт тіліндегі қысқа анықтама. PowerShell-дің өз
+# анықтамасы тек ағылшынша әрі «-- More --» беттеуімен шығады.
+_HELP_TEXT = {
+    "kk": {
+        "title": "Kazakh Hub терминалы — негізгі командалар",
+        "sections": [
+            ("Файлдар мен папкалар", [
+                ("ls", "папкадағы файлдар тізімі"),
+                ("cd <папка>", "папкаға кіру (cd .. — артқа)"),
+                ("mkdir <ат>", "жаңа папка"),
+                ("ni <файл>", "жаңа бос файл"),
+                ("cat <файл>", "файлдың ішін көрсету"),
+                ("cp <қайдан> <қайда>", "көшіру"),
+                ("mv <ескі> <жаңа>", "жылжыту / атын өзгерту"),
+                ("rm <ат>", "өшіру (папка: rm -r <ат>)"),
+            ]),
+            ("Бағдарламалар", [
+                ("python <файл>.py", "Python скриптін іске қосу"),
+                ("node <файл>.js", "JavaScript файлын іске қосу"),
+                ("npm install", "тәуелділіктерді орнату"),
+                ("npm run dev", "жобаны іске қосу"),
+                ("git status", "git күйі"),
+            ]),
+            ("Терминал", [
+                ("cls", "экранды тазалау"),
+                ("Ctrl+C", "команданы тоқтату"),
+                ("help <команда>", "команданың толық анықтамасы (ағылшынша)"),
+                ("exit", "терминалды жабу"),
+            ]),
+        ],
+        "note": "Мұнда жасалған файлдар редакторда да пайда болады.",
+    },
+    "ru": {
+        "title": "Терминал Kazakh Hub — основные команды",
+        "sections": [
+            ("Файлы и папки", [
+                ("ls", "список файлов в папке"),
+                ("cd <папка>", "перейти в папку (cd .. — назад)"),
+                ("mkdir <имя>", "новая папка"),
+                ("ni <файл>", "новый пустой файл"),
+                ("cat <файл>", "показать содержимое файла"),
+                ("cp <откуда> <куда>", "копировать"),
+                ("mv <старое> <новое>", "переместить / переименовать"),
+                ("rm <имя>", "удалить (папку: rm -r <имя>)"),
+            ]),
+            ("Программы", [
+                ("python <файл>.py", "запустить скрипт Python"),
+                ("node <файл>.js", "запустить файл JavaScript"),
+                ("npm install", "установить зависимости"),
+                ("npm run dev", "запустить проект"),
+                ("git status", "состояние git"),
+            ]),
+            ("Терминал", [
+                ("cls", "очистить экран"),
+                ("Ctrl+C", "остановить команду"),
+                ("help <команда>", "полная справка по команде"),
+                ("exit", "закрыть терминал"),
+            ]),
+        ],
+        "note": "Созданные здесь файлы появляются и в редакторе.",
+    },
+    "en": {
+        "title": "Kazakh Hub terminal — basic commands",
+        "sections": [
+            ("Files and folders", [
+                ("ls", "list files in the folder"),
+                ("cd <folder>", "enter a folder (cd .. — go back)"),
+                ("mkdir <name>", "new folder"),
+                ("ni <file>", "new empty file"),
+                ("cat <file>", "show a file's contents"),
+                ("cp <from> <to>", "copy"),
+                ("mv <old> <new>", "move / rename"),
+                ("rm <name>", "delete (folder: rm -r <name>)"),
+            ]),
+            ("Programs", [
+                ("python <file>.py", "run a Python script"),
+                ("node <file>.js", "run a JavaScript file"),
+                ("npm install", "install dependencies"),
+                ("npm run dev", "start the project"),
+                ("git status", "git status"),
+            ]),
+            ("Terminal", [
+                ("cls", "clear the screen"),
+                ("Ctrl+C", "stop a command"),
+                ("help <command>", "full help for a command"),
+                ("exit", "close the terminal"),
+            ]),
+        ],
+        "note": "Files created here also appear in the editor.",
+    },
+}
+
+
+def _ps_help_function(lang: str) -> str:
+    """PowerShell `help` функциясы: аргументсіз — біздің анықтама, әйтпесе Get-Help."""
+    text = _HELP_TEXT.get(lang, _HELP_TEXT["en"])
+
+    def q(value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    width = max(len(cmd) for _, rows in text["sections"] for cmd, _ in rows) + 2
+    lines = [f"Write-Host {q(text['title'])} -ForegroundColor White;"]
+    for heading, rows in text["sections"]:
+        lines.append(f"Write-Host '';Write-Host {q(heading)} -ForegroundColor Yellow;")
+        for cmd, desc in rows:
+            lines.append(
+                f"Write-Host {q('  ' + cmd.ljust(width))} -ForegroundColor Cyan -NoNewline;"
+                f"Write-Host {q(desc)} -ForegroundColor Gray;"
+            )
+    lines.append(f"Write-Host '';Write-Host {q(text['note'])} -ForegroundColor DarkGray;")
+    return (
+        "function help {"
+        " if($args.Count -eq 0){" + "".join(lines) + "}"
+        " else{Get-Help @args | Out-Host} };"
+    )
+
+
+def _shell_command(lang: str = "en") -> list:
     """Платформаға сай интерактивті shell.
 
     Windows: PowerShell (жоқ болса cmd.exe), Linux/macOS: bash (жоқ болса sh).
@@ -145,9 +279,14 @@ def _shell_command() -> list:
     if IS_WINDOWS:
         ps = shutil.which("pwsh") or shutil.which("powershell")
         if ps:
+            culture = _LANG_LOCALES.get(lang, _LANG_LOCALES["en"])[2]
             init = (
                 "[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+                # PowerShell хабарлары сайт тілінде (Windows тіл пакеті болса)
+                f"try{{[Globalization.CultureInfo]::DefaultThreadCurrentUICulture='{culture}';"
+                f"[Globalization.CultureInfo]::CurrentUICulture='{culture}'}}catch{{}};"
                 "$OutputEncoding=[Text.Encoding]::UTF8;"
+                + _ps_help_function(lang) +
                 "function prompt {"
                 " $p=(Get-Location).Path;"
                 " if($p.StartsWith($env:USERPROFILE)){$p='~'+$p.Substring($env:USERPROFILE.Length).Replace('\\','/')};"
@@ -177,8 +316,9 @@ class TerminalSession:
     """
 
     def __init__(self, session_id: str, user_id: str, cols: int = 80, rows: int = 24,
-                 cwd: Optional[str] = None, project_id: Optional[str] = None):
+                 cwd: Optional[str] = None, project_id: Optional[str] = None, lang: str = "en"):
         self.session_id = session_id
+        self.lang = lang if lang in _LANG_LOCALES else "en"
         self.user_id = user_id
         self.cols = cols
         self.rows = rows
@@ -210,8 +350,8 @@ class TerminalSession:
 
     async def start(self):
         """Start the shell process inside the sandbox."""
-        env = _build_env(self.workspace)
-        argv = _shell_command()
+        env = _build_env(self.workspace, self.lang)
+        argv = _shell_command(self.lang)
         loop = asyncio.get_running_loop()
         try:
             if IS_WINDOWS:
@@ -477,15 +617,16 @@ class TerminalManager:
         return sum(1 for s in self.sessions.values() if s.user_id == user_id)
 
     async def create_session(self, user_id: str, cols: int = 80, rows: int = 24,
-                             cwd: Optional[str] = None, project_id: Optional[str] = None) -> TerminalSession:
+                             cwd: Optional[str] = None, project_id: Optional[str] = None,
+                             lang: str = "en") -> TerminalSession:
         """Create a new sandboxed terminal session, enforcing caps."""
         if len(self.sessions) >= TERMINAL_MAX_SESSIONS_TOTAL:
-            raise TerminalLimitError("Server terminal capacity reached, try again later")
+            raise TerminalLimitError("Server terminal capacity reached, try again later", "limitTotal")
         if self._user_session_count(user_id) >= TERMINAL_MAX_SESSIONS_PER_USER:
-            raise TerminalLimitError("Too many open terminals for this account")
+            raise TerminalLimitError("Too many open terminals for this account", "limitUser")
 
         session_id = str(uuid.uuid4())
-        session = TerminalSession(session_id, user_id, cols, rows, cwd=cwd, project_id=project_id)
+        session = TerminalSession(session_id, user_id, cols, rows, cwd=cwd, project_id=project_id, lang=lang)
         await session.start()
         self.sessions[session_id] = session
         self._ensure_cleanup_task()

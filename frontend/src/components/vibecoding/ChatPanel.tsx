@@ -33,6 +33,7 @@ import {
   BurkitMessage,
 } from './useBurkitHistory';
 import { apiService, BurkitError, BurkitStatus, ProjectNotesDTO } from '../../utils/api';
+import { getWorkspaceSnapshot } from '../../utils/vibeActivity';
 
 /* Бүркіт — Vibecoding-тегі код көмекшісі (Google Gemini), Cursor сияқты: Agent режимінде
    жобаның файлдарына және оған автоматты байланысқан Notes папкасына өзі жазады, өзгерістер
@@ -41,6 +42,21 @@ import { apiService, BurkitError, BurkitStatus, ProjectNotesDTO } from '../../ut
 
 // Бүркітке жіберілетін соңғы хабарлар саны және ашық файлдың ең үлкен көлемі (backend шектеулері)
 const MAX_HISTORY = 20;
+
+// Үзілген жауапты жалғастыру сұрауы (чатта көрсетілмейді, тек Бүркітке барады)
+const CONTINUE_PROMPT =
+  '[Жүйелік хабар] Алдыңғы жауабың бет жаңартылғандықтан үзіліп қалды. Дәл тоқтаған жерінен жалғастыр: ' +
+  'бұрын жазылған мәтінді қайталама, кіріспе сөз жазба. Код блогының ортасында тоқтаған болсаң — блокты қайта ' +
+  'ашпай, келесі таңбадан бастап жалғастыр.';
+
+const clearPending = (list: BurkitMessage[]) =>
+  list.some((m) => m.pending) ? list.map((m) => (m.pending ? { ...m, pending: false } : m)) : list;
+
+/** Сайт тілі ('ru-RU' → 'ru'); белгісіз тіл — қазақша */
+function uiLanguageOf(lang: string | undefined): 'kk' | 'ru' | 'en' {
+  const code = (lang || 'kk').split('-')[0];
+  return code === 'ru' || code === 'en' ? code : 'kk';
+}
 const MAX_FILE_CHARS = 100_000;
 const AI_STUDIO_URL = 'https://aistudio.google.com/apikey';
 
@@ -263,13 +279,15 @@ async function copyText(text: string) {
 }
 
 const ChatPanel: React.FC = () => {
-  const { t } = useTranslation();
-  const { dispatch, activeFile, activeProject, isMobile, isTablet } = useVibecoding();
+  const { t, i18n } = useTranslation();
+  const { dispatch, activeFile, activeProject, openFiles, isMobile, isTablet, syncReady } = useVibecoding();
   const history = useBurkitHistory();
 
-  const [view, setView] = useState<'chat' | 'history'>('chat');
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<BurkitMessage[]>([]);
+  // Бет жаңартылса немесе панель жабылып-ашылса — сол чат пен көрініс қалпына келеді
+  const [initialActive] = useState(() => history.readActive());
+  const [view, setView] = useState<'chat' | 'history'>(initialActive.state.view);
+  const [conversationId, setConversationId] = useState<string | null>(initialActive.conversation?.id ?? null);
+  const [messages, setMessages] = useState<BurkitMessage[]>(initialActive.conversation?.messages ?? []);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -291,6 +309,8 @@ const ChatPanel: React.FC = () => {
   // Жауап келіп жатқанда жоба ауысса — файлдарға жазбаймыз
   const projectRef = useRef(activeProject);
   projectRef.current = activeProject;
+  const openFilesRef = useRef(openFiles);
+  openFilesRef.current = openFiles;
   // Тек жаңа хабар қосылғанда тарихқа сақтаймыз (тарихтан ашқанда — жоқ)
   const dirtyRef = useRef(false);
   const conversationsRef = useRef(history.conversations);
@@ -301,6 +321,23 @@ const ChatPanel: React.FC = () => {
   const needsKey = status?.source === 'none';
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Қолданушы анықталғанда (кіру аяқталғанда) — оның сақталған чатын ашу
+  const { key: historyKey, readActive, saveActive } = history;
+  const restoredKeyRef = useRef(historyKey);
+  useEffect(() => {
+    if (restoredKeyRef.current === historyKey) return;
+    restoredKeyRef.current = historyKey;
+    const { state, conversation } = readActive();
+    setConversationId(conversation?.id ?? null);
+    setMessages(conversation?.messages ?? []);
+    setView(state.view);
+  }, [historyKey, readActive]);
+
+  useEffect(() => {
+    if (restoredKeyRef.current !== historyKey) return; // әлі қалпына келтірілмеді
+    saveActive({ conversationId, view });
+  }, [conversationId, view, historyKey, saveActive]);
 
   useEffect(() => {
     apiService.getBurkitStatus().then(setStatus).catch(() => setStatus(null));
@@ -366,22 +403,28 @@ const ChatPanel: React.FC = () => {
   useEffect(() => setSlashIndex(0), [slashQuery]);
 
   // Бүркіттен жауап: мәтін бөлік-бөлік келіп, бір хабарға жиналады
-  const respond = useCallback(async (thread: BurkitMessage[], file: typeof activeFile) => {
+  // resume — үзілген жауап: жаңа мәтін соның соңына жалғанады
+  const respond = useCallback(async (thread: BurkitMessage[], file: typeof activeFile, resume?: BurkitMessage) => {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsLoading(true);
-    const replyId = generateId();
+    const replyId = resume?.id ?? generateId();
     const project = projectRef.current;
     const agent = mode === 'agent' && !!project;
-    let started = false;
-    let full = '';
-    let applied = 0;
+    let started = !!resume;
+    let full = resume?.content ?? '';
+    // Үзілгенге дейін жабылған блоктар файлдарға жазылып қойған — қайта жазбаймыз
+    let applied = resume ? extractCodeBlocks(full).length : 0;
     const write = (text: string, error?: boolean) => {
       const first = !started;
       started = true;
       dirtyRef.current = true;
       setMessages((prev) => (first
-        ? [...prev, { id: replyId, role: 'assistant', content: text, timestamp: new Date().toISOString(), error }]
+        ? [
+            // Жауап басталды — сұрақтың «күтуде» белгісі алынады
+            ...prev.map((m) => (m.pending && m.role === 'user' ? { ...m, pending: false } : m)),
+            { id: replyId, role: 'assistant', content: text, timestamp: new Date().toISOString(), error, pending: !error },
+          ]
         : prev.map((m) => (m.id === replyId ? { ...m, content: m.content + text } : m))));
     };
     const addEdit = (edit: BurkitEdit) => {
@@ -413,13 +456,18 @@ const ChatPanel: React.FC = () => {
     try {
       await apiService.streamBurkitChat(
         {
-          messages: thread
-            .filter((m) => !m.error)
-            .slice(-MAX_HISTORY)
-            .map((m) => ({ role: m.role, content: m.content })),
+          messages: [
+            ...thread
+              .filter((m) => !m.error)
+              .slice(-MAX_HISTORY)
+              .map((m) => ({ role: m.role, content: m.content })),
+            ...(resume ? [{ role: 'user' as const, content: CONTINUE_PROMPT }] : []),
+          ],
           fileName: file?.path,
           fileContent: file?.content.slice(0, MAX_FILE_CHARS),
           mode: agent ? 'agent' : 'ask',
+          uiLanguage: uiLanguageOf(i18n.language),
+          workspace: { ...getWorkspaceSnapshot(), openFiles: openFilesRef.current.slice(0, 200).map((f) => f.path) },
           ...(project && {
             projectId: project.id,
             projectName: project.name,
@@ -433,20 +481,25 @@ const ChatPanel: React.FC = () => {
         },
         controller.signal
       );
+      dirtyRef.current = true;
+      setMessages(clearPending);
     } catch (e) {
+      // Бет жаңартылды / панель жабылды — pending белгісі қалады, кейін жалғасады
+      // (қолданушы өзі тоқтатса — stop() белгіні алып тастайды)
       if (controller.signal.aborted) return;
       if (e instanceof BurkitError && e.status === 403) {
         setStatus((s) => (s ? { ...s, source: 'none', keyHint: null } : s));
         setKeyOpen(true);
       }
       write(`${started ? '\n\n' : ''}⚠️ ${e instanceof Error ? e.message : t('apiErrors.burkitFailed')}`, !started);
+      setMessages(clearPending);
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
         setIsLoading(false);
       }
     }
-  }, [t, mode, edits, refreshNotes]);
+  }, [t, i18n, mode, edits, refreshNotes]);
 
   const sendMessage = useCallback((text: string) => {
     const content = text.trim();
@@ -455,7 +508,7 @@ const ChatPanel: React.FC = () => {
     dirtyRef.current = true;
     const thread: BurkitMessage[] = [
       ...messages,
-      { id: generateId(), role: 'user', content, timestamp: new Date().toISOString(), context: contextFile?.name },
+      { id: generateId(), role: 'user', content, timestamp: new Date().toISOString(), context: contextFile?.name, pending: true },
     ];
     setMessages(thread);
     setInputValue('');
@@ -467,7 +520,22 @@ const ChatPanel: React.FC = () => {
     abortRef.current?.abort();
     abortRef.current = null;
     setIsLoading(false);
+    dirtyRef.current = true;
+    setMessages(clearPending);
   };
+
+  // Бет жаңартылғанда (немесе панель жабылып-ашылғанда) үзілген жауапты жалғастыру
+  const resumedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last?.pending || isLoading || !syncReady || !status || status.source === 'none') return;
+    if (resumedRef.current === last.id) return; // бір хабарды бір рет қана
+    resumedRef.current = last.id;
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    const file = lastUser?.context && activeFile?.name === lastUser.context ? activeFile : null;
+    if (last.role === 'assistant') respond(messages, file, last);
+    else respond(messages, file);
+  }, [messages, isLoading, syncReady, status, activeFile, respond]);
 
   // Соңғы жауапты қайта алу
   const regenerate = () => {

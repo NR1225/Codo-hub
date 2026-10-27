@@ -19,16 +19,27 @@ interface TermTab {
   projectId: string | null;
 }
 
-// Бастапқы карточкадағы пернелер тізімі
-const KEYS: { keys: string[]; labelKey: string; fallback: string }[] = [
-  { keys: ['Ctrl', 'J'], labelKey: 'vibecoding.terminal.keyToggle', fallback: 'Ашу / жабу' },
-  { keys: ['Ctrl', 'Shift', '`'], labelKey: 'vibecoding.terminal.keyNewTab', fallback: 'Жаңа терминал' },
-  { keys: ['Ctrl', 'C'], labelKey: 'vibecoding.terminal.keyStop', fallback: 'Тоқтату' },
-  { keys: ['Esc'], labelKey: 'vibecoding.terminal.keyRestore', fallback: 'Кішірейту' },
-];
-
 let tabSeq = 0;
 const newTabId = () => `term-${Date.now().toString(36)}-${++tabSeq}`;
+
+// Ашық табтар бет жаңартылғанда (немесе панель жабылып-ашылғанда) қалпына келеді —
+// әр таб қайта қосылып, жаңа shell сессиясын ашады
+const TABS_KEY = 'vibe-terminal-tabs';
+
+function loadTabs(): { tabs: TermTab[]; activeId: string | null } {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TABS_KEY) || 'null');
+    if (raw && Array.isArray(raw.tabs)) {
+      const tabs: TermTab[] = raw.tabs
+        .filter((x: unknown): x is TermTab => !!x && typeof (x as TermTab).id === 'string')
+        .slice(0, MAX_TABS)
+        .map((x: TermTab) => ({ id: x.id, projectId: typeof x.projectId === 'string' ? x.projectId : null }));
+      const activeId = tabs.some(x => x.id === raw.activeId) ? raw.activeId : tabs[0]?.id ?? null;
+      return { tabs, activeId };
+    }
+  } catch { /* бұзылған жазба */ }
+  return { tabs: [], activeId: null };
+}
 
 // ─── Бір терминал (бір таб = бір shell сессиясы) ──────────────────────
 
@@ -48,31 +59,25 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({ tab, a
   const { t } = useTranslation();
   const { getAccessToken } = useAuth();
   const { dispatch } = useVibecoding();
-  const [connecting, setConnecting] = useState(true);
-
   // Терминалда жасалған/өзгерген/өшірілген файлдар — редакторға
   const onFsChanges = useCallback((projectId: string, changes: WorkspaceChanges) => {
     dispatch({ type: 'APPLY_WORKSPACE_CHANGES', payload: { projectId, changes } });
   }, [dispatch]);
 
-  const { terminalRef, isConnected, error, connect, clear, focus, fit, requestSync } = useTerminal({
+  const { terminalRef, status, error, connect, clear, focus, fit, requestSync } = useTerminal({
     projectId: tab.projectId,
     onFsChanges,
   });
 
   useImperativeHandle(ref, () => ({ clear, sync: requestSync, focus }), [clear, requestSync, focus]);
 
-  const start = useCallback(async () => {
-    setConnecting(true);
-    try {
-      const token = await getAccessToken();
-      if (token) connect(token);
-    } catch (err) {
-      console.error('Failed to connect terminal:', err);
-    } finally {
-      setConnecting(false);
-    }
-  }, [getAccessToken, connect]);
+  // Токен 5 минут сайын жаңарады — қайта қосылу әрқашан ең соңғысын алсын
+  const getTokenRef = useRef(getAccessToken);
+  getTokenRef.current = getAccessToken;
+
+  const start = useCallback(() => {
+    connect(async () => getTokenRef.current());
+  }, [connect]);
 
   // Таб ашылғанда бірден қосыламыз
   useEffect(() => {
@@ -81,8 +86,8 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({ tab, a
   }, []);
 
   useEffect(() => {
-    onStatus(tab.id, isConnected ? 'on' : connecting ? 'wait' : 'off', error);
-  }, [tab.id, isConnected, connecting, error, onStatus]);
+    onStatus(tab.id, status === 'open' ? 'on' : status === 'connecting' ? 'wait' : 'off', error);
+  }, [tab.id, status, error, onStatus]);
 
   // Белсенді болғанда — өлшемді түзетіп, курсорды терминалға қою
   useEffect(() => {
@@ -100,7 +105,8 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({ tab, a
         ref={(el) => { (terminalRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         className="vx-term__screen"
       />
-      {!isConnected && !connecting && (
+      {/* Батырма тек байланыс шынымен тоқтағанда — қосылу/қайта қосылу кезінде емес */}
+      {status === 'closed' && (
         <div className="vx-term__offline">
           <button type="button" onClick={start} className="vx-term__connect">
             <PlugIcon size={13} />
@@ -117,9 +123,16 @@ TerminalView.displayName = 'TerminalView';
 
 const TerminalPanel: React.FC = () => {
   const { t } = useTranslation();
-  const { state, activeProject, flushProjects } = useVibecoding();
-  const [tabs, setTabs] = useState<TermTab[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const { state, dispatch, activeProject, flushProjects } = useVibecoding();
+  const [initialTabs] = useState(loadTabs);
+  const [tabs, setTabs] = useState<TermTab[]>(initialTabs.tabs);
+  const [activeId, setActiveId] = useState<string | null>(initialTabs.activeId);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TABS_KEY, JSON.stringify({ tabs, activeId }));
+    } catch { /* жеке терезе — тек осы сессияда */ }
+  }, [tabs, activeId]);
   const [statuses, setStatuses] = useState<Record<string, { status: TabStatus; error: string | null }>>({});
   const [isMaximized, setIsMaximized] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -159,7 +172,14 @@ const TerminalPanel: React.FC = () => {
       return rest;
     });
     views.current.delete(id);
-  }, [tabs, activeId]);
+    // Соңғы терминал жабылса — панель де жабылады (VS Code сияқты)
+    if (next.length === 0) dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: false });
+  }, [tabs, activeId, dispatch]);
+
+  // Панель ашылғанда терминал жоқ болса — бірден жаңасын ашамыз (VS Code: Ctrl+`)
+  useEffect(() => {
+    if (state.bottomPanelVisible && tabs.length === 0 && !opening) void addTab();
+  }, [state.bottomPanelVisible, tabs.length, opening, addTab]);
 
   // Ctrl+Shift+` — жаңа терминал (VS Code сияқты); Esc — жайылғанды кішірейту
   useEffect(() => {
@@ -183,12 +203,6 @@ const TerminalPanel: React.FC = () => {
     return same.length > 1 ? `${name} ${same.indexOf(tab) + 1}` : name;
   };
 
-  const status = activeStatus?.status ?? (opening ? 'wait' : 'off');
-  const statusText = status === 'on'
-    ? t('vibecoding.terminal.connected', 'Қосылды')
-    : status === 'wait'
-      ? t('vibecoding.terminal.connecting', 'Қосылу...')
-      : t('vibecoding.terminal.disconnected', 'Ажыратылған');
   const error = activeStatus?.error;
   const canAdd = tabs.length < MAX_TABS && !opening;
 
@@ -249,12 +263,6 @@ const TerminalPanel: React.FC = () => {
             <PlusIcon size={14} />
           </button>
 
-          {tabs.length > 0 && (
-            <span className={`vx-term__status is-${status}`}>
-              <span className="vx-term__dot" />
-              <span className="vx-term__status-text">{statusText}</span>
-            </span>
-          )}
           {error && <span className="vx-term__error" title={error}>{error}</span>}
 
           <div className="vx-term__actions">
@@ -314,54 +322,6 @@ const TerminalPanel: React.FC = () => {
             />
           ))}
 
-          {/* Бастапқы карточка — әлі бірде-бір терминал жоқ кезде */}
-          {tabs.length === 0 && (
-            <div className="vx-term__intro">
-              <div className="vx-term__card">
-                <span className="vx-term__card-icon" style={{ '--d': 0 } as React.CSSProperties}>
-                  <TerminalIcon size={22} />
-                </span>
-                <h3 className="vx-term__card-title" style={{ '--d': 1 } as React.CSSProperties}>
-                  {t('vibecoding.terminal.introTitle', 'Терминал дайын')}
-                </h3>
-                <p className="vx-term__card-text" style={{ '--d': 2 } as React.CSSProperties}>
-                  {activeProject
-                    ? t('vibecoding.terminal.introProject', 'Терминал «{{name}}» жобасының папкасында ашылады — мұнда жасалған файлдар редакторда да пайда болады.', { name: activeProject.name })
-                    : t('vibecoding.terminal.introText', 'Командаларды тікелей браузерде орындаңыз. Бастау үшін сессияға қосылыңыз.')}
-                </p>
-
-                {/* Шағын «промпт» — терминалдың алдын ала көрінісі */}
-                <div className="vx-term__preview" style={{ '--d': 3 } as React.CSSProperties} aria-hidden="true">
-                  <span className="vx-term__preview-user">kazakh-hub</span>
-                  <span className="vx-term__preview-path">~/{activeProject?.name ?? 'project'}</span>
-                  <span className="vx-term__preview-sign">&gt;</span>
-                  <span className="vx-term__preview-cursor" />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => void addTab()}
-                  disabled={opening}
-                  className="vx-term__card-btn"
-                  style={{ '--d': 4 } as React.CSSProperties}
-                >
-                  <PlugIcon size={15} />
-                  {t('vibecoding.terminal.open', 'Терминал ашу')}
-                </button>
-
-                <div className="vx-term__keys">
-                  {KEYS.map((k, i) => (
-                    <div key={k.labelKey} className="vx-term__key" style={{ '--d': 5 + i } as React.CSSProperties}>
-                      <span>{t(k.labelKey, k.fallback)}</span>
-                      <span className="vx-term__kbd">
-                        {k.keys.map((key) => <kbd key={key}>{key}</kbd>)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

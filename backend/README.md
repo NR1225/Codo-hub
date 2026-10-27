@@ -1,6 +1,6 @@
-# Kazakh Hub Backend
+# Codo Hub Backend
 
-FastAPI backend for Kazakh Hub application.
+FastAPI backend for Codo Hub application.
 
 ## Features
 

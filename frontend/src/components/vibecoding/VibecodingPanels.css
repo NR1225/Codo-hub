@@ -2341,7 +2341,6 @@ body.is-panel-resizing .vibe-panel-bottom {
   --term-hover: #1a1a1a;
   --term-text: #f5f5f5;
   --term-muted: #8f8f8f;
-  --term-step: 32ms;
 
   position: relative;
   height: 100%;
@@ -2393,6 +2392,8 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-term.is-max {
   position: fixed;
   inset: 16px;
+  /* Сайт хедері (sticky, z-index жоғары) терминалдың үстін жаппасын */
+  top: calc(var(--header-h, 0px) + 16px);
   z-index: 300;
   border-color: #2a2a2a;
   border-radius: 20px;
@@ -2443,51 +2444,6 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
-}
-
-.vx-term__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 9px 0 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 0 0 1px var(--term-line);
-  color: var(--term-muted);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.vx-term__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #525252;
-}
-
-.vx-term__status.is-on {
-  color: var(--ide-success);
-  background: color-mix(in srgb, var(--ide-success) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ide-success) 25%, transparent);
-}
-.vx-term__status.is-on .vx-term__dot {
-  background: var(--ide-success);
-  box-shadow: 0 0 10px var(--ide-success);
-  animation: vxBreath 2.4s ease-in-out infinite;
-}
-
-.vx-term__status.is-wait {
-  color: var(--ide-dirty);
-  background: color-mix(in srgb, var(--ide-dirty) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ide-dirty) 25%, transparent);
-}
-.vx-term__status.is-wait .vx-term__dot {
-  background: var(--ide-dirty);
-  box-shadow: 0 0 10px var(--ide-dirty);
-  animation: vxBreath 0.9s ease-in-out infinite;
 }
 
 .vx-term__error {
@@ -2549,8 +2505,7 @@ body.is-panel-resizing .vibe-panel-bottom {
   box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.25);
 }
 
-.vx-term__connect,
-.vx-term__card-btn {
+.vx-term__connect {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2569,22 +2524,18 @@ body.is-panel-resizing .vibe-panel-bottom {
   transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.vx-term__connect:hover:not(:disabled),
-.vx-term__card-btn:hover:not(:disabled) {
+.vx-term__connect:hover:not(:disabled) {
   background: #fff;
   transform: translateY(-1px);
   box-shadow: 0 8px 28px -6px rgba(255, 255, 255, 0.35);
 }
 
-.vx-term__connect:active:not(:disabled),
-.vx-term__card-btn:active:not(:disabled) { transform: scale(0.97); }
+.vx-term__connect:active:not(:disabled) { transform: scale(0.97); }
 
-.vx-term__connect:disabled,
-.vx-term__card-btn:disabled { opacity: 0.55; cursor: wait; }
+.vx-term__connect:disabled { opacity: 0.55; cursor: wait; }
 
 .vx-term__action:focus-visible,
-.vx-term__connect:focus-visible,
-.vx-term__card-btn:focus-visible {
+.vx-term__connect:focus-visible {
   outline: 2px solid #fafafa;
   outline-offset: 2px;
 }
@@ -2719,157 +2670,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   animation: vxTermTabIn 0.35s var(--vx-spring) backwards;
 }
 
-/* ---------- Бастапқы карточка ---------- */
-.vx-term__intro {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  padding: 14px;
-  overflow: auto;
-  background:
-    radial-gradient(ellipse 60% 70% at 50% 40%, rgba(255, 255, 255, 0.045), transparent 70%),
-    linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
-}
-
-.vx-term__card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: min(440px, 100%);
-  text-align: center;
-}
-
-/* Элементтер толқын тәрізді кезекпен «секіреді» — sidebar жолдары сияқты */
-.vx-term__card > *,
-.vx-term__keys > * {
-  animation: vxTermRise 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  animation-delay: calc(0.12s + var(--d, 0) * var(--term-step));
-}
-
-.vx-term__card > .vx-term__keys { animation: none; }
-
-@keyframes vxTermRise {
-  from { opacity: 0; transform: translateY(10px) scale(0.96); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: none; }
-}
-
-.vx-term__card-icon {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 4px;
-  border-radius: 13px;
-  border: 1px solid var(--term-chip-border);
-  background: linear-gradient(180deg, #222 0%, #161616 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 32px -8px rgba(255, 255, 255, 0.25);
-  color: #fafafa;
-}
-
-.vx-term__card-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
-
-.vx-term__card-text {
-  max-width: 340px;
-  margin: 0;
-  color: var(--term-muted);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
-.vx-term__preview {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 8px;
-  padding: 8px 14px;
-  border-radius: 11px;
-  background: #050505;
-  box-shadow: inset 0 0 0 1px var(--term-line);
-  font-family: var(--vx-mono);
-  font-size: 12px;
-}
-
-.vx-term__preview-user { color: #e5e5e5; font-weight: 700; }
-.vx-term__preview-path { color: var(--term-muted); }
-.vx-term__preview-sign { color: var(--ide-success); }
-
-.vx-term__preview-cursor {
-  width: 7px;
-  height: 14px;
-  border-radius: 1.5px;
-  background: #fafafa;
-  animation: vxTermBlink 1.1s steps(1) infinite;
-}
-
-@keyframes vxTermBlink {
-  50% { opacity: 0; }
-}
-
-.vx-term__card-btn {
-  height: 38px;
-  margin-top: 8px;
-  padding: 0 20px;
-  border-radius: 12px;
-  font-size: 13px;
-}
-
-.vx-term__keys {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  width: 100%;
-  margin-top: 14px;
-}
-
-.vx-term__key {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  height: 34px;
-  padding: 0 8px 0 12px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.02);
-  box-shadow: inset 0 0 0 1px var(--term-line);
-  color: var(--term-muted);
-  font-size: 12px;
-  transition: color 0.15s ease, box-shadow 0.2s ease;
-}
-
-.vx-term__key:hover {
-  color: var(--term-text);
-  box-shadow: inset 0 0 0 1px #333, 0 0 22px -10px rgba(255, 255, 255, 0.35);
-}
-
-.vx-term__kbd { display: flex; gap: 3px; }
-
-.vx-term__kbd kbd {
-  min-width: 18px;
-  padding: 2px 5px;
-  border-radius: 6px;
-  background: var(--term-chip-bg);
-  box-shadow: inset 0 0 0 1px var(--term-chip-border), inset 0 -1px 0 #000;
-  color: #d4d4d4;
-  font-family: var(--vx-mono);
-  font-size: 10px;
-  text-align: center;
-}
-
 @media (max-width: 640px) {
-  .vx-term__status-text,
   .vx-term__connect span { display: none; }
   .vx-term__connect { width: 30px; padding: 0; }
   .vx-term__error { max-width: 30%; }
-  .vx-term__keys { grid-template-columns: 1fr; }
-  .vx-term.is-max { inset: 0; border-radius: 0; }
+  .vx-term.is-max { inset: 0; top: var(--header-h, 0px); border-radius: 0; }
 }
 
 .vibe-root .vx-term .xterm,
@@ -3088,14 +2893,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   .vx-orb svg,
   .vx-orb--spin::before,
   .vx-ai__msg,
-  .vx-term__dot,
   .vx-term,
   .vx-term::after,
   .vx-term.is-max,
   .vx-term__icon,
-  .vx-term__card > *,
-  .vx-term__keys > *,
-  .vx-term__preview-cursor,
   .vx-welcome__title,
   .vx-welcome__sub,
   .vx-welcome__actions,

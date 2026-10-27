@@ -71,15 +71,45 @@ def notes_context(db: Session, owner_id: str, folder: str) -> List[Dict[str, Any
     """Бүркітке: атауы + мазмұны (көлем шегіне дейін, асқандары — тек атауымен)"""
     budget = MAX_NOTES_CHARS
     out = []
-    for note in list_notes(db, owner_id, folder):
-        title = note.title if note.folder == folder else f"{note.folder[len(folder) + 1:]}/{note.title}"
-        content = note.content or ""
+
+    def add(title: str, content: str):
+        nonlocal budget
         if len(content) <= budget:
             budget -= len(content)
             out.append({"title": title, "content": content})
         else:
             out.append({"title": title, "content": None})
+
+    own = list_notes(db, owner_id, folder)
+    for note in own:
+        title = note.title if note.folder == folder else f"{note.folder[len(folder) + 1:]}/{note.title}"
+        add(title, note.content or "")
+
+    # Жоба жазбалары [[сілтеме]] арқылы папкадан тыс жазбаларға сілтесе — оларды да береміз (бір деңгей)
+    linked = {
+        m.strip().casefold()
+        for note in own
+        for m in WIKILINK.findall(note.content or "")
+    }
+    if linked:
+        seen = {n.id for n in own}
+        others = (
+            db.query(Note)
+            .filter(Note.owner_id == owner_id, Note.kind == "note")
+            .order_by(Note.updated_at.desc())
+            .all()
+        )
+        for note in others:
+            if note.id in seen or note.title.casefold() not in linked:
+                continue
+            seen.add(note.id)
+            path = f"{note.folder}/{note.title}" if note.folder else note.title
+            add(f"{path} (жоба жазбасы сілтейді)", note.content or "")
     return out
+
+
+# [[Атау]], [[Атау|бүркеншік]], [[Атау#тақырып]] → «Атау»
+WIKILINK = re.compile(r"\[\[([^\]|#^]+)")
 
 
 def upsert_note(db: Session, owner_id: str, folder: str, title: str, content: str) -> Dict[str, Any]:

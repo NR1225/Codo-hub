@@ -13,7 +13,7 @@ def _load_site_config() -> dict:
     path = Path(SITE_CONFIG_FILE)
     if not path.exists():
         return {
-            "appName": "Kazakh Hub",
+            "appName": "Codo Hub",
             "contact": {"email": "", "phone": "", "address": "", "addressEn": "Kazakhstan"},
             "externalLinks": [],
             "fileConfig": {

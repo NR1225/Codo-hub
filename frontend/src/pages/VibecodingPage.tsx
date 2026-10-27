@@ -21,6 +21,7 @@ const VibecodingPageInner: React.FC = () => {
   //   ?project=<id>  — Vibecoding жобасы
   //   ?repo=<codeId> — жүктелген жоба (бірінші рет ашылғанда Vibecoding-ке көшіріледі)
   //   &file=<path>   — ашылатын файл
+  //   &run=1         — ашылған соң бірден іске қосу (Кодты көру бетіндегі батырма)
   const handledLinkRef = useRef<string | null>(null);
   useEffect(() => {
     const projectId = searchParams.get('project');
@@ -30,6 +31,7 @@ const VibecodingPageInner: React.FC = () => {
     if (handledLinkRef.current === linkKey) return;
     handledLinkRef.current = linkKey;
     const path = searchParams.get('file') || undefined;
+    const shouldRun = searchParams.get('run') === '1';
 
     const openTarget = async () => {
       if (projectId) {
@@ -59,6 +61,10 @@ const VibecodingPageInner: React.FC = () => {
     };
 
     openTarget()
+      .then(() => {
+        // Жоба күйге түскен соң (келесі рендерден кейін) алдын ала көріністі іске қосамыз
+        if (shouldRun) setTimeout(() => window.dispatchEvent(new CustomEvent('vibecoding:run')), 150);
+      })
       .catch((err) => console.error('Failed to open project in Vibecoding:', err))
       .finally(() => setSearchParams({}, { replace: true }));
   }, [searchParams, setSearchParams, syncReady, state.projects, dispatch]);
@@ -72,8 +78,8 @@ const VibecodingPageInner: React.FC = () => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
 
-      // F5 → жобаны іске қосу (алдын ала көрініс)
-      if (e.key === 'F5' && !mod) {
+      // Ctrl+Enter → жобаны іске қосу (F5 браузердің өз жаңартуы болып қалады)
+      if (mod && !e.shiftKey && e.key === 'Enter') {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('vibecoding:run'));
         return;
@@ -156,7 +162,7 @@ const VibecodingPageInner: React.FC = () => {
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('vibecoding:run'))}
               className="vibe-run-btn"
-              title={`${t('vibecoding.preview.run', 'Іске қосу')} (F5)`}
+              title={`${t('vibecoding.preview.run', 'Іске қосу')} (Ctrl+Enter)`}
             >
               <PlayIcon size={13} />
               <span className="vibe-run-btn__text">{t('vibecoding.preview.run', 'Іске қосу')}</span>

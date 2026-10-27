@@ -57,6 +57,7 @@ export function codeSnippet(code: CodeFile): string {
 }
 
 export function folderEntries(code: CodeFile) {
+  if (code.isFolder && code.folderStats) return code.folderStats;
   if (!code.isFolder || !code.folderStructure) return { files: 0, folders: 0, names: [] as { name: string; type: string }[] };
   const values = Object.values(code.folderStructure);
   return {

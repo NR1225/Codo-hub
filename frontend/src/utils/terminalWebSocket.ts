@@ -1,8 +1,9 @@
 import { API_BASE_URL } from './constants';
+import i18n from '../i18n/config';
 import type { WorkspaceChanges } from '../contexts/VibecodingContext';
 
 type MessageType =
-  | 'input' | 'resize' | 'ping' | 'sync' | 'output' | 'connected' | 'disconnected'
+  | 'auth' | 'input' | 'resize' | 'ping' | 'sync' | 'output' | 'connected' | 'disconnected'
   | 'exit' | 'error' | 'pong' | 'fs-changes';
 
 interface TerminalMessage extends Partial<WorkspaceChanges> {
@@ -14,7 +15,7 @@ interface TerminalMessage extends Partial<WorkspaceChanges> {
   projectId?: string | null;
   mode?: string;
   platform?: string;
-  code?: number;
+  code?: number | string;
   message?: string;
 }
 
@@ -27,6 +28,9 @@ export interface TerminalSessionInfo {
   platform: string;
 }
 
+/** connecting — қосылып/қайта қосылып жатыр, open — shell дайын, closed — тоқтады */
+export type TerminalConnState = 'connecting' | 'open' | 'closed';
+
 export interface TerminalConnectOptions {
   projectId?: string | null;
   cols?: number;
@@ -37,32 +41,53 @@ class TerminalWebSocketService {
   private ws: WebSocket | null = null;
   private sessionId: string | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  // 1+2+...+8 с ≈ 36 с — сервер қайта іске қосылғанша күтуге жетеді
+  private maxReconnectAttempts = 8;
   private reconnectDelay = 1000;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private onOutput: ((data: string) => void) | null = null;
-  private onDisconnect: (() => void) | null = null;
+  private onDisconnect: ((willRetry: boolean) => void) | null = null;
+  private onState: ((state: TerminalConnState) => void) | null = null;
   private onConnect: ((info: TerminalSessionInfo) => void) | null = null;
   private onError: ((message: string) => void) | null = null;
   private onExit: ((code: number) => void) | null = null;
   private onFsChanges: ((projectId: string, changes: WorkspaceChanges) => void) | null = null;
   private shouldReconnect = true;
 
-  connect(token: string, options: TerminalConnectOptions = {}): void {
+  /**
+   * Әр қосылу (қайта қосылу да) алдында жаңа токен сұраймыз — access-токен 30 минутта ескіреді,
+   * ал ескі токенмен сервер қосылуды үнсіз қабылдамайды.
+   */
+  async connect(getToken: () => Promise<string | null>, options: TerminalConnectOptions = {}): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     this.shouldReconnect = true;
+    this.onState?.('connecting');
+    let token: string | null = null;
+    try {
+      token = await getToken();
+    } catch { /* төменде қате ретінде көрсетіледі */ }
+    if (!this.shouldReconnect) return; // күткен кезде ажыратылды
+    if (!token) {
+      this.onState?.('closed');
+      if (this.onError) this.onError(i18n.t('vibecoding.terminal.msg.loginRequired'));
+      return;
+    }
     const wsBaseUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/\/api$/, '');
-    const params = new URLSearchParams({ token });
+    // Токен URL-де емес, бірінші хабарда жіберіледі — сервер/прокси логтарына түспейді
+    const params = new URLSearchParams();
     if (options.projectId) params.set('projectId', options.projectId);
     if (options.cols) params.set('cols', String(options.cols));
     if (options.rows) params.set('rows', String(options.rows));
+    // Сайт тілі — сервер shell-дің хабар тілін (locale) соған қояды
+    params.set('lang', i18n.resolvedLanguage || i18n.language || 'kk');
     const url = `${wsBaseUrl}/api/ws/terminal?${params.toString()}`;
 
     try {
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
+        this.send({ type: 'auth', token });
         this.reconnectAttempts = 0;
         this.startPing();
       };
@@ -81,22 +106,29 @@ class TerminalWebSocketService {
 
       this.ws.onclose = (event) => {
         this.stopPing();
-        if (this.onDisconnect) this.onDisconnect();
         // Шектеу/рұқсат қателерінде (4001, 4003, 4004, 4008) қайта қосылудың мәні жоқ
         const fatal = event.code >= 4000 && event.code < 4100;
-        if (!fatal && this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        const willRetry = !fatal && this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts;
+        if (this.onDisconnect) this.onDisconnect(willRetry);
+        this.onState?.(willRetry ? 'connecting' : 'closed');
+        if (event.code === 4001 && this.onError) this.onError(i18n.t('vibecoding.terminal.msg.loginRequired'));
+        if (event.code === 4004 && this.onError) this.onError(i18n.t('vibecoding.terminal.msg.disabled'));
+        if (willRetry) {
           this.reconnectAttempts++;
           setTimeout(() => {
-            if (this.shouldReconnect) this.connect(token, options);
+            if (this.shouldReconnect) void this.connect(getToken, options);
           }, this.reconnectDelay * this.reconnectAttempts);
         }
       };
 
       this.ws.onerror = () => {
-        if (this.onError) this.onError('WebSocket қосылу қатесі');
+        // Қайта қосылу әлі жалғасып жатса — қатені көрсетпейміз (onclose өзі қайталайды)
+        if (this.reconnectAttempts < this.maxReconnectAttempts) return;
+        if (this.onError) this.onError(i18n.t('vibecoding.terminal.msg.socketError'));
       };
     } catch (err) {
-      if (this.onError) this.onError('Терминал қосылу сәтсіз');
+      this.onState?.('closed');
+      if (this.onError) this.onError(i18n.t('vibecoding.terminal.msg.connectFailed'));
     }
   }
 
@@ -104,6 +136,7 @@ class TerminalWebSocketService {
     switch (msg.type) {
       case 'connected':
         this.sessionId = msg.sessionId || null;
+        this.onState?.('open');
         if (this.onConnect && msg.sessionId) {
           this.onConnect({
             sessionId: msg.sessionId,
@@ -131,16 +164,23 @@ class TerminalWebSocketService {
       case 'pong':
         break;
       case 'exit':
-        if (this.onExit && msg.code !== undefined) {
+        if (this.onExit && typeof msg.code === 'number') {
           this.onExit(msg.code);
         }
         this.shouldReconnect = false;
+        this.onState?.('closed');
         break;
       case 'error':
-        if (this.onError) this.onError(msg.message || 'Белгісіз қате');
+        // Сервер қате кодын жібереді — мәтінді сайт тілінде көрсетеміз
+        if (this.onError) {
+          const key = typeof msg.code === 'string' ? `vibecoding.terminal.msg.${msg.code}` : '';
+          this.onError(key && i18n.exists(key)
+            ? i18n.t(key)
+            : msg.message || i18n.t('vibecoding.terminal.msg.unknownError'));
+        }
         break;
       case 'disconnected':
-        if (this.onDisconnect) this.onDisconnect();
+        if (this.onDisconnect) this.onDisconnect(false);
         break;
     }
   }
@@ -180,6 +220,11 @@ class TerminalWebSocketService {
     this.shouldReconnect = false;
     this.stopPing();
     if (this.ws) {
+      // Ескі сокеттің кеш келетін onclose-ы жаңа сессияның күйін бұзбасын
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
+      this.ws.onerror = null;
       this.ws.close();
       this.ws = null;
     }
@@ -189,8 +234,11 @@ class TerminalWebSocketService {
   setOnOutput(callback: (data: string) => void): void {
     this.onOutput = callback;
   }
-  setOnDisconnect(callback: () => void): void {
+  setOnDisconnect(callback: (willRetry: boolean) => void): void {
     this.onDisconnect = callback;
+  }
+  setOnState(callback: (state: TerminalConnState) => void): void {
+    this.onState = callback;
   }
   setOnConnect(callback: (info: TerminalSessionInfo) => void): void {
     this.onConnect = callback;

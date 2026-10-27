@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useBreakpoint, Breakpoint } from '../hooks/useBreakpoint';
 import { useAuth } from './AuthContext';
 import { apiService, VibecodingProjectDTO } from '../utils/api';
+import { logEvent } from '../utils/vibeActivity';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -593,6 +594,48 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
   }
 }
 
+// ─── Бүркітке арналған оқиғалар журналы ─────────────────────────────
+
+function describeAction(action: VibecodingAction, state: VibecodingState): { text: string; key?: string } | null {
+  const project = state.projects.find(p => p.id === state.activeProjectId);
+  const fileName = (id: string | null) => project?.files.find(f => f.id === id)?.path ?? '?';
+  const projectName = (id: string) => state.projects.find(p => p.id === id)?.name ?? '?';
+  switch (action.type) {
+    case 'CREATE_PROJECT': return { text: `Жаңа жоба жасалды: ${action.payload.name}` };
+    case 'DELETE_PROJECT': return { text: `Жоба жойылды: ${projectName(action.payload.projectId)}` };
+    case 'SWITCH_PROJECT': return { text: `Жобаға ауысты: ${projectName(action.payload.projectId)}` };
+    case 'RENAME_PROJECT': return { text: `Жоба атауы өзгертілді: ${action.payload.name}` };
+    case 'CREATE_FILE': return { text: `Файл жасалды: ${action.payload.path}` };
+    case 'DELETE_FILE': return { text: `Файл жойылды: ${fileName(action.payload.fileId)}` };
+    case 'CREATE_FOLDER': return { text: `Папка жасалды: ${action.payload.path}` };
+    case 'DELETE_FOLDER': return { text: `Папка жойылды: ${action.payload.path}` };
+    case 'RENAME_FILE': return { text: `Файл атауы өзгертілді: ${fileName(action.payload.fileId)} → ${action.payload.name}` };
+    case 'MOVE_PATH': return { text: `Жылжытылды: ${action.payload.from} → ${action.payload.to}` };
+    case 'UPDATE_FILE_CONTENT': {
+      const path = fileName(action.payload.fileId);
+      return { text: `Файл өңделді: ${path}`, key: `edit:${path}` };
+    }
+    case 'OPEN_FILE':
+    case 'SET_ACTIVE_FILE': {
+      const id = action.payload.fileId;
+      if (!id || id === state.activeFileId) return null;
+      return { text: `Файл ашылды: ${fileName(id)}` };
+    }
+    case 'CLOSE_FILE': return { text: `Файл жабылды: ${fileName(action.payload.fileId)}` };
+    case 'SAVE_FILE': return { text: `Сақталды: ${fileName(action.payload.fileId)}` };
+    case 'SAVE_ALL': return { text: 'Барлық файл сақталды' };
+    case 'APPLY_WORKSPACE_CHANGES': {
+      const { upserts, deletes } = action.payload.changes;
+      const parts = [
+        ...upserts.map(u => u.path),
+        ...deletes.map(d => `${d} (жойылды)`),
+      ];
+      return parts.length ? { text: `Терминалда өзгерген файлдар: ${parts.slice(0, 15).join(', ')}${parts.length > 15 ? '…' : ''}` } : null;
+    }
+    default: return null;
+  }
+}
+
 // ─── Context ──────────────────────────────────────────────────────────
 
 interface VibecodingContextType {
@@ -637,28 +680,64 @@ function loadState(): VibecodingState | null {
   return null;
 }
 
+// Панельдердің күйі жеке, кішкентай жазбада: жобалар көп болып негізгі жазба localStorage
+// шегінен (~5MB) асса да, сайдбар/терминал/ЖИ ашық-жабық күйі әрқашан сақталады.
+const LAYOUT_KEY = 'vibecoding_layout';
+type LayoutState = Pick<VibecodingState, 'leftPanelVisible' | 'rightPanelVisible' | 'bottomPanelVisible' | 'panelSizes'>;
+
+function loadLayout(): Partial<LayoutState> | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+    if (!raw || typeof raw !== 'object') return null;
+    const layout: Partial<LayoutState> = {};
+    for (const key of ['leftPanelVisible', 'rightPanelVisible', 'bottomPanelVisible'] as const) {
+      if (typeof raw[key] === 'boolean') layout[key] = raw[key];
+    }
+    if (raw.panelSizes && typeof raw.panelSizes === 'object') layout.panelSizes = { ...DEFAULT_PANEL_SIZES, ...raw.panelSizes };
+    return layout;
+  } catch {
+    return null;
+  }
+}
+
+function saveLayout(layout: LayoutState) {
+  try {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+  } catch { /* ignore */ }
+}
+
 function saveState(state: VibecodingState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* ignore */ }
+  } catch (err) {
+    // Әдетте — жад шегі толды (жобалар тым үлкен). Жобалар серверде сақталады.
+    console.warn('Vibecoding state was not saved to localStorage:', err);
+  }
 }
 
 // Әр ашылғанда localStorage-тан қайта оқылады — модуль жүктелген кездегі
 // ескі күй қолданылмауы үшін (мысалы, басты беттен басқа жоба таңдалғанда).
 function createInitialState(): VibecodingState {
+  const layout = loadLayout();
   const saved = loadState();
-  if (saved) return saved;
+  if (import.meta.env.DEV) {
+    console.warn('[vibe-layout] init', JSON.stringify(layout), 'saved:', !!saved, `width=${window.innerWidth}`);
+  }
+  if (saved) return { ...saved, ...layout };
   const defaultProject = createDefaultProject();
+  // Сақталған күй жоқ — тар экранда панельдер жабық басталады
+  const width = typeof window !== 'undefined' ? window.innerWidth : 1280;
   return {
     projects: [defaultProject],
     activeProjectId: defaultProject.id,
     openFileIds: [defaultProject.files[0].id],
     activeFileId: defaultProject.files[0].id,
     panelSizes: DEFAULT_PANEL_SIZES,
-    leftPanelVisible: true,
-    rightPanelVisible: true,
-    bottomPanelVisible: true,
+    leftPanelVisible: width >= 1024,
+    rightPanelVisible: width >= 1024,
+    bottomPanelVisible: width >= 768,
     editorSettings: DEFAULT_EDITOR_SETTINGS,
+    ...layout,
   };
 }
 
@@ -699,7 +778,19 @@ interface VibecodingProviderProps {
 }
 
 export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children }) => {
-  const [state, dispatch] = useReducer(vibecodingReducer, undefined, createInitialState);
+  const [state, rawDispatch] = useReducer(vibecodingReducer, undefined, createInitialState);
+  // Әр әрекет Бүркітке арналған оқиғалар журналына да жазылады
+  const logStateRef = useRef(state);
+  logStateRef.current = state;
+  const dispatch = useCallback<React.Dispatch<VibecodingAction>>((action) => {
+    const entry = describeAction(action, logStateRef.current);
+    if (entry) logEvent(entry.text, entry.key);
+    // DEV диагностика: панельді не жауып жатқанын көру үшін (кейін алынады)
+    if (import.meta.env.DEV && /PANEL/.test(action.type)) {
+      console.warn('[vibe-layout]', action.type, 'payload' in action ? action.payload : '', `width=${window.innerWidth}`, new Error().stack);
+    }
+    rawDispatch(action);
+  }, []);
   const { breakpoint, isMobile, isTablet, isDesktop } = useBreakpoint();
 
   const activeProject = state.projects.find(p => p.id === state.activeProjectId) || null;
@@ -710,8 +801,14 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
         .filter((f): f is VirtualFile => f !== undefined)
     : [];
 
-  // Auto-hide panels on mobile/tablet breakpoint changes
+  // Auto-hide panels on mobile/tablet breakpoint changes.
+  // Бет ашылғанда сақталған күй (ашық сайдбар/терминал/ЖИ) өзгермейді — панельдер тек экран
+  // өлшемі сессия ішінде шынымен ауысқанда жасырылады. Алдыңғы мәнмен салыстырамыз: StrictMode
+  // effect-ті екі рет іске қосса да, бет ашылғанда ештеңе жабылмайды.
+  const prevBreakpointRef = useRef(breakpoint);
   useEffect(() => {
+    if (prevBreakpointRef.current === breakpoint) return;
+    prevBreakpointRef.current = breakpoint;
     if (isMobile) {
       dispatch({ type: 'SET_LEFT_PANEL_VISIBLE', payload: false });
       dispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: false });
@@ -722,7 +819,7 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
       // Keep bottom panel visible on tablet (toggle by user)
     }
     // On desktop, respect saved state (no auto-change)
-  }, [isMobile, isTablet]);
+  }, [breakpoint, isMobile, isTablet, dispatch]);
 
   // ── Сервермен синхрондау: кіргенде жүктеу, өзгергенде сақтау ──
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -819,6 +916,42 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     return () => clearTimeout(timer);
   }, [state]);
 
+  // Панель күйі тек ОСЫ табта өзгергенде жазылады. Әйтпесе фонда ашық тұрған басқа Vibecoding
+  // табы (жобасы синхрондалған сайын) өзінің ескі күйін (мысалы, бәрі жабық) үстінен жазып жіберетін.
+  const { leftPanelVisible, rightPanelVisible, bottomPanelVisible, panelSizes } = state;
+  const layoutMountedRef = useRef(false);
+  useEffect(() => {
+    if (!layoutMountedRef.current) {
+      layoutMountedRef.current = true;
+      return;
+    }
+    saveLayout({ leftPanelVisible, rightPanelVisible, bottomPanelVisible, panelSizes });
+  }, [leftPanelVisible, rightPanelVisible, bottomPanelVisible, panelSizes]);
+
+  // Басқа табта панель ашылса/жабылса — бұл табта да солай (күйлер бір-бірін ескіртпейді)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== LAYOUT_KEY) return;
+      const layout = loadLayout();
+      if (!layout) return;
+      if (layout.leftPanelVisible !== undefined) rawDispatch({ type: 'SET_LEFT_PANEL_VISIBLE', payload: layout.leftPanelVisible });
+      if (layout.rightPanelVisible !== undefined) rawDispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: layout.rightPanelVisible });
+      if (layout.bottomPanelVisible !== undefined) rawDispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: layout.bottomPanelVisible });
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Бет жаңартылар/жабылар алдында — 500ms күтпей бірден сақтау
+  useEffect(() => {
+    const flush = () => saveState(stateRef.current);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush(); // беттен шыққанда (басқа бетке өту)
+    };
+  }, []);
+
   const contextValue = useCallback(() => ({
     state,
     dispatch,
@@ -832,7 +965,7 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     isDesktop,
     syncReady,
     flushProjects: flushToServer,
-  }), [state, activeProject, activeFile, openFiles, breakpoint, isMobile, isTablet, isDesktop, syncReady, flushToServer]);
+  }), [state, dispatch, activeProject, activeFile, openFiles, breakpoint, isMobile, isTablet, isDesktop, syncReady, flushToServer]);
 
   return (
     <VibecodingContext.Provider value={contextValue()}>

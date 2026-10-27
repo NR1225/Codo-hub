@@ -1,684 +1,562 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTrash, faHeart, faCheck, faCopy, faComment, faDownload, faPaperPlane, faEllipsisVertical, faImage, faChevronDown, faChevronUp, faTimes } from '@fortawesome/free-solid-svg-icons';
-import { faHeart as faRegHeartRegular } from '@fortawesome/free-regular-svg-icons';
 import { CodeFile, Comment } from '../utils/api';
 import { apiService } from '../utils/api';
 import { subscribeToCode, unsubscribe } from '../utils/realtimeService';
+import { useAuth } from '../contexts/AuthContext';
 import CodeEditor from '../components/CodeEditor';
-import FileExplorer from '../components/FileExplorer';
-import UploadModal from '../components/modals/UploadModal';
-import Button from '../components/ui/Button';
 import { isImageFile } from '../utils/fileHandler';
-import { formatDate as formatDateUtil, formatDateTime } from '../utils/dateFormatter';
+import { formatDate, formatDateTime } from '../utils/dateFormatter';
+import { monogram } from '../components/home/monogram';
+import {
+  ArrowLeftIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  ChevronIcon,
+  CloseIcon,
+  CommentIcon,
+  CopyIcon,
+  DownloadIcon,
+  EditIcon,
+  EyeIcon,
+  FileIcon,
+  FolderIcon,
+  HeartIcon,
+  ImageIcon,
+  MoreIcon,
+  PlayIcon,
+  ReplyIcon,
+  TrashIcon,
+} from '../components/home/icons';
 import './ViewCode.css';
+
+type CurrentUser = { id: string; username: string } | null;
+
+// Тар экранда панельдер қойындылар арқылы ауысады (CSS ≤960px)
+type MobileTab = 'files' | 'code' | 'comments';
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+// Сурет мазмұны data URL, сілтеме немесе таза base64 болуы мүмкін
+function imageSrc(file: CodeFile): string {
+  const content = file.content;
+  if (/^(data:|https?:\/\/)/.test(content)) return content;
+  const ext = file.title.split('.').pop()?.toLowerCase() || 'png';
+  const mime: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp',
+  };
+  return `data:${mime[ext] || 'image/png'};base64,${content}`;
+}
+
+// Пікір мәтіні + <img> тегтері. Тек http(s) және data:image сілтемелері рұқсат (XSS-тен қорғау)
+function renderCommentContent(content: string) {
+  return content.split(/(<img[^>]*>)/).map((part, index) => {
+    if (part.startsWith('<img')) {
+      const src = part.match(/src="([^"]*)"/)?.[1];
+      if (src) {
+        if (!/^https?:\/\//i.test(src) && !/^data:image\//i.test(src)) {
+          return <span key={index}>[image blocked]</span>;
+        }
+        return <img key={index} src={src} alt="" className="vc-comment__img" />;
+      }
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
+
+// Пікір мен жауапқа сурет тіркеу — data URL ретінде оқылады
+function readImage(
+  e: React.ChangeEvent<HTMLInputElement>,
+  t: (key: string) => string,
+  onLoad: (dataUrl: string) => void
+) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert(t('viewCode.errorImageFilesOnly'));
+    return;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    alert(t('viewCode.errorImageSizeLimit'));
+    return;
+  }
+  const reader = new FileReader();
+  reader.onloadend = () => onLoad(reader.result as string);
+  reader.onerror = () => alert(t('viewCode.errorReadImage'));
+  reader.readAsDataURL(file);
+}
+
+function withImage(text: string, image: string | null): string {
+  const trimmed = text.trim();
+  if (!image) return trimmed;
+  const tag = `<img src="${image}" alt="Comment image" />`;
+  return trimmed ? `${trimmed}\n${tag}` : tag;
+}
+
+// Жоғары деңгейлі пікір, астында оның барлық жауаптары (тегіс тізім, рекурсивті)
+function organizeComments(comments: Comment[]): Comment[] {
+  const topLevel: Comment[] = [];
+  const replies: Record<string, Comment[]> = {};
+  comments.forEach((c) => {
+    if (c.parentId) (replies[c.parentId] ||= []).push(c);
+    else topLevel.push(c);
+  });
+  const walk = (c: Comment): Comment[] => [c, ...(replies[c.id] || []).flatMap(walk)];
+  return topLevel.flatMap(walk);
+}
+
+/* ---------- Файлдар ағашы ---------- */
+
+interface TreeNode {
+  name: string;
+  path: string;
+  children: TreeNode[];
+  file?: CodeFile;
+}
+
+function buildTree(files: CodeFile[]): TreeNode[] {
+  const root: TreeNode = { name: '', path: '', children: [] };
+  for (const file of files) {
+    const parts = (file.folderPath || file.title).split('/').filter(Boolean);
+    let node = root;
+    parts.forEach((part, i) => {
+      const isLeaf = i === parts.length - 1;
+      let child = node.children.find((c) => c.name === part && !!c.file === isLeaf);
+      if (!child) {
+        child = { name: part, path: parts.slice(0, i + 1).join('/'), children: [], file: isLeaf ? file : undefined };
+        node.children.push(child);
+      }
+      node = child;
+    });
+  }
+  // Алдымен папкалар, сосын файлдар — әліпби бойынша
+  const sort = (nodes: TreeNode[]) => {
+    nodes.sort((a, b) => Number(!!a.file) - Number(!!b.file) || a.name.localeCompare(b.name));
+    nodes.forEach((n) => sort(n.children));
+  };
+  sort(root.children);
+  return root.children;
+}
+
+interface FileTreeProps {
+  nodes: TreeNode[];
+  depth?: number;
+  selectedId?: string;
+  collapsed: Set<string>;
+  onToggle: (path: string) => void;
+  onSelect: (file: CodeFile) => void;
+}
+
+const FileTree: React.FC<FileTreeProps> = ({ nodes, depth = 0, selectedId, collapsed, onToggle, onSelect }) => (
+  <ul className="vc-tree" role={depth === 0 ? 'tree' : 'group'}>
+    {nodes.map((node) => {
+      const isOpen = !collapsed.has(node.path);
+      return (
+        <li key={node.path} role="treeitem" aria-expanded={node.file ? undefined : isOpen}>
+          <button
+            type="button"
+            className={`vc-tree__row ${node.file && node.file.id === selectedId ? 'is-active' : ''}`}
+            style={{ paddingLeft: 10 + depth * 14 }}
+            onClick={() => (node.file ? onSelect(node.file) : onToggle(node.path))}
+            title={node.path}
+          >
+            {node.file ? (
+              <span className="vc-tree__icon">{isImageFile(node.name) ? <ImageIcon size={15} /> : <FileIcon size={15} />}</span>
+            ) : (
+              <span className={`vc-tree__chevron ${isOpen ? 'is-open' : ''}`}><ChevronIcon /></span>
+            )}
+            {!node.file && <span className="vc-tree__icon"><FolderIcon size={15} /></span>}
+            <span className="vc-tree__name">{node.name}</span>
+          </button>
+          {!node.file && isOpen && node.children.length > 0 && (
+            <FileTree
+              nodes={node.children}
+              depth={depth + 1}
+              selectedId={selectedId}
+              collapsed={collapsed}
+              onToggle={onToggle}
+              onSelect={onSelect}
+            />
+          )}
+        </li>
+      );
+    })}
+  </ul>
+);
+
+/* ---------- Пікір ---------- */
 
 interface CommentItemProps {
   comment: Comment;
-  currentUser: { id: string; username: string } | null;
-  editingCommentId: string | null;
-  editingCommentText: string;
-  setEditingCommentText: (text: string) => void;
-  replyingToCommentId: string | null;
-  replyText: string;
-  setReplyText: (text: string) => void;
-  replyImage: string | null;
-  setReplyImage: (image: string | null) => void;
-  isSubmittingReply: boolean;
-  onEdit: (comment: Comment) => void;
-  onSave: (commentId: string) => void;
+  parent?: Comment;
+  currentUser: CurrentUser;
+  avatar?: string;
+  language: string;
+  isEditing: boolean;
+  editText: string;
+  onEditTextChange: (text: string) => void;
+  onEdit: () => void;
+  onSave: () => void;
   onCancelEdit: () => void;
-  onDelete: (commentId: string) => void;
-  onReply: (commentId: string) => void;
-  onCancelReply: () => void;
-  onSubmitReply: (e: React.FormEvent, parentId: string) => void;
-  onLike: (commentId: string) => void;
-  allComments?: Comment[];
-  currentLanguage: string;
-  authorAvatar?: string;
-  onReplyImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDelete: () => void;
+  onReply: () => void;
+  onLike: () => void;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({
   comment,
+  parent,
   currentUser,
-  editingCommentId,
-  editingCommentText,
-  setEditingCommentText,
-  replyingToCommentId,
-  replyText,
-  setReplyText,
-  replyImage,
-  setReplyImage,
-  isSubmittingReply,
+  avatar,
+  language,
+  isEditing,
+  editText,
+  onEditTextChange,
   onEdit,
   onSave,
   onCancelEdit,
   onDelete,
   onReply,
-  onCancelReply,
-  onSubmitReply,
   onLike,
-  allComments = [],
-  currentLanguage,
-  authorAvatar,
-  onReplyImageSelect,
 }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isOwn = currentUser?.username === comment.author;
   const isLiked = currentUser ? comment.likes?.includes(currentUser.id) : false;
   const likeCount = comment.likes?.length || 0;
-  const isReply = comment.parentId ? true : false;
-  
-  // Find parent comment
-  const parentComment = comment.parentId 
-    ? allComments.find(c => c.id === comment.parentId)
-    : null;
 
-  const handleAvatarClick = () => {
-    navigate(`/profile/${comment.author}`);
-  };
-
-  // Close menu when clicking outside
-  const menuRef = useRef<HTMLDivElement>(null);
-  
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showActionsMenu && menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowActionsMenu(false);
-      }
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
-
-    if (showActionsMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showActionsMenu]);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
 
   return (
-    <div 
-      className={`relative w-full mb-4 md:mb-6 ${isReply ? 'ml-8 md:ml-12 pl-4 md:pl-6 border-l-2 border-l-blue-200 dark:border-l-blue-800' : ''}`}
-      data-comment-id={comment.id}
-    >
-      {isReply && parentComment && (
-        <div className="mb-2 md:mb-3 pl-3 md:pl-4 py-1.5 md:py-2 bg-[var(--primary-color)]/10 border-l-3 border-l-[var(--primary-color)] rounded-r-lg">
-          <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
-            <span className="text-[var(--primary-color)] font-semibold text-xs md:text-sm">{parentComment.author}</span>
-          </div>
-          <p className="text-[var(--text-secondary)] text-[10px] md:text-xs italic truncate">
-            {parentComment.content.length > 60 
-              ? parentComment.content.substring(0, 60) + '...' 
-              : parentComment.content}
-          </p>
-        </div>
-      )}
-      
-      <div className="flex gap-3 md:gap-4 w-full items-start">
-        {/* Avatar */}
-        <div
-          className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-[var(--primary-color)] flex items-center justify-center text-white font-semibold text-base md:text-lg flex-shrink-0 cursor-pointer shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 self-start overflow-hidden"
-          onClick={handleAvatarClick}
-          title={t('viewCode.viewProfile', { author: comment.author })}
-        >
-          {authorAvatar ? (
-            <img 
-              src={authorAvatar} 
-              alt={comment.author}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            comment.author.charAt(0).toUpperCase()
-          )}
-        </div>
-        
-        {/* Comment Body */}
-        <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-2 md:gap-3 mb-1.5 md:mb-2">
-            <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-              <span className="font-semibold text-[var(--text-primary)] text-sm md:text-base">
-                {comment.author}
-              </span>
-              <span className="text-xs text-[var(--text-secondary)]">
-                {formatDateTime(comment.createdAt, currentLanguage)}
-              </span>
-            </div>
-          </div>
-          
-          {/* Content */}
-          {editingCommentId === comment.id ? (
-            <div className="relative">
-              <textarea
-                className="w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 rounded-xl text-[var(--text-primary)] text-sm resize-y focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] transition-all duration-200"
-                value={editingCommentText}
-                onChange={(e) => setEditingCommentText(e.target.value)}
-                rows={3}
-              />
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  className="px-3 py-1.5 bg-[var(--primary-color)] hover:opacity-90 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
-                  onClick={() => onSave(comment.id)}
-                >
-                  {t('common.save')}
-                </button>
-                <button
-                  className="px-3 py-1.5 bg-[var(--bg-primary)] hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--primary-color)]/30 text-sm font-medium rounded-lg transition-all duration-200 active:scale-95"
-                  onClick={onCancelEdit}
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-[var(--bg-secondary)] rounded-xl md:rounded-2xl p-3 md:p-4 shadow-sm border border-[var(--primary-color)]/20 hover:border-[var(--primary-color)]/40 hover:shadow-md relative">
-              {currentUser && currentUser.username === comment.author && (
-                <div className="absolute top-2 right-2" ref={menuRef}>
-                  <button
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 text-[var(--text-secondary)] hover:text-[var(--primary-color)] transition-all duration-200 active:scale-95"
-                    onClick={() => setShowActionsMenu(!showActionsMenu)}
-                    title={t('viewCode.actionsTitle')}
-                  >
-                    <FontAwesomeIcon icon={faEllipsisVertical} className="w-4 h-4" />
+    <article className={`vc-comment ${comment.parentId ? 'is-reply' : ''}`} data-comment-id={comment.id}>
+      <Link to={`/profile/${comment.author}`} className="vc-avatar" title={t('viewCode.viewProfile', { author: comment.author })}>
+        {avatar ? <img src={avatar} alt="" /> : monogram(comment.author)}
+      </Link>
+
+      <div className="vc-comment__body">
+        <div className="vc-comment__head">
+          <Link to={`/profile/${comment.author}`} className="vc-comment__author">{comment.author}</Link>
+          <span className="vc-comment__time">{formatDateTime(comment.createdAt, language)}</span>
+          {isOwn && !isEditing && (
+            <div className="vc-menu vc-comment__menu" ref={menuRef}>
+              <button
+                type="button"
+                className="vc-icon-btn vc-icon-btn--sm"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label={t('viewCode.actionsTitle')}
+                aria-expanded={menuOpen}
+              >
+                <MoreIcon size={15} />
+              </button>
+              {menuOpen && (
+                <div className="vc-menu__list" role="menu">
+                  <button type="button" role="menuitem" className="vc-menu__item" onClick={() => { setMenuOpen(false); onEdit(); }}>
+                    <EditIcon size={15} /> {t('common.edit')}
                   </button>
-                  {showActionsMenu && (
-                    <div className="absolute top-full right-0 mt-2 w-40 bg-[var(--bg-secondary)] rounded-xl shadow-xl border border-[var(--primary-color)]/30 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <button
-                        className="w-full px-4 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--primary-color)]/10 hover:text-[var(--primary-color)] transition-colors flex items-center gap-2"
-                        onClick={() => {
-                          onEdit(comment);
-                          setShowActionsMenu(false);
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} className="w-3.5 h-3.5" />
-                        <span>{t('common.edit')}</span>
-                      </button>
-                      <button
-                        className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
-                        onClick={() => {
-                          onDelete(comment.id);
-                          setShowActionsMenu(false);
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
-                        <span>{t('common.delete')}</span>
-                      </button>
-                    </div>
-                  )}
+                  <button type="button" role="menuitem" className="vc-menu__item is-danger" onClick={() => { setMenuOpen(false); onDelete(); }}>
+                    <TrashIcon size={15} /> {t('common.delete')}
+                  </button>
                 </div>
               )}
-              <div className="text-[var(--text-primary)] text-xs md:text-sm leading-relaxed whitespace-pre-wrap break-words mb-2 md:mb-3">
-                {comment.content.split(/(<img[^>]*>)/).map((part, index) => {
-                  if (part.startsWith('<img')) {
-                    // Extract src from img tag
-                    const srcMatch = part.match(/src="([^"]*)"/);
-                    if (srcMatch) {
-                      const src = srcMatch[1];
-                      // Only allow http/https/data protocol URLs to prevent XSS
-                      if (!/^https?:\/\//i.test(src) && !/^data:image\//i.test(src)) {
-                        return <span key={index}>[image blocked]</span>;
-                      }
-                      return (
-                        <img
-                          key={index}
-                          src={src}
-                          alt="Comment image"
-                          className="max-w-full rounded-lg mt-2"
-                          style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px' }}
-                        />
-                      );
-                    }
-                  }
-                  return <span key={index}>{part}</span>;
-                })}
-              </div>
-              <div className="flex items-center justify-end gap-1.5 md:gap-2 pt-1.5 md:pt-2 border-t border-[var(--primary-color)]/20">
-                <button
-                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium active:scale-95 w-auto ${
-                    isLiked 
-                      ? 'bg-[var(--primary-color)]/20 text-[var(--primary-color)] border border-[var(--primary-color)]/40' 
-                      : 'bg-[var(--bg-primary)] text-[var(--text-secondary)] border border-[var(--primary-color)]/20 hover:border-[var(--primary-color)]/40 hover:text-[var(--primary-color)]'
-                  }`}
-                  onClick={() => onLike(comment.id)}
-                  disabled={!currentUser}
-                  title={t('common.like')}
-                >
-                  <span className="text-xs">👍</span>
-                  {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
-                </button>
-                {currentUser && (
-                  <button
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs font-medium bg-[var(--bg-primary)] text-[var(--text-secondary)] border border-[var(--primary-color)]/20 hover:border-[var(--primary-color)]/40 hover:text-[var(--primary-color)] active:scale-95 w-auto"
-                    onClick={() => onReply(comment.id)}
-                  >
-                    <FontAwesomeIcon icon={faComment} className="w-2.5 h-2.5" />
-                    <span className="text-xs">{t('viewCode.reply')}</span>
-                  </button>
-                )}
-              </div>
             </div>
           )}
         </div>
-      </div>
-      
-      {replyingToCommentId === comment.id && currentUser && (
-        <div className="mt-3 md:mt-4 ml-10 md:ml-16">
-          <div className="mb-2 md:mb-3 flex items-center justify-between gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 bg-[var(--primary-color)]/10 border border-[var(--primary-color)]/30 rounded-lg md:rounded-xl">
-            <span className="text-xs md:text-sm text-[var(--text-primary)]">
-              {t('viewCode.replyingTo')}: <strong className="text-[var(--primary-color)]">{comment.author}</strong>
-            </span>
+
+        {parent && (
+          <div className="vc-comment__quote">
+            <ReplyIcon size={12} />
+            <strong>{parent.author}</strong>
+            <span>{parent.content.replace(/<img[^>]*>/g, '🖼').slice(0, 80)}</span>
+          </div>
+        )}
+
+        {isEditing ? (
+          <div className="vc-comment__edit">
+            <textarea
+              className="vc-input"
+              value={editText}
+              onChange={(e) => onEditTextChange(e.target.value)}
+              rows={3}
+              autoFocus
+            />
+            <div className="vc-comment__edit-actions">
+              <button type="button" className="vc-btn vc-btn--ghost vc-btn--sm" onClick={onCancelEdit}>{t('common.cancel')}</button>
+              <button type="button" className="vc-btn vc-btn--primary vc-btn--sm" onClick={onSave} disabled={!editText.trim()}>{t('common.save')}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="vc-comment__text">{renderCommentContent(comment.content)}</div>
+        )}
+
+        {!isEditing && (
+          <div className="vc-comment__actions">
             <button
               type="button"
-              className="w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors"
-              onClick={onCancelReply}
+              className={`vc-chip-btn ${isLiked ? 'is-active' : ''}`}
+              onClick={onLike}
+              disabled={!currentUser}
+              aria-pressed={isLiked}
+              title={t('common.like')}
             >
-              <FontAwesomeIcon icon={faTimes} className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              <HeartIcon /> {likeCount > 0 && likeCount}
             </button>
-          </div>
-          <form
-            onSubmit={(e) => onSubmitReply(e, comment.id)}
-            className="p-3 md:p-4 bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 rounded-xl md:rounded-2xl shadow-lg backdrop-blur-sm focus-within:border-[var(--primary-color)] focus-within:shadow-xl transition-all duration-200"
-          >
-            <div className="flex items-end gap-2 md:gap-3">
-              <label className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-[var(--primary-color)] flex items-center justify-center text-white font-semibold flex-shrink-0 cursor-pointer shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 active:scale-95">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={onReplyImageSelect}
-                />
-                <FontAwesomeIcon icon={faImage} className="w-4 h-4" />
-              </label>
-              <div className="relative flex-1">
-                {replyImage && (
-                  <div className="mb-2 relative">
-                    <img
-                      src={replyImage}
-                      alt="Preview"
-                      className="max-w-full max-h-32 rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setReplyImage(null)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                <textarea
-                  className="w-full px-3 md:px-4 py-2 md:py-3 bg-[var(--bg-primary)] border border-[var(--primary-color)]/30 rounded-lg md:rounded-xl text-[var(--text-primary)] text-xs md:text-sm resize-y min-h-[60px] md:min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] transition-all duration-200 placeholder:text-[var(--text-secondary)]"
-                  placeholder={t('viewCode.replyPlaceholder')}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      onSubmitReply(e, comment.id);
-                    }
-                  }}
-                  rows={3}
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg md:rounded-xl bg-[var(--primary-color)] text-white border-none cursor-pointer transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                disabled={(!replyText.trim() && !replyImage) || isSubmittingReply}
-                title={isSubmittingReply ? t('common.loading') : t('viewCode.addReply')}
-              >
-                <FontAwesomeIcon icon={faPaperPlane} className="w-4 h-4" />
+            {currentUser && (
+              <button type="button" className="vc-chip-btn" onClick={onReply}>
+                <ReplyIcon size={14} /> {t('viewCode.reply')}
               </button>
-            </div>
-          </form>
-        </div>
-      )}
-    </div>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
   );
 };
+
+/* ---------- Бет ---------- */
 
 const ViewCode: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const currentLanguage = i18n.language;
+  const { user } = useAuth();
+  const language = i18n.language;
+  const currentUser: CurrentUser = user ? { id: user.id, username: user.username } : null;
+
   const [code, setCode] = useState<CodeFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
-  const [commentText, setCommentText] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editingCommentText, setEditingCommentText] = useState('');
-  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
-  const [commentImage, setCommentImage] = useState<string | null>(null);
-  const [replyImage, setReplyImage] = useState<string | null>(null);
+
   const [folderFiles, setFolderFiles] = useState<CodeFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<CodeFile | null>(null);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  // Папка файлдары content-сіз келеді — таңдалғанда ғана жүктеледі (id → content)
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+
+  const [mobileTab, setMobileTab] = useState<MobileTab>('code');
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const commentsContainerRef = useRef<HTMLDivElement>(null);
-  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (id) {
-      let cancelled = false;
-      const loadCodeWithCancel = async (codeId: string) => {
-        if (cancelled) return;
-        try {
-          setLoading(true);
-          const data = await apiService.getCodeFile(codeId);
-          if (cancelled) return;
-          setCode(data);
-          setError(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentImage, setCommentImage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [avatars, setAvatars] = useState<Record<string, string>>({});
 
-          // Load current user if not already loaded
-          if (!currentUser) {
-            await loadCurrentUser();
-          }
-          if (cancelled) return;
+  const menuRef = useRef<HTMLDivElement>(null);
+  const commentsRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const avatarsRequested = useRef<Set<string>>(new Set());
 
-          // Load avatars for comment authors
-          if (data.comments && data.comments.length > 0) {
-            loadCommentAuthorAvatars(data.comments);
-          }
-
-          // Increment view count
-          try {
-            const userId = currentUser?.id || (() => {
-              try {
-                const storedUser = localStorage.getItem('user');
-                if (storedUser) {
-                  const userData = JSON.parse(storedUser);
-                  return userData.id || null;
-                }
-              } catch (e) {
-                // Ignore
-              }
-              return null;
-            })();
-            const updatedCode = await apiService.incrementView(codeId, userId);
-            if (cancelled) return;
-            if (updatedCode) {
-              setCode(updatedCode);
-              if (updatedCode.comments && updatedCode.comments.length > 0) {
-                loadCommentAuthorAvatars(updatedCode.comments);
-              }
-            }
-          } catch (viewError) {
-            console.error('Failed to increment view:', viewError);
-          }
-
-          // Load files only if it's a folder
-          if (data.isFolder) {
-            await loadFolderFiles(codeId);
-          } else {
-            setFolderFiles([]);
-            setSelectedFile(null);
-          }
-        } catch (err) {
-          if (cancelled) return;
-          setError(err instanceof Error ? err.message : t('viewCode.errorLoadingCode'));
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      };
-
-      loadCodeWithCancel(id);
-
-      // Real-time listener қосу
-      const unsubscribeListener = subscribeToCode(
-        id,
-        (updatedCode) => {
-          if (cancelled) return;
-          setCode(updatedCode);
-          // Load avatars for comment authors if comments exist
-          if (updatedCode.comments && updatedCode.comments.length > 0) {
-            loadCommentAuthorAvatars(updatedCode.comments);
-          }
-          // Егер папка болса, файлдарды жүктеу
-          if (updatedCode.isFolder) {
-            loadFolderFiles(id);
-          } else {
-            // Егер папка емес болса, файлдарды тазалау
-            setFolderFiles([]);
-            setSelectedFile(null);
-          }
-        },
-        (error) => {
-          console.error('Real-time listener error:', error);
-          // Егер real-time жұмыс істемесе, қалыпты жолмен жүктеу
-          if (!code && !cancelled) {
-            loadCodeWithCancel(id);
-          }
-        }
-      );
-
-      return () => {
-        cancelled = true;
-        unsubscribeListener();
-        unsubscribe(`code-${id}`);
-      };
-    }
-  }, [id]);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (showActionsMenu && !target.closest('.code-actions-menu')) {
-        setShowActionsMenu(false);
-      }
-    };
-
-    if (showActionsMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showActionsMenu]);
-
-  // Auto-scroll to bottom when comments change
-  useEffect(() => {
-    if (commentsContainerRef.current && code?.comments && code.comments.length > 0) {
-      // Small delay to ensure DOM is updated
-      const scrollTimeout = setTimeout(() => {
-        if (commentsContainerRef.current) {
-          commentsContainerRef.current.scrollTo({
-            top: commentsContainerRef.current.scrollHeight,
-            behavior: 'smooth'
-          });
-        }
-      }, 100);
-      
-      return () => clearTimeout(scrollTimeout);
-    }
-  }, [code?.comments]);
-
-
-  const loadCurrentUser = async () => {
-    try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        setCurrentUser({ id: userData.id, username: userData.username });
-      }
-    } catch (err) {
-      console.error('Failed to load current user:', err);
-    }
-  };
-
-  const loadCommentAuthorAvatars = async (comments: Comment[]) => {
-    if (!comments || comments.length === 0) return;
-    
-    // Get unique authors
-    const uniqueAuthors = Array.from(new Set(comments.map(c => c.author)));
-    
-    // Filter out authors we already have avatars for
-    const authorsToLoad = uniqueAuthors.filter(author => !userAvatars[author]);
-    
-    if (authorsToLoad.length === 0) return;
-    
-    // Load avatars for each author
-    const avatarPromises = authorsToLoad.map(async (author) => {
-      try {
-        const user = await apiService.getUserByUsername(author);
-        return { author, avatar: user.avatar || undefined };
-      } catch (err) {
-        console.error(`Failed to load avatar for ${author}:`, err);
-        return { author, avatar: undefined };
-      }
+  const loadAvatars = useCallback((comments?: Comment[]) => {
+    const authors = Array.from(new Set((comments || []).map((c) => c.author)))
+      .filter((a) => !avatarsRequested.current.has(a));
+    if (authors.length === 0) return;
+    authors.forEach((a) => avatarsRequested.current.add(a));
+    Promise.all(
+      authors.map((author) =>
+        apiService.getUserByUsername(author)
+          .then((u) => [author, u.avatar] as const)
+          .catch(() => [author, undefined] as const)
+      )
+    ).then((results) => {
+      const found = Object.fromEntries(results.filter(([, a]) => a)) as Record<string, string>;
+      if (Object.keys(found).length) setAvatars((prev) => ({ ...prev, ...found }));
     });
-    
-    const avatarResults = await Promise.all(avatarPromises);
-    const newAvatars: Record<string, string> = {};
-    
-    avatarResults.forEach(({ author, avatar }) => {
-      if (avatar) {
-        newAvatars[author] = avatar;
-      }
-    });
-    
-    if (Object.keys(newAvatars).length > 0) {
-      setUserAvatars(prev => ({ ...prev, ...newAvatars }));
-    }
-  };
+  }, []);
 
-  const loadCode = async (codeId: string) => {
-    try {
-      setLoading(true);
-      const data = await apiService.getCodeFile(codeId);
-      setCode(data);
-      setError(null);
-      
-      // Load current user if not already loaded
-      if (!currentUser) {
-        await loadCurrentUser();
-      }
-      
-      // Load avatars for comment authors
-      if (data.comments && data.comments.length > 0) {
-        loadCommentAuthorAvatars(data.comments);
-      }
-      
-      // Increment view count (after code is loaded)
-      try {
-        // Get current user from state or localStorage
-        const userId = currentUser?.id || (() => {
-          try {
-            const storedUser = localStorage.getItem('user');
-            if (storedUser) {
-              const userData = JSON.parse(storedUser);
-              return userData.id || null;
-            }
-          } catch (e) {
-            // Ignore
-          }
-          return null;
-        })();
-        const updatedCode = await apiService.incrementView(codeId, userId);
-        if (updatedCode) {
-          setCode(updatedCode);
-          // Load avatars for new comments if any
-          if (updatedCode.comments && updatedCode.comments.length > 0) {
-            loadCommentAuthorAvatars(updatedCode.comments);
-          }
-        }
-      } catch (viewError) {
-        // Silently fail if view increment fails
-        console.error('Failed to increment view:', viewError);
-      }
-      
-      // Load files only if it's a folder
-      if (data.isFolder) {
-        await loadFolderFiles(codeId);
-      } else {
-        // If it's not a folder, clear folder files
-        setFolderFiles([]);
-        setSelectedFile(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('viewCode.errorLoadingCode'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFolderFiles = async (folderId: string) => {
+  const loadFolderFiles = useCallback(async (folderId: string) => {
     try {
       setLoadingFiles(true);
-      const response = await apiService.getCodeFiles(folderId, 1000, 0, true);
-      const files = response.codes;
-      setFolderFiles(files);
-      if (files.length > 0) {
-        setSelectedFile(files[0]);
-      }
+      // content-сіз тізім: үлкен жобада барлық файл мазмұны ондаған МБ болады
+      const { codes } = await apiService.getCodeFiles(folderId, undefined, 0, false);
+      setFolderFiles(codes);
+      // Таңдалған файл жаңартылған тізімде болса — сол қалады
+      setSelectedFile((prev) => codes.find((f) => f.id === prev?.id) ?? codes[0] ?? null);
     } catch (err) {
       console.error('Failed to load folder files:', err);
     } finally {
       setLoadingFiles(false);
     }
+  }, []);
+
+  const applyCode = useCallback((data: CodeFile) => {
+    setCode(data);
+    loadAvatars(data.comments);
+  }, [loadAvatars]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await apiService.getCodeFile(id, true);
+        if (cancelled) return;
+        applyCode(data);
+        setError(null);
+        setFileContents({});
+        if (data.isFolder) loadFolderFiles(id);
+        else {
+          setFolderFiles([]);
+          setSelectedFile(null);
+        }
+        // Жауап жеңіл нұсқа — тек қаралым санағын жаңартамыз
+        apiService.incrementView(id, user?.id ?? null)
+          .then((updated) => {
+            if (cancelled || !updated) return;
+            setCode((prev) => (prev && prev.id === updated.id
+              ? { ...prev, views: updated.views, viewedBy: updated.viewedBy }
+              : prev));
+          })
+          .catch((err) => console.error('Failed to increment view:', err));
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('viewCode.errorLoadingCode'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+
+    const unsubscribeListener = subscribeToCode(
+      id,
+      (updated) => {
+        if (cancelled) return;
+        applyCode(updated);
+        if (updated.isFolder) loadFolderFiles(id);
+      },
+      (err) => console.error('Real-time listener error:', err)
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribeListener();
+      unsubscribe(`code-${id}`);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
+
+  // Жаңа пікір қосылғанда — тізім соңына айналдыру
+  const commentCount = code?.comments?.length || 0;
+  useEffect(() => {
+    const el = commentsRef.current;
+    if (el && commentCount > 0) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [commentCount]);
+
+  const tree = useMemo(() => buildTree(folderFiles), [folderFiles]);
+  const comments = useMemo(() => organizeComments(code?.comments || []), [code?.comments]);
+  const commentById = useMemo(
+    () => Object.fromEntries((code?.comments || []).map((c) => [c.id, c])) as Record<string, Comment>,
+    [code?.comments]
+  );
+
+  const isOwner = !!code && currentUser?.username === code.author;
+  const isLiked = !!code && !!currentUser && !!code.likes?.includes(currentUser.id);
+  const likeCount = code?.likes?.length || 0;
+  // Таңдалған файлдың мазмұнын бір рет жүктеу
+  const selectedId = selectedFile?.id;
+  const selectedHasInlineContent = selectedFile?.content !== undefined;
+  const selectedContentLoaded = !!selectedId && selectedId in fileContents;
+  useEffect(() => {
+    if (!selectedId || selectedHasInlineContent || selectedContentLoaded) return;
+    let cancelled = false;
+    apiService.getCodeFile(selectedId)
+      .then((file) => { if (!cancelled) setFileContents((prev) => ({ ...prev, [selectedId]: file.content ?? '' })); })
+      .catch((err) => {
+        console.error('Failed to load file content:', err);
+        if (!cancelled) setFileContents((prev) => ({ ...prev, [selectedId]: '' }));
+      });
+    return () => { cancelled = true; };
+  }, [selectedId, selectedHasInlineContent, selectedContentLoaded]);
+
+  // Ортада көрсетілетін файл: папкада — таңдалғаны, әйтпесе кодтың өзі
+  const contentLoading = !!code?.isFolder && !!selectedFile && !selectedHasInlineContent && !selectedContentLoaded;
+  const activeFile = useMemo(() => {
+    if (!code?.isFolder) return code;
+    if (!selectedFile) return null;
+    return { ...selectedFile, content: selectedFile.content ?? fileContents[selectedFile.id] ?? '' };
+  }, [code, selectedFile, fileContents]);
+
+  /* ----- Әрекеттер ----- */
+
+  // Жоба Vibecoding-ке көшіріліп, бірден іске қосылады
+  const handleRun = () => {
+    if (!code) return;
+    const params = new URLSearchParams({ repo: code.id, run: '1' });
+    if (code.isFolder && selectedFile) params.set('file', selectedFile.folderPath || selectedFile.title);
+    navigate(`/vibecoding?${params.toString()}`);
+  };
+
+  const handleCopy = async () => {
+    if (!activeFile || contentLoading) return;
+    try {
+      if (isImageFile(activeFile.title)) {
+        const blob = await (await fetch(imageSrc(activeFile))).blob();
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      } else {
+        await navigator.clipboard.writeText(activeFile.content);
+      }
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const handleExportFolder = async () => {
-    if (!folderFiles || folderFiles.length === 0) {
+    if (folderFiles.length === 0) {
       alert(t('viewCode.noFilesToExport'));
       return;
     }
-
     try {
-      // jszip-ті тек қана экспорт кезінде динамикалық жүктеу (~100KB)
+      // jszip-ті тек экспорт кезінде динамикалық жүктеу (~100KB)
       const { default: JSZip } = await import('jszip');
+      // Тізімде content жоқ — экспорт кезінде ғана толық жүктейміз
+      const { codes: files } = await apiService.getCodeFiles(code!.id, undefined, 0, true);
       const zip = new JSZip();
-      
-      // Add all files to ZIP maintaining folder structure
-      for (const file of folderFiles) {
+      for (const file of files) {
         const filePath = file.folderPath || file.title;
-        
-        // Handle image files - convert base64 to blob
         if (isImageFile(file.title)) {
-          let imageData = file.content;
-          // If it's a data URL, extract base64 part
-          if (imageData.startsWith('data:')) {
-            const base64Match = imageData.match(/base64,(.+)/);
-            if (base64Match) {
-              imageData = base64Match[1];
-            }
-          }
-          zip.file(filePath, imageData, { base64: true });
+          const base64 = file.content.match(/base64,(.+)/)?.[1] ?? file.content;
+          zip.file(filePath, base64, { base64: true });
         } else {
-          // Text files
           zip.file(filePath, file.content);
         }
       }
-
-      // Generate ZIP file
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      
-      // Create download link
-      const url = URL.createObjectURL(zipBlob);
+      const url = URL.createObjectURL(await zip.generateAsync({ type: 'blob' }));
       const link = document.createElement('a');
       link.href = url;
       link.download = `${code?.title || 'folder'}.zip`;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to export folder:', err);
@@ -686,32 +564,9 @@ const ViewCode: React.FC = () => {
     }
   };
 
-  const handleFileSelect = (file: CodeFile) => {
-    setSelectedFile(file);
-  };
-
-  const handleUploadSuccess = async () => {
-    if (code && id) {
-      await loadFolderFiles(id);
-      await loadCode(id);
-    }
-  };
-
-  const handleDeleteCode = async () => {
-    if (!code || !currentUser) return;
-
-    // Тек автор ғана жоя алады (батырма тек авторға ғана көрсетіледі, бірақ қосымша қауіпсіздік үшін тексереміз)
-    if (code.author !== currentUser.username) {
-      alert(t('viewCode.errorOnlyAuthorCanDelete'));
-      return;
-    }
-
-    const confirmMessage = t('viewCode.deleteConfirmTitle', { title: code.title });
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
+  const handleDelete = async () => {
+    if (!code || !isOwner) return;
+    if (!confirm(t('viewCode.deleteConfirmTitle', { title: code.title }))) return;
     try {
       setIsDeleting(true);
       await apiService.deleteCodeFile(code.id);
@@ -719,12 +574,11 @@ const ViewCode: React.FC = () => {
     } catch (err) {
       console.error('Failed to delete code:', err);
       alert(t('viewCode.errorDeleteCode'));
-    } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleEditCode = () => {
+  const openEdit = () => {
     if (!code) return;
     setEditTitle(code.title);
     setEditDescription(code.description || '');
@@ -733,14 +587,13 @@ const ViewCode: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!code || !editTitle.trim()) return;
-
     try {
       setIsSaving(true);
-      const updatedCode = await apiService.updateCodeFile(code.id, {
+      const updated = await apiService.updateCodeFile(code.id, {
         title: editTitle.trim(),
         description: editDescription.trim() || undefined,
       });
-      setCode(updatedCode);
+      setCode(updated);
       setIsEditing(false);
     } catch (err) {
       console.error('Failed to update code:', err);
@@ -750,123 +603,66 @@ const ViewCode: React.FC = () => {
     }
   };
 
-  const handleCancelEditFolder = () => {
-    setIsEditing(false);
-    setEditTitle('');
-    setEditDescription('');
-  };
-
   const handleLike = async () => {
     if (!code || !currentUser) return;
-    
-    // Optimistic update - бірден state-ті өзгерту
-    const isLiked = code.likes?.includes(currentUser.id);
-    const currentLikes = code.likes || [];
-    const updatedLikes = isLiked
-      ? currentLikes.filter(id => id !== currentUser.id)
-      : [...currentLikes, currentUser.id];
-    
-    // Бірден state-ті жаңарту
-    setCode({
-      ...code,
-      likes: updatedLikes
-    });
-    
+    const previous = code.likes || [];
+    const likes = isLiked ? previous.filter((uid) => uid !== currentUser.id) : [...previous, currentUser.id];
+    setCode({ ...code, likes });
     try {
-      // API сұрауын жіберу
-      const updatedCode = isLiked
+      setCode(isLiked
         ? await apiService.unlikeCode(code.id, currentUser.id)
-        : await apiService.likeCode(code.id, currentUser.id);
-      setCode(updatedCode);
+        : await apiService.likeCode(code.id, currentUser.id));
     } catch (err) {
       console.error('Failed to toggle like:', err);
-      // Егер API сұрауы сәтсіз болса, state-ті қайтару
-      setCode({
-        ...code,
-        likes: currentLikes
-      });
+      setCode((prev) => (prev ? { ...prev, likes: previous } : prev));
     }
   };
 
-  const handleAddComment = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    if (!code || !currentUser || (!commentText.trim() && !commentImage)) return;
+  // Жаңа пікір немесе жауап — бір форма арқылы
+  const handleSubmitComment = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!code || !currentUser || isSubmitting || (!commentText.trim() && !commentImage)) return;
+    const content = withImage(commentText, commentImage);
+    const parent = replyTo;
+    const savedText = commentText;
+    const savedImage = commentImage;
 
-    // Build comment content with image if present
-    let commentContent = commentText.trim();
-    if (commentImage) {
-      const imageTag = `<img src="${commentImage}" alt="Comment image" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" />`;
-      commentContent = commentContent ? `${commentContent}\n${imageTag}` : imageTag;
-    }
+    setIsSubmitting(true);
+    setCommentText('');
+    setCommentImage(null);
+    setReplyTo(null);
 
-    const commentTextToAdd = commentContent;
-    setIsSubmittingComment(true);
-    
-    // Optimistic UI update - пікірді бірден көрсету
-    const optimisticComment: Comment = {
+    // Жай пікір бірден көрсетіледі (optimistic), жауап сервер жауабынан кейін
+    const temp: Comment | null = parent ? null : {
       id: `temp-${Date.now()}`,
       author: currentUser.username,
-      content: commentTextToAdd,
+      content,
       createdAt: new Date().toISOString(),
       likes: [],
     };
-    
-    setCode(prevCode => {
-      if (!prevCode) return prevCode;
-      return {
-        ...prevCode,
-        comments: [...(prevCode.comments || []), optimisticComment]
-      };
-    });
-    setCommentText('');
-    setCommentImage(null);
-    
+    if (temp) setCode((prev) => (prev ? { ...prev, comments: [...(prev.comments || []), temp] } : prev));
+
     try {
-      const updatedCode = await apiService.addComment(
-        code.id,
-        currentUser.username,
-        commentTextToAdd
-      );
-      setCode(updatedCode);
-      // Load avatars for comment authors
-      if (updatedCode.comments && updatedCode.comments.length > 0) {
-        loadCommentAuthorAvatars(updatedCode.comments);
-      }
+      const updated = parent
+        ? await apiService.addReply(code.id, parent.id, currentUser.username, content)
+        : await apiService.addComment(code.id, currentUser.username, content);
+      applyCode(updated);
     } catch (err) {
       console.error('Failed to add comment:', err);
-      // Optimistic update-ті к geri алу
-      setCode(prevCode => {
-        if (!prevCode) return prevCode;
-        return {
-          ...prevCode,
-          comments: (prevCode.comments || []).filter(c => c.id !== optimisticComment.id)
-        };
-      });
-      setCommentText(commentText.trim());
-      setCommentImage(commentImage);
-      alert(t('viewCode.errorAddComment'));
+      if (temp) setCode((prev) => (prev ? { ...prev, comments: (prev.comments || []).filter((c) => c.id !== temp.id) } : prev));
+      setCommentText(savedText);
+      setCommentImage(savedImage);
+      setReplyTo(parent);
+      alert(t(parent ? 'viewCode.errorAddReply' : 'viewCode.errorAddComment'));
     } finally {
-      setIsSubmittingComment(false);
+      setIsSubmitting(false);
     }
-  };
-
-  const handleEditComment = (comment: Comment) => {
-    setEditingCommentId(comment.id);
-    setEditingCommentText(comment.content);
   };
 
   const handleSaveComment = async (commentId: string) => {
     if (!code || !editingCommentText.trim()) return;
-
     try {
-      const updatedCode = await apiService.updateComment(
-        code.id,
-        commentId,
-        editingCommentText.trim()
-      );
-      setCode(updatedCode);
+      setCode(await apiService.updateComment(code.id, commentId, editingCommentText.trim()));
       setEditingCommentId(null);
       setEditingCommentText('');
     } catch (err) {
@@ -875,244 +671,52 @@ const ViewCode: React.FC = () => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingCommentId(null);
-    setEditingCommentText('');
-  };
-
   const handleDeleteComment = async (commentId: string) => {
-    if (!code) return;
-    
-    if (!confirm(t('viewCode.deleteConfirm'))) {
-      return;
-    }
-
+    if (!code || !confirm(t('viewCode.deleteConfirm'))) return;
     try {
-      const updatedCode = await apiService.deleteComment(code.id, commentId);
-      setCode(updatedCode);
+      setCode(await apiService.deleteComment(code.id, commentId));
     } catch (err) {
       console.error('Failed to delete comment:', err);
       alert(t('viewCode.errorDeleteComment'));
     }
   };
 
-  const handleReply = (commentId: string) => {
-    setReplyingToCommentId(commentId);
-    setReplyText('');
-  };
-
-  const handleCancelReply = () => {
-    setReplyingToCommentId(null);
-    setReplyText('');
-    setReplyImage(null);
-  };
-
-  const handleCommentImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert(t('viewCode.errorImageFilesOnly'));
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert(t('viewCode.errorImageSizeLimit'));
-      return;
-    }
-
-    try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setCommentImage(result);
-      };
-      reader.onerror = () => {
-        alert(t('viewCode.errorReadImage'));
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('Error reading image:', err);
-      alert(t('viewCode.errorProcessImage'));
-    }
-  };
-
-  const handleReplyImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert(t('viewCode.errorImageFilesOnly'));
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert(t('viewCode.errorImageSizeLimit'));
-      return;
-    }
-
-    try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setReplyImage(result);
-      };
-      reader.onerror = () => {
-        alert(t('viewCode.errorReadImage'));
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('Error reading image:', err);
-      alert(t('viewCode.errorProcessImage'));
-    }
-  };
-
-  const handleSubmitReply = async (e: React.FormEvent, parentId: string) => {
-    e.preventDefault();
-    if (!code || !currentUser || (!replyText.trim() && !replyImage)) return;
-
-    // Build reply content with image if present
-    let replyContent = replyText.trim();
-    if (replyImage) {
-      const imageTag = `<img src="${replyImage}" alt="Reply image" style="max-width: 100%; border-radius: 8px; margin-top: 8px;" />`;
-      replyContent = replyContent ? `${replyContent}\n${imageTag}` : imageTag;
-    }
-
-    setIsSubmittingReply(true);
-    try {
-      const updatedCode = await apiService.addReply(
-        code.id,
-        parentId,
-        currentUser.username,
-        replyContent
-      );
-      setCode(updatedCode);
-      // Load avatars for comment authors
-      if (updatedCode.comments && updatedCode.comments.length > 0) {
-        loadCommentAuthorAvatars(updatedCode.comments);
-      }
-      setReplyText('');
-      setReplyImage(null);
-      setReplyingToCommentId(null);
-      
-      // Жаңа жауапқа scroll жасау
-      setTimeout(() => {
-        const repliesContainer = document.querySelector(`[data-parent-id="${parentId}"]`);
-        if (repliesContainer) {
-          const replies = repliesContainer.querySelectorAll('[data-comment-id]');
-          if (replies.length > 0) {
-            const lastReply = replies[replies.length - 1] as HTMLElement;
-            lastReply.classList.add('animate-pulse');
-            lastReply.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // Анимациядан кейін классты алып тастау
-            setTimeout(() => {
-              lastReply.classList.remove('animate-pulse');
-            }, 1000);
-          }
-        }
-      }, 100);
-    } catch (err) {
-      console.error('Failed to add reply:', err);
-      alert(t('viewCode.errorAddReply'));
-    } finally {
-      setIsSubmittingReply(false);
-    }
-  };
-
   const handleLikeComment = async (commentId: string) => {
     if (!code || !currentUser) return;
-
-    // Find the comment
-    const comment = code.comments?.find(c => c.id === commentId);
-    if (!comment) return;
-
-    // Store original likes for rollback
-    const originalLikes = comment.likes || [];
-
-    // Optimistic UI update - update UI immediately
-    const isLiked = originalLikes.includes(currentUser.id);
-    const newLikes = isLiked
-      ? originalLikes.filter(id => id !== currentUser.id)
-      : [...originalLikes, currentUser.id];
-
-    // Update comment optimistically - update UI immediately
-    const updatedComments = (code.comments || []).map(c =>
-      c.id === commentId
-        ? { ...c, likes: newLikes }
-        : c
-    );
-    setCode({ ...code, comments: updatedComments });
-
+    const original = code.comments?.find((c) => c.id === commentId)?.likes || [];
+    const liked = original.includes(currentUser.id);
+    const likes = liked ? original.filter((uid) => uid !== currentUser.id) : [...original, currentUser.id];
+    const setLikes = (value: string[]) => setCode((prev) => prev && ({
+      ...prev,
+      comments: (prev.comments || []).map((c) => (c.id === commentId ? { ...c, likes: value } : c)),
+    }));
+    setLikes(likes);
     try {
-      // Then update server
-      const updatedCode = await apiService.likeComment(code.id, commentId, currentUser.id);
-      // Update with server response
-      setCode(updatedCode);
+      setCode(await apiService.likeComment(code.id, commentId, currentUser.id));
     } catch (err) {
       console.error('Failed to like comment:', err);
-      // Rollback on error - revert to original state
-      const originalComments = (code.comments || []).map(c =>
-        c.id === commentId
-          ? { ...c, likes: originalLikes }
-          : c
-      );
-      setCode({ ...code, comments: originalComments });
+      setLikes(original);
     }
   };
 
-
-  // Organize comments: top-level comments first, then all their replies below (flat structure, recursive)
-  const organizeComments = (comments: Comment[]): Comment[] => {
-    const topLevel: Comment[] = [];
-    const repliesMap: Record<string, Comment[]> = {};
-
-    // Separate top-level comments and replies
-    comments.forEach(comment => {
-      if (comment.parentId) {
-        if (!repliesMap[comment.parentId]) {
-          repliesMap[comment.parentId] = [];
-        }
-        repliesMap[comment.parentId].push(comment);
-      } else {
-        topLevel.push(comment);
-      }
-    });
-
-    // Recursive function to add comment and all its replies (flat structure)
-    const addCommentAndReplies = (comment: Comment): Comment[] => {
-      const result: Comment[] = [comment];
-      // Add all replies directly below the parent comment
-      if (repliesMap[comment.id]) {
-        repliesMap[comment.id].forEach(reply => {
-          // Recursively add reply and its own replies
-          result.push(...addCommentAndReplies(reply));
-        });
-      }
-      return result;
-    };
-
-    // Create flat list: top-level comment, then all its replies (recursively), then next top-level comment, etc.
-    const result: Comment[] = [];
-    topLevel.forEach(comment => {
-      result.push(...addCommentAndReplies(comment));
-    });
-
-    return result;
+  // Файл таңдалғанда телефонда бірден код қойындысына өтеміз
+  const selectFile = (file: CodeFile) => {
+    setSelectedFile(file);
+    setMobileTab('code');
   };
 
-  const isLiked = code && currentUser ? code.likes?.includes(currentUser.id) : false;
-  const likeCount = code?.likes?.length || 0;
+  const startReply = (comment: Comment) => {
+    setReplyTo(comment);
+    composerRef.current?.focus();
+  };
 
-  if (loading) {
+  /* ----- Күйлер ----- */
+
+  if (loading && !code) {
     return (
-      <div className="view-code-container">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
+      <div className="vc-page">
+        <div className="vc-state">
+          <span className="vc-spinner" aria-hidden="true" />
           <p>{t('common.loading')}</p>
         </div>
       </div>
@@ -1121,674 +725,349 @@ const ViewCode: React.FC = () => {
 
   if (error || !code) {
     return (
-      <div className="view-code-container">
-        <div className="error-state">
-          <p className="error-icon">❌</p>
-          <p className="error-title">{t('viewCode.error')}</p>
-          <p className="error-message">{error || t('viewCode.pageNotFound')}</p>
-          <Button onClick={() => navigate('/')} variant="primary">
+      <div className="vc-page">
+        <div className="vc-state">
+          <div className="vc-state__mark">404</div>
+          <h2>{t('viewCode.error')}</h2>
+          <p>{error || t('viewCode.pageNotFound')}</p>
+          <button type="button" className="vc-btn vc-btn--primary" onClick={() => navigate('/')}>
             {t('home.title')}
-          </Button>
+          </button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="view-code-container">
-      <button onClick={() => navigate(-1)} className="back-button">
-        ← {t('common.back')}
-      </button>
+  const tags = (code.tags || []).filter((tag) => tag.toLowerCase() !== 'folder');
+  const longDescription = (code.description?.length || 0) > 160;
 
-      <div className="code-header">
-        <div className="code-header-main">
-          <div className="code-header-top">
-            <div className="code-header-title-section">
-              <h1 className="code-title">{code.title}</h1>
-              {code.description && (
-                <div className="code-description-wrapper">
-                  <div className="code-description-content">
-                    <p className={`code-description ${isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
-                      {code.description}
-                    </p>
-                    {code.description.length > 100 && (
-                      <button
-                        className="code-description-toggle"
-                        onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                        title={isDescriptionExpanded ? t('common.hide') : t('viewCode.showMore')}
-                      >
-                        <FontAwesomeIcon icon={isDescriptionExpanded ? faChevronUp : faChevronDown} />
-                      </button>
-                    )}
-                  </div>
+  return (
+    <div className="vc-page">
+      {/* ---------- Жоғарғы панель: атауы, мета, әрекеттер ---------- */}
+      <header className="vc-panel vc-hero">
+        <button type="button" className="vc-icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')} title={t('common.back')}>
+          <ArrowLeftIcon />
+        </button>
+
+        <div className="vc-hero__mono" aria-hidden="true">
+          {code.isFolder ? <FolderIcon size={22} /> : monogram(code.title)}
+        </div>
+
+        <div className="vc-hero__info">
+          <h1 className="vc-hero__title">{code.title}</h1>
+          <div className="vc-hero__meta">
+            <Link to={`/profile/${code.author}`} className="vc-hero__author">
+              {isOwner ? t('viewCode.youLabel') : `@${code.author}`}
+            </Link>
+            <span className="vc-dot" />
+            <span>{formatDate(code.updatedAt || code.createdAt, language, 'long')}</span>
+            {code.language && (
+              <>
+                <span className="vc-dot" />
+                <span className="vc-tag vc-tag--lang">{code.language}</span>
+              </>
+            )}
+            {code.isFolder && (
+              <>
+                <span className="vc-dot" />
+                <span>{folderFiles.length} {t('viewCode.file')}</span>
+              </>
+            )}
+            <span className="vc-dot" />
+            <span className="vc-hero__stat"><EyeIcon /> {code.views || 0}</span>
+          </div>
+        </div>
+
+        <div className="vc-hero__actions">
+          <button
+            type="button"
+            className={`vc-btn vc-btn--ghost vc-like ${isLiked ? 'is-liked' : ''}`}
+            onClick={handleLike}
+            disabled={!currentUser}
+            aria-pressed={isLiked}
+            title={currentUser ? (isLiked ? t('viewCode.unlike') : t('viewCode.likeButton')) : t('viewCode.loginToLike')}
+          >
+            <HeartIcon /> <span>{likeCount}</span>
+          </button>
+
+          {code.isFolder && folderFiles.length > 0 && (
+            <button type="button" className="vc-btn vc-btn--ghost" onClick={handleExportFolder} title={t('viewCode.exportFolderTitle')}>
+              <DownloadIcon size={16} /> <span className="vc-btn__label">{t('viewCode.download')}</span>
+            </button>
+          )}
+
+          <button type="button" className="vc-btn vc-btn--primary vc-run" onClick={handleRun} title={t('viewCode.runTitle')}>
+            <PlayIcon size={16} /> {t('viewCode.run')}
+          </button>
+
+          {isOwner && (
+            <div className="vc-menu" ref={menuRef}>
+              <button
+                type="button"
+                className="vc-icon-btn"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label={t('viewCode.actionsTitle')}
+                aria-expanded={menuOpen}
+              >
+                <MoreIcon size={18} />
+              </button>
+              {menuOpen && (
+                <div className="vc-menu__list" role="menu">
+                  <button type="button" role="menuitem" className="vc-menu__item" onClick={() => { setMenuOpen(false); openEdit(); }}>
+                    <EditIcon size={15} /> {t('common.edit')}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="vc-menu__item is-danger"
+                    onClick={() => { setMenuOpen(false); handleDelete(); }}
+                    disabled={isDeleting}
+                  >
+                    <TrashIcon size={15} /> {isDeleting ? t('common.loading') : t('common.delete')}
+                  </button>
                 </div>
               )}
             </div>
-            {currentUser && code.author === currentUser.username && (
-              <div className="code-actions-menu">
-                <button
-                  className="btn-actions-menu-toggle"
-                  onClick={() => setShowActionsMenu(!showActionsMenu)}
-                  title={t('viewCode.actionsTitle')}
-                >
-                  <FontAwesomeIcon icon={faEllipsisVertical} />
-                </button>
-                {showActionsMenu && (
-                  <div className="actions-menu-dropdown">
-                    {currentUser && code.author === currentUser.username && (
-                      <button
-                        className="actions-menu-item"
-                        onClick={() => {
-                          handleEditCode();
-                          setShowActionsMenu(false);
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} /> {t('common.edit')}
-                      </button>
-                    )}
-                    {currentUser && code.author === currentUser.username && (
-                      <button
-                        className="actions-menu-item actions-menu-item-danger"
-                        onClick={() => {
-                          handleDeleteCode();
-                          setShowActionsMenu(false);
-                        }}
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? t('common.loading') : <><FontAwesomeIcon icon={faTrash} /> {t('common.delete')}</>}
-                      </button>
-                    )}
-                  </div>
+          )}
+        </div>
+
+        {(code.description || tags.length > 0) && (
+          <div className="vc-hero__extra">
+            {code.description && (
+              <p className={`vc-hero__desc ${descExpanded || !longDescription ? '' : 'is-clamped'}`}>
+                {code.description}
+                {longDescription && (
+                  <button type="button" className="vc-link" onClick={() => setDescExpanded((v) => !v)}>
+                    {descExpanded ? t('viewCode.showLess') : t('viewCode.showMore')}
+                  </button>
                 )}
+              </p>
+            )}
+            {tags.length > 0 && (
+              <div className="vc-hero__tags">
+                {tags.map((tag) => <span key={tag} className="vc-tag">#{tag}</span>)}
               </div>
             )}
           </div>
-        </div>
+        )}
+      </header>
 
-        <div className="code-meta-inline">
-          <span className="meta-item-inline">
-            <span className="meta-label">{t('viewCode.language')}:</span>
-            <span className="meta-value">{code.language}</span>
-          </span>
-          <span className="meta-item-inline">
-            <span className="meta-label">{t('viewCode.author')}:</span>
-            <span className="meta-value">{code.author === currentUser?.username ? t('viewCode.youLabel') : code.author}</span>
-          </span>
-          <span className="meta-item-inline">
-            <span className="meta-label">{t('viewCode.created')}:</span>
-            <span className="meta-value">{formatDateUtil(code.createdAt, currentLanguage, 'long')}</span>
-          </span>
-          <span className="meta-item-inline">
-            <span className="meta-label">{t('viewCode.updated')}:</span>
-            <span className="meta-value">{formatDateUtil(code.updatedAt, currentLanguage, 'long')}</span>
-          </span>
-        </div>
+      {/* ---------- Тар экранға арналған қойындылар ---------- */}
+      <nav className="vc-tabs" role="tablist" aria-label={code.title}>
+        {(code.isFolder ? (['files', 'code', 'comments'] as const) : (['code', 'comments'] as const)).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={mobileTab === tab}
+            className={`vc-tabs__item ${mobileTab === tab ? 'is-active' : ''}`}
+            onClick={() => setMobileTab(tab)}
+          >
+            {tab === 'files' && <><FolderIcon size={15} /> {t('viewCode.files')} <span className="vc-tabs__count">{folderFiles.length}</span></>}
+            {tab === 'code' && <><FileIcon size={15} /> {t('viewCode.codeTab')}</>}
+            {tab === 'comments' && <><CommentIcon /> {t('viewCode.comments')} <span className="vc-tabs__count">{commentCount}</span></>}
+          </button>
+        ))}
+      </nav>
 
-        {code.tags && code.tags.length > 0 && (
-          <div className="code-tags">
-            {code.tags.filter(tag => tag.toLowerCase() !== 'folder').map((tag, index) => (
-              <span key={index} className="tag">{tag}</span>
-            ))}
-          </div>
+      {/* ---------- Негізгі бөлік: файлдар · код · пікірлер ---------- */}
+      <div className={`vc-body ${code.isFolder ? 'has-files' : ''}`} data-tab={mobileTab}>
+        {code.isFolder && (
+          <aside className="vc-panel vc-files">
+            <div className="vc-panel__head">
+              <span className="vc-panel__title">{t('viewCode.files')}</span>
+              <span className="vc-count">{folderFiles.length}</span>
+            </div>
+            <div className="vc-panel__scroll">
+              {loadingFiles && folderFiles.length === 0 ? (
+                <div className="vc-skeleton">
+                  {Array.from({ length: 6 }, (_, i) => <span key={i} style={{ width: `${55 + ((i * 17) % 40)}%` }} />)}
+                </div>
+              ) : folderFiles.length === 0 ? (
+                <p className="vc-empty">{t('viewCode.noFilesYet')}</p>
+              ) : (
+                <FileTree
+                  nodes={tree}
+                  selectedId={selectedFile?.id}
+                  collapsed={collapsedDirs}
+                  onSelect={selectFile}
+                  onToggle={(path) => setCollapsedDirs((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(path)) next.delete(path);
+                    else next.add(path);
+                    return next;
+                  })}
+                />
+              )}
+            </div>
+          </aside>
         )}
 
-        <div className="code-header-actions">
-          <button
-            className={`like-button-header ${isLiked ? 'liked' : ''}`}
-            onClick={handleLike}
-            disabled={!currentUser}
-            title={currentUser ? (isLiked ? t('viewCode.unlike') : t('viewCode.likeButton')) : t('viewCode.loginToLike')}
-          >
-            <FontAwesomeIcon icon={isLiked ? faHeart : faRegHeartRegular} /> {likeCount}
-          </button>
-          {code.isFolder && folderFiles.length > 0 && (
-            <button
-              className="btn-export-folder"
-              onClick={handleExportFolder}
-              title={t('viewCode.exportFolderTitle')}
-            >
-              <FontAwesomeIcon icon={faDownload} /> {t('viewCode.exportFolder')}
-            </button>
+        <section className="vc-panel vc-code">
+          <div className="vc-panel__head">
+            <span className="vc-code__path" title={activeFile?.folderPath || activeFile?.title}>
+              {activeFile && (isImageFile(activeFile.title) ? <ImageIcon size={15} /> : <FileIcon size={15} />)}
+              <span>{activeFile ? (activeFile.folderPath || activeFile.title) : t('viewCode.noFileSelected')}</span>
+            </span>
+            {activeFile && (
+              <button type="button" className="vc-btn vc-btn--ghost vc-btn--sm" onClick={handleCopy}>
+                {isCopied ? <CheckIcon /> : <CopyIcon size={14} />}
+                <span className="vc-btn__label">
+                  {isImageFile(activeFile.title)
+                    ? t(isCopied ? 'viewCode.imageCopied' : 'viewCode.copyImage')
+                    : t(isCopied ? 'viewCode.codeCopied' : 'viewCode.copyCode')}
+                </span>
+              </button>
+            )}
+          </div>
+          <div className="vc-panel__scroll vc-code__body">
+            {!activeFile ? (
+              <p className="vc-empty">{loadingFiles ? t('viewCode.loadingFiles') : t('viewCode.noFileSelected')}</p>
+            ) : contentLoading ? (
+              <p className="vc-empty">{t('common.loading')}</p>
+            ) : isImageFile(activeFile.title) ? (
+              <div className="vc-image">
+                <img src={imageSrc(activeFile)} alt={activeFile.title} />
+              </div>
+            ) : (
+              <CodeEditor code={activeFile.content} language={activeFile.language} readOnly lineNumbers />
+            )}
+          </div>
+        </section>
+
+        <aside className="vc-panel vc-comments">
+          <div className="vc-panel__head">
+            <span className="vc-panel__title"><CommentIcon /> {t('viewCode.comments')}</span>
+            <span className="vc-count">{commentCount}</span>
+          </div>
+
+          <div className="vc-panel__scroll vc-comments__list" ref={commentsRef}>
+            {comments.length === 0 ? (
+              <p className="vc-empty">{t('viewCode.noComments')}</p>
+            ) : (
+              comments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  parent={comment.parentId ? commentById[comment.parentId] : undefined}
+                  currentUser={currentUser}
+                  avatar={avatars[comment.author]}
+                  language={language}
+                  isEditing={editingCommentId === comment.id}
+                  editText={editingCommentText}
+                  onEditTextChange={setEditingCommentText}
+                  onEdit={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }}
+                  onSave={() => handleSaveComment(comment.id)}
+                  onCancelEdit={() => { setEditingCommentId(null); setEditingCommentText(''); }}
+                  onDelete={() => handleDeleteComment(comment.id)}
+                  onReply={() => startReply(comment)}
+                  onLike={() => handleLikeComment(comment.id)}
+                />
+              ))
+            )}
+          </div>
+
+          {currentUser ? (
+            <form className="vc-composer" onSubmit={handleSubmitComment}>
+              {replyTo && (
+                <div className="vc-composer__reply">
+                  <ReplyIcon size={13} />
+                  <span>{t('viewCode.replyingTo')}: <strong>{replyTo.author}</strong></span>
+                  <button type="button" className="vc-icon-btn vc-icon-btn--xs" onClick={() => setReplyTo(null)} aria-label={t('common.cancel')}>
+                    <CloseIcon size={12} />
+                  </button>
+                </div>
+              )}
+              {commentImage && (
+                <div className="vc-composer__preview">
+                  <img src={commentImage} alt="" />
+                  <button type="button" className="vc-icon-btn vc-icon-btn--xs" onClick={() => setCommentImage(null)} aria-label={t('common.delete')}>
+                    <CloseIcon size={12} />
+                  </button>
+                </div>
+              )}
+              <div className="vc-composer__row">
+                <label className="vc-icon-btn" title={t('viewCode.attachImage')}>
+                  <input type="file" accept="image/*" hidden onChange={(e) => readImage(e, t, setCommentImage)} />
+                  <ImageIcon size={17} />
+                </label>
+                <textarea
+                  ref={composerRef}
+                  className="vc-composer__input"
+                  placeholder={replyTo ? t('viewCode.replyPlaceholder') : t('viewCode.commentPlaceholder')}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmitComment();
+                    }
+                    if (e.key === 'Escape' && replyTo) setReplyTo(null);
+                  }}
+                  rows={1}
+                />
+                <button
+                  type="submit"
+                  className="vc-send"
+                  disabled={(!commentText.trim() && !commentImage) || isSubmitting}
+                  aria-label={replyTo ? t('viewCode.addReply') : t('viewCode.addComment')}
+                >
+                  <ArrowUpIcon />
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="vc-composer vc-composer--guest">
+              <span>{t('viewCode.loginToComment')}</span>
+              <button type="button" className="vc-btn vc-btn--primary vc-btn--sm" onClick={() => navigate('/login')}>
+                {t('common.login')}
+              </button>
+            </div>
           )}
-        </div>
+        </aside>
       </div>
 
-      {/* Single file (non-folder) code view */}
-      {!code.isFolder && (
-        <>
-          <div className="code-content">
-            <div className="file-code-container">
-              {isImageFile(code.title) ? (
-                <div className="image-preview-wrapper">
-                  <div className="image-preview-container">
-                    <img
-                      src={(() => {
-                        const content = code.content;
-                        if (content.startsWith('data:') || content.startsWith('http://') || content.startsWith('https://')) {
-                          return content;
-                        }
-                        const ext = code.title.split('.').pop()?.toLowerCase() || 'png';
-                        const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
-                                       ext === 'png' ? 'image/png' :
-                                       ext === 'gif' ? 'image/gif' :
-                                       ext === 'webp' ? 'image/webp' :
-                                       ext === 'svg' ? 'image/svg+xml' :
-                                       ext === 'bmp' ? 'image/bmp' : 'image/png';
-                        return `data:${mimeType};base64,${content}`;
-                      })()}
-                      alt={code.title}
-                      className="image-preview"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'image-error';
-                        errorDiv.textContent = t('viewCode.errorDisplayImage');
-                        target.parentElement?.appendChild(errorDiv);
-                      }}
-                    />
-                  </div>
-                  <button
-                    className="btn-copy-code-sticky"
-                    onClick={async () => {
-                      try {
-                        const img = document.querySelector('.image-preview') as HTMLImageElement;
-                        if (img && img.src) {
-                          const response = await fetch(img.src);
-                          const blob = await response.blob();
-                          await navigator.clipboard.write([
-                            new ClipboardItem({ [blob.type]: blob })
-                          ]);
-                          setIsCopied(true);
-                          setTimeout(() => setIsCopied(false), 5000);
-                        }
-                      } catch (err) {
-                        console.error('Failed to copy image:', err);
-                      }
-                    }}
-                  >
-                    {isCopied ? <><FontAwesomeIcon icon={faCheck} /> {t('viewCode.imageCopied')}</> : <><FontAwesomeIcon icon={faCopy} /> {t('viewCode.copyImage')}</>}
-                  </button>
-                </div>
-              ) : (
-                <div className="code-wrapper">
-                  <CodeEditor
-                    code={code.content}
-                    language={code.language}
-                    readOnly={true}
-                    lineNumbers={true}
-                  />
-                  <button
-                    className="btn-copy-code-sticky"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(code.content);
-                        setIsCopied(true);
-                        setTimeout(() => setIsCopied(false), 5000);
-                      } catch (err) {
-                        console.error('Failed to copy:', err);
-                      }
-                    }}
-                  >
-                    {isCopied ? <><FontAwesomeIcon icon={faCheck} /> {t('viewCode.codeCopied')}</> : <><FontAwesomeIcon icon={faCopy} /> {t('viewCode.copyCode')}</>}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Single file comments */}
-          <div
-            className="bg-[var(--bg-secondary)] border-[1.5px] border-[var(--border-color)] rounded-2xl md:p-8 p-3 md:mt-8 mt-4 w-full max-w-[1100px] mx-auto md:h-[calc(100vh-120px)] h-auto md:max-h-[calc(100vh-120px)] max-h-none overflow-y-auto overflow-x-hidden flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] box-border flex-shrink-0 relative folder-comments-container"
-            ref={commentsContainerRef}
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d4d4d4 var(--bg-secondary)' }}
-          >
-            <div className="flex flex-col min-h-0 overflow-hidden w-full max-w-full box-border flex-1 h-auto">
-              <div className="flex items-center gap-2 md:gap-4 mb-4 md:mb-8 pb-2 md:pb-4 border-b border-[var(--primary-color)]/20 flex-shrink-0">
-                <h2 className="text-lg md:text-2xl text-[var(--text-primary)] m-0 font-bold flex items-center gap-2 md:gap-3">
-                  <FontAwesomeIcon icon={faComment} className="text-[var(--primary-color)]" />
-                  {t('viewCode.comments')} ({code.comments?.length || 0})
-                </h2>
-                <div className="flex-1 h-px bg-gradient-to-r from-[var(--primary-color)]/20 to-transparent"></div>
-              </div>
-
-              <div className="flex flex-col gap-3 md:gap-4 mb-0 min-h-0 overflow-y-auto overflow-x-hidden pb-2 md:pb-4 pr-0 md:pr-2 w-full max-w-full box-border flex-1">
-                {code.comments && code.comments.length > 0 ? (
-                  organizeComments(code.comments).map((comment: Comment) => (
-                    <CommentItem
-                      key={comment.id}
-                      comment={comment}
-                      currentUser={currentUser}
-                      editingCommentId={editingCommentId}
-                      editingCommentText={editingCommentText}
-                      setEditingCommentText={setEditingCommentText}
-                      replyingToCommentId={replyingToCommentId}
-                      replyText={replyText}
-                      setReplyText={setReplyText}
-                      replyImage={replyImage}
-                      setReplyImage={setReplyImage}
-                      isSubmittingReply={isSubmittingReply}
-                      onEdit={handleEditComment}
-                      onSave={handleSaveComment}
-                      onCancelEdit={handleCancelEdit}
-                      onDelete={handleDeleteComment}
-                      onReply={handleReply}
-                      onCancelReply={handleCancelReply}
-                      onSubmitReply={handleSubmitReply}
-                      onLike={handleLikeComment}
-                      allComments={code.comments || []}
-                      currentLanguage={currentLanguage}
-                      authorAvatar={userAvatars[comment.author]}
-                      onReplyImageSelect={handleReplyImageSelect}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 md:py-12">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">{t('viewCode.noComments')}</p>
-                  </div>
-                )}
-              </div>
-
-              {currentUser && !replyingToCommentId ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddComment(e);
-                  }}
-                  className="sticky bottom-0 mt-4 md:mt-6 mb-0 p-2 md:p-4 bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 rounded-xl md:rounded-2xl shadow-lg backdrop-blur-sm flex-shrink-0 z-10 focus-within:border-[var(--primary-color)] focus-within:shadow-xl transition-all duration-200"
-                >
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <label className="h-[28px] w-[28px] md:h-[32px] md:w-[32px] min-h-[28px] min-w-[28px] md:min-h-[32px] md:min-w-[32px] box-border rounded-lg md:rounded-xl bg-[var(--primary-color)] flex items-center justify-center text-white font-semibold flex-shrink-0 cursor-pointer shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 active:scale-95">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleCommentImageSelect}
-                      />
-                      <FontAwesomeIcon icon={faImage} className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                    </label>
-                    <div className="relative flex-1">
-                      {commentImage && (
-                        <div className="mb-2 relative">
-                          <img
-                            src={commentImage}
-                            alt="Preview"
-                            className="max-w-full max-h-24 md:max-h-32 rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setCommentImage(null)}
-                            className="absolute top-1 right-1 w-5 h-5 md:w-6 md:h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-                      <textarea
-                        className="w-full px-3 md:px-4 py-1 md:py-1.5 bg-[var(--bg-primary)] border border-[var(--primary-color)]/30 rounded-lg md:rounded-xl text-[var(--text-primary)] text-xs md:text-sm resize-none h-[28px] md:h-[32px] min-h-[28px] md:min-h-[32px] max-h-[28px] md:max-h-[32px] box-border focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] transition-all duration-200 placeholder:text-[var(--text-secondary)] overflow-y-hidden"
-                        placeholder={t('viewCode.commentPlaceholder')}
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddComment(e);
-                          }
-                        }}
-                        rows={1}
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="h-[28px] w-[28px] md:h-[32px] md:w-[32px] min-h-[28px] min-w-[28px] md:min-h-[32px] md:min-w-[32px] box-border flex items-center justify-center rounded-lg md:rounded-xl bg-[var(--primary-color)] text-white border-none cursor-pointer transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                      disabled={(!commentText.trim() && !commentImage) || isSubmittingComment}
-                      title={isSubmittingComment ? t('common.loading') : t('viewCode.addComment')}
-                    >
-                      <FontAwesomeIcon icon={faPaperPlane} className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                    </button>
-                  </div>
-                </form>
-              ) : !currentUser ? (
-                <div className="sticky bottom-0 mt-4 md:mt-6 mb-0 p-3 md:p-4 bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 rounded-xl md:rounded-2xl flex-shrink-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs md:text-sm text-[var(--text-secondary)]">
-                      {t('viewCode.loginToComment')}
-                    </p>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="px-3 md:px-4 py-1.5 md:py-2 bg-[var(--primary-color)] hover:opacity-90 text-white text-xs md:text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
-                    >
-                      {t('common.login')}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </>
-      )}
-
-      {code.isFolder && (
-      <div className="folder-view-wrapper">
-        <div className="folder-view">
-          <div className="folder-explorer">
-              <div className="folder-explorer-header">
-                <h3 className="folder-explorer-title">{t('viewCode.files')} ({folderFiles.length})</h3>
-              </div>
-            <FileExplorer
-              files={folderFiles}
-              onFileSelect={handleFileSelect}
-              selectedFileId={selectedFile?.id}
-              showFolderStructure={true}
-            />
-          </div>
-          <div className="folder-content">
-            {loadingFiles ? (
-              <div className="loading-spinner">
-                <div className="spinner"></div>
-                  <p>{t('viewCode.loadingFiles')}</p>
-              </div>
-            ) : selectedFile ? (
-              <>
-                <div className="file-code-container">
-                <div className="file-header">
-                  <div className="file-header-left">
-                    <h3 className="file-title">{selectedFile.title}</h3>
-                    <span className="file-path">{selectedFile.folderPath}</span>
-                  </div>
-                </div>
-                  {isImageFile(selectedFile.title) ? (
-                    <div className="image-preview-wrapper">
-                      <div className="image-preview-container">
-                        <img 
-                          src={(() => {
-                            const content = selectedFile.content;
-                            // If already a data URL or HTTP URL, use as is
-                            if (content.startsWith('data:') || content.startsWith('http://') || content.startsWith('https://')) {
-                              return content;
-                            }
-                            // If it's base64 without prefix, add the data URL prefix
-                            const ext = selectedFile.title.split('.').pop()?.toLowerCase() || 'png';
-                            const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
-                                           ext === 'png' ? 'image/png' :
-                                           ext === 'gif' ? 'image/gif' :
-                                           ext === 'webp' ? 'image/webp' :
-                                           ext === 'svg' ? 'image/svg+xml' :
-                                           ext === 'bmp' ? 'image/bmp' : 'image/png';
-                            return `data:${mimeType};base64,${content}`;
-                          })()}
-                          alt={selectedFile.title}
-                          className="image-preview"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'image-error';
-                            errorDiv.textContent = t('viewCode.errorDisplayImage');
-                            target.parentElement?.appendChild(errorDiv);
-                          }}
-                        />
-                      </div>
-                      <button
-                        className="btn-copy-code-sticky"
-                        onClick={async () => {
-                          try {
-                            const img = document.querySelector('.image-preview') as HTMLImageElement;
-                            if (img && img.src) {
-                              const response = await fetch(img.src);
-                              const blob = await response.blob();
-                              await navigator.clipboard.write([
-                                new ClipboardItem({ [blob.type]: blob })
-                              ]);
-                              setIsCopied(true);
-                              setTimeout(() => setIsCopied(false), 5000);
-                            }
-                          } catch (err) {
-                            console.error('Failed to copy image:', err);
-                            // Fallback: copy image URL
-                            try {
-                              const img = document.querySelector('.image-preview') as HTMLImageElement;
-                              if (img && img.src) {
-                                await navigator.clipboard.writeText(img.src);
-                                setIsCopied(true);
-                                setTimeout(() => setIsCopied(false), 5000);
-                              }
-                            } catch (err2) {
-                              console.error('Failed to copy image URL:', err2);
-                            }
-                          }
-                        }}
-                      >
-                        {isCopied ? <><FontAwesomeIcon icon={faCheck} /> {t('viewCode.imageCopied')}</> : <><FontAwesomeIcon icon={faCopy} /> {t('viewCode.copyImage')}</>}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="code-wrapper">
-                      <CodeEditor
-                        code={selectedFile.content}
-                        language={selectedFile.language}
-                        readOnly={true}
-                        lineNumbers={true}
-                      />
-                      <button
-                        className="btn-copy-code-sticky"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(selectedFile.content);
-                            setIsCopied(true);
-                            setTimeout(() => setIsCopied(false), 5000);
-                          } catch (err) {
-                            console.error('Failed to copy:', err);
-                          }
-                        }}
-                      >
-                        {isCopied ? <><FontAwesomeIcon icon={faCheck} /> {t('viewCode.codeCopied')}</> : <><FontAwesomeIcon icon={faCopy} /> {t('viewCode.copyCode')}</>}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-              ) : (
-                <div className="no-file-selected">
-                  <p>{t('viewCode.noFileSelected')}</p>
-                </div>
-              )}
-          </div>
-                </div>
-
-          {/* Папка үшін ортақ пікірлер контейнері */}
-          <div 
-            className="bg-[var(--bg-secondary)] border-[1.5px] border-[var(--border-color)] rounded-2xl md:p-8 p-3 md:mt-8 mt-4 w-full max-w-[1100px] mx-auto md:h-[calc(100vh-120px)] h-auto md:max-h-[calc(100vh-120px)] max-h-none overflow-y-auto overflow-x-hidden flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] box-border col-span-full flex-shrink-0 relative folder-comments-container"
-            ref={commentsContainerRef}
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d4d4d4 var(--bg-secondary)' }}
-          >
-            {/* Пікірлер бөлімі */}
-            <div className="flex flex-col min-h-0 overflow-hidden w-full max-w-full box-border flex-1 h-auto">
-              {/* Header */}
-              <div className="flex items-center gap-2 md:gap-4 mb-4 md:mb-8 pb-2 md:pb-4 border-b border-[var(--primary-color)]/20 flex-shrink-0">
-                <h2 className="text-lg md:text-2xl text-[var(--text-primary)] m-0 font-bold flex items-center gap-2 md:gap-3">
-                  <FontAwesomeIcon icon={faComment} className="text-[var(--primary-color)]" /> 
-                  {t('viewCode.comments')} ({code.comments?.length || 0})
-                </h2>
-                <div className="flex-1 h-px bg-gradient-to-r from-[var(--primary-color)]/20 to-transparent"></div>
-              </div>
-
-              {/* Пікірлер тізімі */}
-              <div className="flex flex-col gap-3 md:gap-4 mb-0 min-h-0 overflow-y-auto overflow-x-hidden pb-2 md:pb-4 pr-0 md:pr-2 w-full max-w-full box-border flex-1 scrollbar-thin scrollbar-thumb-blue-300 dark:scrollbar-thumb-blue-700 scrollbar-track-transparent">
-                {code.comments && code.comments.length > 0 ? (
-                  organizeComments(code.comments).map((comment: Comment) => (
-                    <CommentItem
-                      key={comment.id}
-                      comment={comment}
-                      currentUser={currentUser}
-                      editingCommentId={editingCommentId}
-                      editingCommentText={editingCommentText}
-                      setEditingCommentText={setEditingCommentText}
-                      replyingToCommentId={replyingToCommentId}
-                      replyText={replyText}
-                      setReplyText={setReplyText}
-                      replyImage={replyImage}
-                      setReplyImage={setReplyImage}
-                      isSubmittingReply={isSubmittingReply}
-                      onEdit={handleEditComment}
-                      onSave={handleSaveComment}
-                      onCancelEdit={handleCancelEdit}
-                      onDelete={handleDeleteComment}
-                      onReply={handleReply}
-                      onCancelReply={handleCancelReply}
-                      onSubmitReply={handleSubmitReply}
-                      onLike={handleLikeComment}
-                      allComments={code.comments || []}
-                      currentLanguage={currentLanguage}
-                      authorAvatar={userAvatars[comment.author]}
-                      onReplyImageSelect={handleReplyImageSelect}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 md:py-12">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">{t('viewCode.noComments')}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Пікір формасы - тек жауап бермегенде */}
-              {currentUser && !replyingToCommentId ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddComment(e);
-                  }}
-                  className="sticky bottom-0 mt-4 md:mt-6 mb-0 p-2 md:p-4 bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 rounded-xl md:rounded-2xl shadow-lg backdrop-blur-sm flex-shrink-0 z-10 focus-within:border-[var(--primary-color)] focus-within:shadow-xl transition-all duration-200"
-                >
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <label className="h-[28px] w-[28px] md:h-[32px] md:w-[32px] min-h-[28px] min-w-[28px] md:min-h-[32px] md:min-w-[32px] box-border rounded-lg md:rounded-xl bg-[var(--primary-color)] flex items-center justify-center text-white font-semibold flex-shrink-0 cursor-pointer shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 active:scale-95">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleCommentImageSelect}
-                      />
-                      <FontAwesomeIcon icon={faImage} className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                    </label>
-                    <div className="relative flex-1">
-                      {commentImage && (
-                        <div className="mb-2 relative">
-                          <img
-                            src={commentImage}
-                            alt="Preview"
-                            className="max-w-full max-h-24 md:max-h-32 rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setCommentImage(null)}
-                            className="absolute top-1 right-1 w-5 h-5 md:w-6 md:h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-                      <textarea
-                        className="w-full px-3 md:px-4 py-1 md:py-1.5 bg-[var(--bg-primary)] border border-[var(--primary-color)]/30 rounded-lg md:rounded-xl text-[var(--text-primary)] text-xs md:text-sm resize-none h-[28px] md:h-[32px] min-h-[28px] md:min-h-[32px] max-h-[28px] md:max-h-[32px] box-border focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] transition-all duration-200 placeholder:text-[var(--text-secondary)] overflow-y-hidden"
-                        placeholder={t('viewCode.commentPlaceholder')}
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddComment(e);
-                          }
-                        }}
-                        rows={1}
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="h-[28px] w-[28px] md:h-[32px] md:w-[32px] min-h-[28px] min-w-[28px] md:min-h-[32px] md:min-w-[32px] box-border flex items-center justify-center rounded-lg md:rounded-xl bg-[var(--primary-color)] text-white border-none cursor-pointer transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                      disabled={(!commentText.trim() && !commentImage) || isSubmittingComment}
-                      title={isSubmittingComment ? t('common.loading') : t('viewCode.addComment')}
-                    >
-                      <FontAwesomeIcon icon={faPaperPlane} className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                    </button>
-                  </div>
-                </form>
-              ) : !currentUser ? (
-                <div className="sticky bottom-0 mt-4 md:mt-6 mb-0 p-3 md:p-4 bg-[var(--bg-secondary)] border border-[var(--primary-color)]/30 rounded-xl md:rounded-2xl flex-shrink-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-[var(--text-secondary)]">
-                      {t('viewCode.loginToComment')}
-                    </p>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="px-4 py-2 bg-[var(--primary-color)] hover:opacity-90 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
-                    >
-                      {t('common.login')}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
+      {/* ---------- Өңдеу терезесі ---------- */}
       {isEditing && (
-        <div className="modal-overlay" onClick={handleCancelEditFolder}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{t('viewCode.editFolder')}</h3>
-              <button className="modal-close" onClick={handleCancelEditFolder}>×</button>
+        <div className="vc-modal" onClick={() => !isSaving && setIsEditing(false)}>
+          <div className="vc-modal__card" role="dialog" aria-modal="true" aria-labelledby="vc-edit-title" onClick={(e) => e.stopPropagation()}>
+            <div className="vc-modal__head">
+              <h3 id="vc-edit-title">{t('viewCode.editFolder')}</h3>
+              <button type="button" className="vc-icon-btn" onClick={() => setIsEditing(false)} aria-label={t('common.close')}>
+                <CloseIcon size={16} />
+              </button>
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="edit-title">{t('viewCode.titleLabel')}</label>
-                <input
-                  id="edit-title"
-                  type="text"
-                  className="form-input"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder={t('viewCode.folderNamePlaceholder')}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-description">{t('viewCode.descriptionLabel')}</label>
-                <textarea
-                  id="edit-description"
-                  className="form-textarea"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder={t('viewCode.folderDescriptionPlaceholder')}
-                  rows={4}
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <Button
-                variant="secondary"
-                onClick={handleCancelEditFolder}
-                disabled={isSaving}
-              >
+            <label className="vc-field">
+              <span>{t('viewCode.titleLabel')}</span>
+              <input
+                className="vc-input"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder={t('viewCode.folderNamePlaceholder')}
+                autoFocus
+              />
+            </label>
+            <label className="vc-field">
+              <span>{t('viewCode.descriptionLabel')}</span>
+              <textarea
+                className="vc-input"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder={t('viewCode.folderDescriptionPlaceholder')}
+                rows={4}
+              />
+            </label>
+            <div className="vc-modal__foot">
+              <button type="button" className="vc-btn vc-btn--ghost" onClick={() => setIsEditing(false)} disabled={isSaving}>
                 {t('common.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSaveEdit}
-                disabled={isSaving || !editTitle.trim()}
-              >
+              </button>
+              <button type="button" className="vc-btn vc-btn--primary" onClick={handleSaveEdit} disabled={isSaving || !editTitle.trim()}>
                 {isSaving ? t('common.loading') : t('common.save')}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Upload Modal */}
-      <UploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onSuccess={handleUploadSuccess}
-      />
     </div>
   );
 };

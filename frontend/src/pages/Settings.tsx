@@ -581,7 +581,9 @@ const Settings: React.FC = () => {
                       <div className="stg-folder__foot">
                         <span className="stg-folder__meta">
                           {formatDate(folder.createdAt, i18n.language)}
-                          {folder.folderStructure && (
+                          {folder.folderStats ? (
+                            <> · {folder.folderStats.files + folder.folderStats.folders} {t('settings.files')}</>
+                          ) : folder.folderStructure && (
                             <> · {Object.keys(folder.folderStructure).length} {t('settings.files')}</>
                           )}
                         </span>

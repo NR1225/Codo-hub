@@ -6,6 +6,11 @@ import EditorTabBar from './EditorTabBar';
 import Editor, { BeforeMount, DiffEditor, OnMount } from '@monaco-editor/react';
 import { CodeIcon, ExplorerIcon, FilePlusIcon, ChevronIcon, SparkleIcon, CheckIcon, CloseIcon } from './icons';
 import { useBurkitEdits, lineStats } from '../../contexts/BurkitEditsContext';
+import { setEditorState, setProblems } from '../../utils/vibeActivity';
+import { configureMonacoLocale } from './monacoLocale';
+
+// Monaco жүктелмей тұрып тілін орнату (контекст мәзірі т.б. сайт тілінде шығуы үшін)
+configureMonacoLocale();
 
 // Monaco тақырыбы — беттің қара монохром палитрасымен бірдей
 const KH_THEME = 'kh-dark';
@@ -59,9 +64,25 @@ const EditorPanel: React.FC = () => {
   );
   const editorRef = useRef<any>(null);
   const formatHandlerRef = useRef<(() => void) | null>(null);
+  const markersSubRef = useRef<{ dispose: () => void } | null>(null);
 
-  const handleEditorMount: OnMount = useCallback((editor: any, _monaco: any) => {
+  const handleEditorMount: OnMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
+
+    // Monaco модельдерінің URI-і = файл жолы (Editor path={...}); Бүркітке қай жол екенін береміз
+    const pathOf = (uri: { path?: string } | undefined) => String(uri?.path ?? '').replace(/^\//, '');
+    const reportProblems = () => {
+      const markers: { severity: number; resource: { path: string }; startLineNumber: number; startColumn: number; message: string }[] =
+        monaco.editor.getModelMarkers({});
+      setProblems(
+        markers
+          .filter(m => m.severity >= monaco.MarkerSeverity.Warning)
+          .map(m => `${m.severity >= monaco.MarkerSeverity.Error ? 'error' : 'warning'} ${pathOf(m.resource)}:${m.startLineNumber}:${m.startColumn} ${m.message}`),
+      );
+    };
+    markersSubRef.current?.dispose();
+    markersSubRef.current = monaco.editor.onDidChangeMarkers(reportProblems);
+    reportProblems();
 
     // Cursor position + selection → status bar meta
     const updateMeta = () => {
@@ -80,10 +101,17 @@ const EditorPanel: React.FC = () => {
         selectionLines: selected > 0 ? selectionLines : 0,
         languageId: activeFile ? detectLanguage(activeFile.name) : 'plaintext',
       });
+      setEditorState(model ? {
+        path: pathOf(model.uri),
+        line: pos?.lineNumber ?? 1,
+        column: pos?.column ?? 1,
+        selection: selected > 0 ? model.getValueInRange(sel) : undefined,
+      } : undefined);
     };
 
     editor.onDidChangeCursorPosition(updateMeta);
     editor.onDidChangeCursorSelection(updateMeta);
+    editor.onDidChangeModel(updateMeta); // басқа файлға ауысқанда
     const model = editor.getModel();
     if (model) model.onDidChangeContent(updateMeta);
     updateMeta();
@@ -102,6 +130,9 @@ const EditorPanel: React.FC = () => {
       const handler = formatHandlerRef.current;
       if (handler) window.removeEventListener('vibecoding:format-document', handler);
       formatHandlerRef.current = null;
+      markersSubRef.current?.dispose();
+      markersSubRef.current = null;
+      setEditorState(undefined);
     };
   }, []);
 

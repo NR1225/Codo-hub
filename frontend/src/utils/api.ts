@@ -1,3 +1,4 @@
+import type { WorkspaceSnapshot } from './vibeActivity';
 import { API_BASE_URL } from './constants';
 import i18n from '../i18n/config';
 
@@ -33,6 +34,8 @@ export interface CodeFile {
   folderStructure?: Record<string, { type: 'file' | 'folder'; name: string; size?: number; language?: string }>; // Folder structure
   views?: number; // Total number of views
   viewedBy?: string[]; // Array of user IDs who viewed this code
+  hasContent?: boolean; // Тізімде content жіберілмейді — бар-жоғы осымен белгіленеді
+  folderStats?: { files: number; folders: number; names: { name: string; type: string }[] }; // folderStructure орнына (тізімде)
 }
 
 // Vibecoding жобасы — серверде тек иесіне сақталады
@@ -352,6 +355,10 @@ export interface BurkitChatPayload {
   projectId?: string;
   /** agent — Бүркіт файлдар мен жазбаларға жазады; ask — тек жауап береді */
   mode?: 'agent' | 'ask';
+  /** Vibecoding бетінің ағымдағы күйі: оқиғалар, терминал, консоль, редактор, қателер */
+  workspace?: WorkspaceSnapshot & { openFiles: string[] };
+  /** Сайт интерфейсінің тілі — Бүркіт осы тілде жауап береді */
+  uiLanguage?: 'kk' | 'ru' | 'en';
 }
 
 /** Жобаға автоматты түрде байланысқан Notes папкасы */
@@ -598,8 +605,9 @@ class ApiService {
     return result;
   }
 
-  async getCodeFile(id: string): Promise<CodeFile> {
-    return this.request<CodeFile>(`/codes/${id}`);
+  // lite=true — папка болса, ауыр content/folderStructure жіберілмейді
+  async getCodeFile(id: string, lite = false): Promise<CodeFile> {
+    return this.request<CodeFile>(`/codes/${id}${lite ? '?lite=true' : ''}`);
   }
 
   async createCodeFile(file: Omit<CodeFile, 'id' | 'createdAt' | 'updatedAt'>): Promise<CodeFile> {
@@ -1124,7 +1132,7 @@ class ApiService {
     } catch (error) {
       console.warn('Failed to load site config, using defaults:', error);
       return {
-        appName: 'Kazakh Hub',
+        appName: 'Codo Hub',
         contact: { email: '', phone: '', address: '', addressEn: 'Kazakhstan' },
         externalLinks: [],
         fileConfig: {

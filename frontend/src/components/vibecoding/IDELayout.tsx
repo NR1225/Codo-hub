@@ -37,15 +37,35 @@ function usePanelPresence(visible: boolean) {
   return { phase, mounted: visible || phase !== 'closed' };
 }
 
+const PREVIEW_LAYOUT_KEY = 'vibe-preview-layout';
+
+function loadPreviewLayout(): { open: boolean; width: number } {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) || 'null');
+    if (raw && typeof raw === 'object') {
+      const width = Number(raw.width);
+      return { open: raw.open === true, width: width >= 20 && width <= 80 ? width : 45 };
+    }
+  } catch { /* бұзылған жазба */ }
+  return { open: false, width: 45 };
+}
+
 const IDELayout: React.FC = () => {
   const { state, dispatch, isMobile, isTablet, isDesktop } = useVibecoding();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   // Жобаны іске қосу — редактордың оң жағындағы алдын ала көрініс
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(() => loadPreviewLayout().open);
   const [runId, setRunId] = useState(0);
-  const [previewWidth, setPreviewWidth] = useState(45); // % — редактор+көрініс жолағынан
+  const [previewWidth, setPreviewWidth] = useState(() => loadPreviewLayout().width); // % — редактор+көрініс жолағынан
+
+  // Бет жаңартылғанда көрініс ашық/жабық күйі мен ені сақталады
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREVIEW_LAYOUT_KEY, JSON.stringify({ open: previewOpen, width: previewWidth }));
+    } catch { /* жеке терезе — тек осы сессияда */ }
+  }, [previewOpen, previewWidth]);
   const [splitDragging, setSplitDragging] = useState(false);
   const splitRef = useRef<HTMLDivElement>(null);
 

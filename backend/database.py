@@ -12,7 +12,7 @@
 import json
 import logging
 import os
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from config import (
     CODES_FILE, USERS_FILE, FRIENDS_FILE,
@@ -78,8 +78,11 @@ class _Collection:
         logger.info("%s: %d жазба %s файлынан SQLite-қа көшірілді", self.name, len(items), os.path.basename(self.json_file))
         return items
 
-    def sync(self, items: List[tuple]) -> tuple:
-        """Жадтағы [(id, value)] күйін кестеге жазады. (өзгерген id-лер, өшірілген id-лер) қайтарады."""
+    def sync(self, items: List[tuple], partial: bool = False) -> tuple:
+        """Жадтағы [(id, value)] күйін кестеге жазады. (өзгерген id-лер, өшірілген id-лер) қайтарады.
+
+        partial=True — items тек бір бөлігі: тізімде жоқ жазбалар өшірілген деп саналмайды.
+        """
         current: Dict[str, str] = {}
         values: Dict[str, Any] = {}
         for key, value in items:
@@ -87,7 +90,7 @@ class _Collection:
             values[key] = value
 
         changed = [k for k, s in current.items() if k not in self._saved or self._saved[k][1] != s]
-        removed = [k for k in self._saved if k not in current]
+        removed = [] if partial else [k for k in self._saved if k not in current]
         if not changed and not removed:
             return [], []
 
@@ -155,9 +158,17 @@ def load_data():
     friends.update(loaded_friends)
 
 
-def save_codes():
-    """Кодтарды SQLite-қа сақтау; өзгергендерін Firestore-ға синхрондау"""
-    changed, _ = _codes.sync(_by_id(codes))
+def save_codes(only_ids: Optional[Iterable[str]] = None):
+    """Кодтарды SQLite-қа сақтау; өзгергендерін Firestore-ға синхрондау.
+
+    only_ids берілсе — тек сол кодтар салыстырылады (барлық 1000+ кодты
+    әр жолы JSON-ға айналдырмау үшін; бір кодты өзгертетін әрекеттерге).
+    """
+    if only_ids is not None:
+        wanted = {str(i) for i in only_ids}
+        changed, _ = _codes.sync(_by_id([c for c in codes if str(c.get("id")) in wanted]), partial=True)
+    else:
+        changed, _ = _codes.sync(_by_id(codes))
     if changed and FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
         changed_ids = set(changed)
         try:
