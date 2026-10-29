@@ -1,17 +1,39 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { processFile, FileInfo, buildFolderManifest } from '../utils/fileHandler';
+import { processFile, FileInfo, buildFolderManifest, filePath } from '../utils/fileHandler';
+import { classifyUploadPath } from '../utils/uploadRules';
 import { apiService } from '../utils/api';
 import { offlineStorage, PendingUpload } from '../utils/offlineStorage';
 import { API_BASE_URL } from '../utils/constants';
 import { useAuth } from '../contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 
+// current/total — файл саны; loaded/bytes — жіберілген/барлық байт
+export interface UploadProgress {
+  current: number;
+  total: number;
+  startTime: number;
+  loaded?: number;
+  bytes?: number;
+}
+
+// Жобаны жүктеу нәтижесі (backend /codes/folder жауабы)
+export interface FolderUploadResult {
+  folderId: string;
+  created: number;
+  failed: number;
+  failedFiles: string[];
+  /** Басынан соңына дейінгі уақыт (жіберу + сервер), секунд */
+  totalSeconds: number;
+  /** Сервердің файлдарды тексеріп сақтауға кеткен уақыты, мс */
+  serverMs: number;
+}
+
 interface UseFileUploadReturn {
   uploading: boolean;
   error: string | null;
-  uploadProgress: { current: number; total: number; startTime: number } | null;
-  uploadFolder: (files: FileList | File[], metadata?: { title?: string; description?: string; tags?: string[]; language?: string }) => Promise<void>;
+  uploadProgress: UploadProgress | null;
+  uploadFolder: (files: FileList | File[], metadata?: { title?: string; description?: string; tags?: string[]; language?: string }) => Promise<FolderUploadResult | null>;
   reset: () => void;
 }
 
@@ -31,7 +53,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
   const { getAccessToken } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; startTime: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   // Initialize offline storage
   useEffect(() => {
@@ -97,6 +119,11 @@ export const useFileUpload = (): UseFileUploadReturn => {
     setUploadProgress({ current: 0, total: 1, startTime });
 
     try {
+      // Тек код: пакет/кэш/құпия/бинарлы файл оқылмайды да, жіберілмейді де (uploadRules.ts)
+      if (classifyUploadPath(file.name)) {
+        throw new Error(t('fileUpload.notCodeFile', { name: file.name }));
+      }
+
       // Step 1: Process file
       setUploadProgress({ current: 0, total: 1, startTime });
       const fileInfo: FileInfo = await processFile(file);
@@ -132,7 +159,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
   const uploadFolder = async (
     files: FileList | File[],
     metadata?: { title?: string; description?: string; tags?: string[]; language?: string }
-  ): Promise<void> => {
+  ): Promise<FolderUploadResult | null> => {
     setUploading(true);
     setError(null);
     const startTime = Date.now();
@@ -153,7 +180,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
         await offlineStorage.savePendingUpload(pendingUpload);
         setError(t('fileUpload.uploadOfflineCached'));
         setUploading(false);
-        return;
+        return null;
       } catch (cacheErr) {
         setError(t('fileUpload.uploadOfflineCacheFailed'));
         setUploading(false);
@@ -173,7 +200,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
         throw new Error(t('fileUpload.folderNoProcessableFiles'));
       }
 
-      setUploadProgress({ current: 0, total: manifestInfo.files.length, startTime });
+      setUploadProgress({ current: 0, total: manifestInfo.files.length, startTime, loaded: 0, bytes: manifestInfo.totalSize });
 
       const manifest = {
         folderName: manifestInfo.folderName,
@@ -191,13 +218,14 @@ export const useFileUpload = (): UseFileUploadReturn => {
         })),
       };
 
-      const fileArray = Array.from(files);
+      // Тек сүзгіден өткендері (кэш, .env т.б. жіберілмейді) — manifest.files-пен бір ретте
+      const fileArray = manifestInfo.selected;
 
       // Бір multipart сұрау: manifest JSON + шикі File-дар.
       const formData = new FormData();
       formData.append('manifest', JSON.stringify(manifest));
       fileArray.forEach((file) => {
-        formData.append('files', file, (file as File).webkitRelativePath || file.name);
+        formData.append('files', file, filePath(file));
       });
 
       // Бір XHR сұрау — нақты жүктеу прогрессын көрсету үшін.
@@ -220,7 +248,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
           const current = Math.min(totalFiles, Math.max(1, Math.round(pct * totalFiles)));
           if (pct > lastPct) {
             lastPct = pct;
-            setUploadProgress({ current, total: totalFiles, startTime });
+            setUploadProgress({ current, total: totalFiles, startTime, loaded: e.loaded, bytes: e.total });
           }
         };
 
@@ -246,7 +274,8 @@ export const useFileUpload = (): UseFileUploadReturn => {
         xhr.send(formData);
       });
 
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      const totalSeconds = (Date.now() - startTime) / 1000;
+      const totalTime = totalSeconds.toFixed(1);
       console.log(t('fileUpload.folderUploadComplete', {
         successful: result?.created ?? 0,
         total: manifestInfo.files.length,
@@ -276,6 +305,14 @@ export const useFileUpload = (): UseFileUploadReturn => {
 
       // Dispatch event to refresh codes list
       window.dispatchEvent(new CustomEvent('codesUpdated'));
+      return {
+        folderId: result?.folderId ?? result?.folder?.id,
+        created: result?.created ?? 0,
+        failed: result?.failed ?? 0,
+        failedFiles: result?.failedFiles ?? [],
+        totalSeconds,
+        serverMs: result?.serverMs ?? 0,
+      };
     } catch (err) {
       console.error(t('fileUpload.folderError'), err);
       let errorMessage = t('fileUpload.folderUploadError');

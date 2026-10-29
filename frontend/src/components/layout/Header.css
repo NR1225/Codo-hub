@@ -191,8 +191,8 @@
    қанығырақ толық жиек (stroke) пайда болады. Хедердің өз сызығына тиіспейміз. */
 header .btn.header-nav-btn {
   --nav-stroke: color-mix(in srgb, var(--border-color) 70%, var(--primary-color));
-  background: #000;
-  color: #fff;
+  background: var(--bg-primary);
+  color: var(--mono-ffffff);
   border: none;
   border-radius: 12px;
   box-shadow: none;
@@ -203,7 +203,7 @@ header .btn.header-nav-btn {
 
 header .btn.header-nav-btn .btn-icon,
 header .btn.header-nav-btn .btn-text {
-  color: #fff;
+  color: var(--mono-ffffff);
   position: relative;
   z-index: 1;
 }
@@ -230,8 +230,8 @@ header .btn.header-nav-btn::after {
 }
 
 header .btn.header-nav-btn:hover:not(:disabled) {
-  background: #000;
-  color: #fff;
+  background: var(--bg-primary);
+  color: var(--mono-ffffff);
   box-shadow: none;
   filter: none;
   transform: translateY(-1.3px);
@@ -243,7 +243,7 @@ header .btn.header-nav-btn:hover:not(:disabled)::after {
 
 .light-theme header .btn.header-nav-btn,
 .light-theme header .btn.header-nav-btn:hover:not(:disabled) {
-  background: #000;
+  background: var(--bg-primary);
 }
 
 /* Хедердегі көк неон — сайт монохром болса да, хедерде бұрынғы көк түстер
@@ -257,4 +257,9 @@ header .btn.header-nav-btn:hover:not(:disabled)::after {
   --primary-color: #00AFCA;
   --primary-hover: #0099CC;
   --accent-gradient: linear-gradient(135deg, #00AFCA 0%, #0099CC 25%, #FFD700 50%, #FCD116 75%, #FFC700 100%);
+}
+
+/* Жарық тақырыпта бренд атауы — көк емес, негізгі мәтін түсінде */
+.light-theme .site-brand {
+  color: var(--text-primary);
 }

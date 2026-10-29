@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
@@ -7,6 +7,7 @@ import { apiService } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
 import Turnstile, { TURNSTILE_ENABLED } from '../components/ui/Turnstile';
+import GoogleSignInButton from '../components/ui/GoogleSignInButton';
 import Parallax from 'parallax-js';
 import { imageStorage } from '../utils/imageStorage';
 import './Auth.css';
@@ -14,6 +15,12 @@ import './Auth.css';
 const Login: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Тіркелу email кодымен расталғаннан кейін осы бетке келеміз
+  const routeState = location.state as { registeredEmail?: string; googleTempToken?: string } | null;
+  const registeredEmail = routeState?.registeredEmail || '';
+  // Тіркелу бетіндегі Google батырмасы 2FA қосулы аккаунтқа тап болса, кодты осында сұраймыз
+  const googleTempToken = routeState?.googleTempToken || '';
   const { login, isAuthenticated, isLoading } = useAuth();
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +37,7 @@ const Login: React.FC = () => {
   const savedLogin = savedEmail || savedUsername;
   
   const [formData, setFormData] = useState({
-    emailOrUsername: savedLogin,
+    emailOrUsername: registeredEmail || savedLogin,
     password: '',
   });
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +46,8 @@ const Login: React.FC = () => {
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showLoginForm, setShowLoginForm] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [requires2FA, setRequires2FA] = useState(false);
-  const [tempToken, setTempToken] = useState('');
+  const [requires2FA, setRequires2FA] = useState(!!googleTempToken);
+  const [tempToken, setTempToken] = useState(googleTempToken);
   const [twoFACode, setTwoFACode] = useState('');
   const [twoFAError, setTwoFAError] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -345,6 +352,10 @@ const Login: React.FC = () => {
 
             <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
+            {registeredEmail && !error && (
+              <div className="auth-code-info">{t('register.successLogin')}</div>
+            )}
+
             {error && (
               <div className="form-error">
                 {error}
@@ -415,15 +426,25 @@ const Login: React.FC = () => {
               </div>
             )}
           </form>
+
+          {!requires2FA && (
+            <GoogleSignInButton
+              onRequires2FA={(token) => {
+                setTempToken(token);
+                setRequires2FA(true);
+              }}
+              onError={setError}
+            />
+          )}
           
           <div style={{ marginTop: '1rem', textAlign: 'center' }}>
             <button
               type="button"
               onClick={() => navigate('/register')}
               style={{
-                background: 'white',
+                background: 'var(--auth-switch-bg)',
                 border: 'none',
-                color: 'black',
+                color: 'var(--auth-switch-fg)',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
                 fontWeight: '600',
@@ -435,11 +456,11 @@ const Login: React.FC = () => {
                 width: 'auto',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)';
+                e.currentTarget.style.background = 'var(--auth-switch-hover)';
                 e.currentTarget.style.transform = 'translateY(-1px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'var(--auth-switch-bg)';
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >

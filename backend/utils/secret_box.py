@@ -3,14 +3,20 @@ import base64
 import hashlib
 from typing import Optional
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from config import BURKIT_ENCRYPTION_KEY
 
-# Құпиядан Fernet кілтін шығару; префикс бұл кілтті JWT қолтаңбасынан бөліп тұрады
-_fernet = Fernet(base64.urlsafe_b64encode(
-    hashlib.sha256(b"kazakh-hub:secret-box:" + BURKIT_ENCRYPTION_KEY.encode()).digest()
-))
+
+def _derive(prefix: bytes) -> Fernet:
+    return Fernet(base64.urlsafe_b64encode(
+        hashlib.sha256(prefix + BURKIT_ENCRYPTION_KEY.encode()).digest()
+    ))
+
+
+# Құпиядан Fernet кілтін шығару; префикс бұл кілтті JWT қолтаңбасынан бөліп тұрады.
+# Жаңа жазбалар codo-hub кілтімен шифрланады, ескі kazakh-hub жазбалары да ашылады.
+_fernet = MultiFernet([_derive(b"codo-hub:secret-box:"), _derive(b"kazakh-hub:secret-box:")])
 
 
 def encrypt(value: str) -> str:

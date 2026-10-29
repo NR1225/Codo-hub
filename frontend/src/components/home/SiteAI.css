@@ -2,9 +2,9 @@
    қалқымалы панель, сызықтық белгішелер, монохром палитра. */
 
 .sai {
-  --sai-line: #1f1f1f;
-  --sai-muted: #8f8f8f;
-  --sai-raise: #161616;
+  --sai-line: var(--mono-1f1f1f);
+  --sai-muted: var(--mono-8f8f8f);
+  --sai-raise: var(--mono-161616);
   --sai-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --sai-width: 760px;
 
@@ -17,11 +17,11 @@
   border: 1px solid var(--sai-line);
   border-radius: 20px;
   background:
-    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-    linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+    radial-gradient(120% 60% at 50% 0%, rgba(var(--mono-ink), 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0b0b0b) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
 }
 
 /* Бос күйде фонда нүктелі тор — жұмсақ, ортасына қарай сөнеді */
@@ -30,7 +30,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(var(--mono-ink), 0.07) 1px, transparent 1px);
   background-size: 22px 22px;
   mask-image: radial-gradient(60% 55% at 50% 40%, #000 0%, transparent 100%);
   -webkit-mask-image: radial-gradient(60% 55% at 50% 40%, #000 0%, transparent 100%);
@@ -91,7 +91,7 @@
   outline: none;
   color: var(--text-primary);
   background: var(--sai-raise);
-  box-shadow: inset 0 0 0 1px #333;
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
 }
 
 /* ---------- Айналмалы аймақ ---------- */
@@ -103,7 +103,7 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 /* ---------- Бос күй ---------- */
@@ -133,11 +133,11 @@
   border-radius: 22px;
   /* ::before (z-index: -1) фоннан жоғары салынуы үшін */
   isolation: isolate;
-  background: linear-gradient(145deg, #1f1f1f, #0f0f0f);
+  background: linear-gradient(145deg, var(--mono-1f1f1f), var(--mono-0f0f0f));
   color: var(--text-primary);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 60px -10px rgba(255, 255, 255, 0.18);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.08),
+    0 0 60px -10px rgba(var(--mono-ink), 0.18);
   animation: saiRise 0.6s var(--sai-ease) backwards;
 }
 
@@ -148,14 +148,15 @@
   z-index: -1;
   border-radius: 23px;
   padding: 1px;
-  background: conic-gradient(from var(--sai-angle, 0deg), transparent 0%, rgba(255, 255, 255, 0.85) 12%, transparent 30%, transparent 100%);
+  background: conic-gradient(from var(--sai-angle, 0deg), transparent 0%, rgba(var(--mono-ink), 0.85) 12%, transparent 30%, transparent 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   animation: saiSpin 4s linear infinite;
 }
 
-.sai__orb svg {
+.sai__orb svg,
+.sai__orb img {
   animation: saiPulse 3s ease-in-out infinite;
 }
 
@@ -199,9 +200,9 @@
   padding: 0 14px 0 16px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 0 0 1px #262626;
-  color: #d4d4d4;
+  background: rgba(var(--mono-ink), 0.03);
+  box-shadow: inset 0 0 0 1px var(--mono-262626);
+  color: var(--mono-d4d4d4);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
@@ -220,13 +221,13 @@
 .sai__chip:focus-visible {
   outline: none;
   background: var(--sai-raise);
-  box-shadow: inset 0 0 0 1px #3a3a3a;
-  color: #fff;
+  box-shadow: inset 0 0 0 1px var(--mono-3a3a3a);
+  color: var(--mono-ffffff);
 }
 
 .sai__chip:hover svg,
 .sai__chip:focus-visible svg {
-  color: #fff;
+  color: var(--mono-ffffff);
   transform: translateX(3px);
 }
 
@@ -276,13 +277,13 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: linear-gradient(145deg, #222, #121212);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, var(--mono-222222), var(--mono-121212));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.08);
   color: var(--text-primary);
 }
 
-.sai__avatar.is-thinking svg {
-  animation: saiSpinIcon 1.2s linear infinite;
+.sai__avatar.is-thinking img {
+  animation: saiPulse 1.2s ease-in-out infinite;
 }
 
 .sai__content {
@@ -293,7 +294,7 @@
 
 .sai__text {
   margin: 0;
-  color: #e5e5e5;
+  color: var(--mono-e5e5e5);
   font-size: 0.95rem;
   line-height: 1.65;
 }
@@ -308,8 +309,8 @@
   max-width: min(520px, 85%);
   padding: 10px 16px;
   border-radius: 18px 18px 6px 18px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
 }
 
 .sai__msg--user .sai__text {
@@ -355,7 +356,7 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  box-shadow: inset 0 0 0 1px #333;
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
   color: var(--text-primary);
   font: inherit;
   font-size: 0.8rem;
@@ -411,7 +412,7 @@
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--sai-raise);
-  box-shadow: inset 0 0 0 1px #262626;
+  box-shadow: inset 0 0 0 1px var(--mono-262626);
   color: var(--text-primary);
   text-decoration: none;
   transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s var(--sai-ease);
@@ -443,14 +444,14 @@
 .sai__feature:hover,
 .sai__feature:focus-visible {
   outline: none;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #3a3a3a;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-3a3a3a);
   transform: translateY(-1px);
 }
 
 .sai__feature:hover .sai__feature-arrow,
 .sai__feature:focus-visible .sai__feature-arrow {
-  color: #fff;
+  color: var(--mono-ffffff);
   transform: translateX(3px);
 }
 
@@ -470,13 +471,13 @@
   padding: 10px 10px 10px 12px;
   border-radius: 14px;
   background: var(--sai-raise);
-  box-shadow: inset 0 0 0 1px #262626;
+  box-shadow: inset 0 0 0 1px var(--mono-262626);
   transition: box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .sai__match:hover {
-  background: #1a1a1a;
-  box-shadow: inset 0 0 0 1px #333;
+  background: var(--mono-1a1a1a);
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
 }
 
 .sai__match .sai__pill {
@@ -491,9 +492,9 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: linear-gradient(145deg, #2c2c2c, #191919);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  color: #ededed;
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-191919));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.07);
+  color: var(--mono-ededed);
   font-size: 0.9rem;
   font-weight: 800;
 }
@@ -550,11 +551,11 @@
   gap: 8px;
   padding: 6px 6px 6px 18px;
   border-radius: 22px;
-  background: linear-gradient(180deg, #171717 0%, #111 100%);
+  background: linear-gradient(180deg, var(--mono-171717) 0%, var(--mono-111111) 100%);
   box-shadow:
-    inset 0 0 0 1px #2a2a2a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px var(--mono-2a2a2a),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.05),
+    0 18px 40px -18px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
   cursor: text;
   transition: box-shadow 0.25s ease, transform 0.25s var(--sai-ease);
 }
@@ -569,12 +570,12 @@
   border-radius: 23px;
   background: conic-gradient(
     from var(--sai-angle, 0deg),
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.95) 10%,
-    rgba(255, 255, 255, 0.15) 25%,
-    rgba(255, 255, 255, 0.15) 50%,
-    rgba(255, 255, 255, 0.95) 60%,
-    rgba(255, 255, 255, 0.15) 75%
+    rgba(var(--mono-ink), 0.15) 0%,
+    rgba(var(--mono-ink), 0.95) 10%,
+    rgba(var(--mono-ink), 0.15) 25%,
+    rgba(var(--mono-ink), 0.15) 50%,
+    rgba(var(--mono-ink), 0.95) 60%,
+    rgba(var(--mono-ink), 0.15) 75%
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -586,18 +587,18 @@
 
 .sai__box:hover {
   box-shadow:
-    inset 0 0 0 1px #363636,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px var(--mono-363636),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.05),
+    0 18px 40px -18px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
 }
 
 .sai__box:focus-within {
   transform: translateY(-1px);
   box-shadow:
     inset 0 0 0 1px transparent,
-    0 0 0 5px rgba(255, 255, 255, 0.04),
-    0 0 50px -10px rgba(255, 255, 255, 0.12),
-    0 18px 40px -18px rgba(0, 0, 0, 0.95);
+    0 0 0 5px rgba(var(--mono-ink), 0.04),
+    0 0 50px -10px rgba(var(--mono-ink), 0.12),
+    0 18px 40px -18px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
 }
 
 .sai__box:focus-within::before {
@@ -625,11 +626,11 @@
   font-size: 1rem;
   line-height: 22px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .sai__input::placeholder {
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 .sai__send {
@@ -643,7 +644,7 @@
   background: var(--home-accent);
   color: var(--home-on-accent);
   cursor: pointer;
-  box-shadow: 0 4px 14px -4px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 14px -4px rgba(var(--mono-ink), 0.35);
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease, transform 0.2s var(--sai-ease);
 }
 
@@ -670,8 +671,8 @@
 }
 
 .sai__send:disabled {
-  background: #222;
-  color: #555;
+  background: var(--mono-222222);
+  color: var(--mono-555555);
   box-shadow: none;
   cursor: not-allowed;
 }
@@ -679,7 +680,7 @@
 .sai__hint {
   margin: 8px 0 0;
   text-align: center;
-  color: #5c5c5c;
+  color: var(--mono-5c5c5c);
   font-size: 0.74rem;
 }
 
@@ -761,3 +762,213 @@
     justify-content: center;
   }
 }
+
+/* ---------- Gemini Бүркіті: markdown, код, жоба әрекеттері ---------- */
+
+.sai__md { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 0.95rem; line-height: 1.6; }
+.sai__md-p, .sai__md-h, .sai__md-li { margin: 0; overflow-wrap: anywhere; }
+.sai__md-h { font-weight: 700; margin-top: 4px; }
+.sai__md-li { position: relative; padding-left: 16px; }
+.sai__md-li::before { content: ''; position: absolute; left: 4px; top: 0.7em; width: 5px; height: 5px; border-radius: 50%; background: var(--sai-muted); }
+.sai__icode { padding: 1px 5px; border-radius: 5px; background: var(--sai-raise); font-size: 0.88em; }
+.sai__link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.sai__muted { color: var(--sai-muted); font-size: 0.85rem; }
+
+.sai__code { overflow: hidden; border-radius: 12px; background: var(--mono-0b0b0b); box-shadow: inset 0 0 0 1px var(--sai-line); }
+.sai__code-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid var(--sai-line); color: var(--sai-muted); font-size: 0.75rem; }
+.sai__code-bar button,
+.sai__action-link button { border: 0; background: none; color: var(--sai-muted); font: inherit; font-size: 0.75rem; cursor: pointer; }
+.sai__code-bar button:hover,
+.sai__action-link button:hover { color: inherit; }
+.sai__code pre { margin: 0; padding: 10px 12px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.8rem; line-height: 1.55; }
+
+.sai__action { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--sai-raise); box-shadow: inset 0 0 0 1px var(--mono-333333); }
+.sai__action.is-danger { box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.45); }
+.sai__action-title { font-weight: 600; font-size: 0.9rem; overflow-wrap: anywhere; }
+.sai__action-note { margin: 0; color: var(--sai-muted); font-size: 0.85rem; white-space: pre-wrap; }
+.sai__action-link { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.82rem; }
+.sai__action-link a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; text-decoration: underline; }
+.sai__action-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.sai__action-done { margin-right: auto; color: #4ade80; font-size: 0.82rem; }
+
+.sai__action-btn { height: 28px; padding: 0 12px; border: 1px solid var(--mono-333333); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 0.82rem; cursor: pointer; }
+.sai__action-btn.is-primary { border-color: #e5e5e5; background: #e5e5e5; color: #0a0a0a; font-weight: 600; }
+.sai__action.is-danger .sai__action-btn.is-primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+
+.sai__tool { align-self: stretch; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--sai-line); color: var(--sai-muted); font-size: 0.8rem; }
+.sai__tool summary { padding: 6px 10px; cursor: pointer; }
+.sai__tool pre { max-height: 240px; margin: 0; padding: 8px 10px; overflow: auto; border-top: 1px solid var(--sai-line); white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; }
+
+/* Жарық тақырыпта панель біркелкі ақ — жоғарғы сұр «тұман» жоқ */
+.light-theme .sai {
+  background: var(--mono-0b0b0b);
+}
+
+/* Gemini кілті (BurkitKeyCard, cls="sai") — Vibecoding-тегі карта сияқты */
+.sai__key { width: 100%; max-width: 360px; margin: 1rem auto 0; padding: 12px 14px 10px; border-radius: 14px; background: var(--sai-raise); box-shadow: inset 0 0 0 1px var(--mono-333333); text-align: left; }
+.sai__scroll > .sai__key { margin: 0.25rem auto 1rem; }
+.sai__key-head { display: flex; align-items: center; justify-content: space-between; min-height: 22px; font-size: 0.85rem; }
+.sai__key-close { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--sai-muted); cursor: pointer; }
+.sai__key-close:hover { color: inherit; }
+.sai__key-text,
+.sai__key-note { margin: 6px 0 10px; color: var(--sai-muted); font-size: 0.8rem; line-height: 1.5; }
+.sai__key-text code { padding: 1px 5px; border-radius: 5px; background: var(--mono-222222); }
+.sai__key-note { margin: 8px 0 0; font-size: 0.72rem; opacity: 0.8; }
+.sai__key-row { display: flex; gap: 6px; }
+.sai__key-input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 0; border-radius: 9px; background: var(--mono-111111); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a); color: inherit; font: inherit; font-size: 0.85rem; outline: none; }
+.sai__key-input:focus { box-shadow: inset 0 0 0 1px var(--mono-3a3a3a); }
+.sai__key-btn { height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: var(--home-accent); color: var(--home-on-accent); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.sai__key-btn:disabled { opacity: 0.4; cursor: default; }
+.sai__key-error { margin: 8px 0 0; color: #f87171; font-size: 0.8rem; }
+.sai__key-remove { margin-top: 8px; padding: 0; border: 0; background: none; color: #f87171; font: inherit; font-size: 0.8rem; cursor: pointer; }
+.sai__key-remove:hover { text-decoration: underline; }
+
+/* Жауапты тоқтату батырмасы */
+.sai__stop-square { width: 12px; height: 12px; border-radius: 3px; background: currentColor; }
+
+/* Ескі сөйлесулер (SiteAIHistory) */
+.sai__hist { position: relative; z-index: 1; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sai__hist .sai__bar-title { flex: 1; }
+.sai__hist-search { display: flex; align-items: center; gap: 8px; width: calc(100% - 2rem); max-width: var(--sai-width); margin: 0.9rem auto 0.25rem; padding: 0 12px; height: 38px; box-sizing: border-box; border-radius: 12px; background: var(--sai-raise); box-shadow: inset 0 0 0 1px var(--sai-line); color: var(--sai-muted); }
+.sai__hist-search:focus-within { box-shadow: inset 0 0 0 1px var(--mono-3a3a3a); }
+.sai__hist-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 0.88rem; outline: none; }
+.sai__hist-list { flex: 1; min-height: 0; overflow-y: auto; width: 100%; max-width: var(--sai-width); margin: 0 auto; padding: 0.5rem 1rem 1rem; box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--mono-2a2a2a) transparent; }
+.sai__hist-group + .sai__hist-group { margin-top: 0.75rem; }
+.sai__hist-label { margin: 0.5rem 0.5rem 0.35rem; color: var(--sai-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.sai__hist-item { position: relative; padding: 10px 12px; border-radius: 12px; cursor: pointer; outline: none; transition: background-color 0.15s ease; }
+.sai__hist-item:hover,
+.sai__hist-item:focus-visible { background: var(--sai-raise); }
+.sai__hist-item.is-active { background: var(--sai-raise); box-shadow: inset 0 0 0 1px var(--mono-333333); }
+.sai__hist-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sai__hist-pin { display: grid; color: var(--text-primary); }
+.sai__hist-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
+.sai__hist-time { flex-shrink: 0; color: var(--sai-muted); font-size: 0.75rem; }
+.sai__hist-preview { margin: 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sai-muted); font-size: 0.8rem; }
+.sai__hist-meta { display: flex; align-items: center; gap: 5px; margin-top: 4px; overflow: hidden; white-space: nowrap; color: var(--sai-muted); font-size: 0.72rem; }
+.sai__hist-file { display: inline-flex; align-items: center; gap: 4px; min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; }
+.sai__hist-actions { position: absolute; top: 50%; right: 8px; display: none; align-items: center; gap: 4px; padding: 3px; border-radius: 9px; background: var(--sai-raise); transform: translateY(-50%); }
+.sai__hist-item:hover .sai__hist-actions,
+.sai__hist-item:focus-within .sai__hist-actions { display: flex; }
+@media (hover: none) { .sai__hist-actions { display: flex; } }
+.sai__hist-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--sai-muted); cursor: pointer; }
+.sai__hist-icon:hover,
+.sai__hist-icon.is-on { color: var(--text-primary); background: var(--mono-222222); }
+.sai__hist-icon.is-danger:hover { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+.sai__hist-btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--sai-muted); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.sai__hist-btn:hover { color: var(--text-primary); background: var(--mono-222222); }
+.sai__hist-btn.is-danger { color: #f87171; }
+.sai__hist-btn.is-danger:hover { background: rgba(248, 113, 113, 0.12); }
+.sai__hist-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 3rem 1rem; color: var(--sai-muted); text-align: center; }
+.sai__hist-empty p { margin: 0; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
+.sai__hist-empty small { font-size: 0.8rem; }
+.sai__hist-foot { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--sai-line); color: var(--sai-muted); font-size: 0.8rem; }
+.sai__hist-open { display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem; padding: 6px 12px; border: 0; border-radius: 10px; background: none; color: var(--sai-muted); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: color 0.15s ease, background-color 0.15s ease; }
+.sai__hist-open:hover { color: var(--text-primary); background: var(--sai-raise); }
+
+/* ── Vibecoding-тегі Бүркітпен бірдей мүмкіндіктер ── */
+
+/* Хабар + оның астындағы әрекеттер */
+.sai__col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sai__msg--user .sai__col { flex: 0 1 auto; align-items: flex-end; max-width: min(520px, 85%); }
+.sai__msg--user .sai__col .sai__content { max-width: 100%; }
+.sai__msg.is-error .sai__md,
+.sai__msg.is-error .sai__text { color: #fca5a5; }
+.sai__msg-tools { display: flex; align-items: center; gap: 2px; margin-top: 4px; opacity: 0; transition: opacity 0.15s ease; }
+.sai__msg:hover .sai__msg-tools,
+.sai__msg:focus-within .sai__msg-tools,
+.sai__msg:last-child .sai__msg-tools { opacity: 1; }
+@media (hover: none) { .sai__msg-tools { opacity: 1; } }
+.sai__time { margin-right: 4px; color: var(--sai-muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.sai__tool-btn { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--sai-muted); cursor: pointer; }
+.sai__tool-btn:hover { color: var(--text-primary); background: var(--sai-raise); }
+.sai__tool-btn.is-done { color: #4ade80; }
+.sai__tool-btn svg { width: 14px; height: 14px; }
+
+/* «Бүркіт ойланып жатыр» */
+.sai__thinking { display: flex; align-items: center; gap: 10px; padding-top: 6px; color: var(--sai-muted); font-size: 0.85rem; }
+
+/* «/» командалары */
+.sai__slash { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; padding: 6px; border-radius: 14px; background: var(--sai-raise); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a), 0 18px 40px -18px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow))); animation: saiRise 0.2s var(--sai-ease); }
+.sai__slash-item { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border: 0; border-radius: 9px; background: none; color: var(--sai-muted); font: inherit; font-size: 0.85rem; text-align: left; cursor: pointer; }
+.sai__slash-item b { color: var(--text-primary); font-weight: 600; }
+.sai__slash-item span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sai__slash-item.is-active { background: var(--mono-222222); }
+.sai__slash-icon { display: grid; place-items: center; width: 22px; color: var(--text-primary); }
+.sai__slash-icon svg { width: 15px; height: 15px; }
+
+/* Режим (Agent / Ask), «Авто» және кеңес — жазу өрісінің астында */
+.sai__foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sai__foot .sai__hint { flex: 1; margin: 0; text-align: right; }
+.sai__hint kbd { padding: 0 4px; border-radius: 4px; background: var(--mono-1c1c1c); font: inherit; }
+.sai__mode { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--sai-raise); box-shadow: inset 0 0 0 1px var(--sai-line); }
+.sai__mode button { height: 24px; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--sai-muted); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.sai__mode button.is-on { background: var(--mono-262626); color: var(--text-primary); }
+.sai__auto { height: 28px; padding: 0 10px; border: 0; border-radius: 9px; background: none; box-shadow: inset 0 0 0 1px var(--sai-line); color: var(--sai-muted); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.sai__auto.is-on { box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.45); color: #4ade80; }
+@media (max-width: 560px) { .sai__foot .sai__hint { display: none; } }
+
+/* Бос беттегі «Соңғы сөйлесулер» */
+.sai__recent { width: 100%; max-width: 420px; margin: 1.25rem auto 0; text-align: left; }
+.sai__recent-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding: 0 8px; color: var(--sai-muted); font-size: 0.75rem; font-weight: 600; }
+.sai__recent-head button { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.sai__recent-head button:hover { color: var(--text-primary); }
+.sai__recent-head svg { width: 13px; height: 13px; }
+.sai__recent-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border: 0; border-radius: 10px; background: none; color: var(--sai-muted); font: inherit; font-size: 0.85rem; text-align: left; cursor: pointer; }
+.sai__recent-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sai__recent-item:hover { background: var(--sai-raise); color: var(--text-primary); }
+
+/* Тарихта атын өзгерту */
+.sai__hist-rename { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border: 0; border-radius: 7px; background: var(--mono-111111); box-shadow: inset 0 0 0 1px var(--mono-3a3a3a); color: var(--text-primary); font: inherit; font-size: 0.88rem; outline: none; }
+
+/* Тіркемелер: фото, файл, папка */
+.sai__box.has-attach { flex-wrap: wrap; padding-left: 6px; }
+.sai__attach { position: relative; flex-shrink: 0; }
+.sai__attach-btn { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--sai-muted, var(--mono-6b6b6b)); cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; }
+.sai__attach-btn:hover:not(:disabled), .sai__attach-btn.is-open { background: rgba(var(--mono-ink), 0.07); color: var(--text-primary); }
+.sai__attach-btn:disabled { opacity: 0.5; cursor: default; }
+.sai__attach-menu { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; min-width: 150px; padding: 5px; display: flex; flex-direction: column; gap: 2px; border-radius: 14px; background: var(--mono-171717); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a), 0 16px 36px -12px rgba(0, 0, 0, 0.7); cursor: default; }
+.sai__attach-menu button { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--text-primary); font: inherit; font-size: 0.875rem; text-align: left; cursor: pointer; }
+.sai__attach-menu button:hover { background: rgba(var(--mono-ink), 0.07); }
+.sai__attach-menu svg { color: var(--mono-6b6b6b); }
+
+.sai__atts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.sai__atts--draft { order: -1; flex-basis: 100%; margin: 4px 4px 2px; cursor: default; }
+.sai__att { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; height: 30px; padding: 0 6px 0 4px; border-radius: 9px; background: rgba(var(--mono-ink), 0.05); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a); color: var(--text-primary); font-size: 0.8125rem; }
+.sai__att--image { padding-left: 3px; }
+.sai__att.is-loading { padding: 0 10px; color: var(--mono-6b6b6b); }
+.sai__att-thumb { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; }
+.sai__att-icon { display: grid; place-items: center; width: 22px; height: 22px; color: var(--mono-6b6b6b); }
+.sai__att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sai__att-count { padding: 0 5px; border-radius: 6px; background: rgba(var(--mono-ink), 0.08); color: var(--mono-6b6b6b); font-size: 0.6875rem; }
+.sai__att-remove { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--mono-6b6b6b); cursor: pointer; }
+.sai__att-remove:hover { background: rgba(var(--mono-ink), 0.1); color: var(--text-primary); }
+.sai__att-error { align-self: center; color: #f87171; font-size: 0.75rem; }
+.sai__msg--user .sai__atts { justify-content: flex-end; }
+
+/* Бүркіт жобамен жұмыс істегенде: файл әрекеттері, өзгерістер тізімі, ашық жоба белгісі */
+.sai__fileop { margin: 6px 0; border-radius: 10px; background: rgba(var(--mono-ink), 0.03); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a); font-size: 0.8125rem; }
+.sai__fileop summary { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; list-style: none; }
+.sai__fileop summary::-webkit-details-marker { display: none; }
+.sai__fileop-kind { flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: rgba(var(--mono-ink), 0.08); color: var(--mono-6b6b6b); font-size: 0.6875rem; font-weight: 600; }
+.sai__fileop-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sai__fileop pre { max-height: 320px; margin: 0; padding: 10px 12px; overflow: auto; border-top: 1px solid var(--mono-2a2a2a); font-size: 0.75rem; }
+
+.sai__edits { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(var(--mono-ink), 0.03); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a); font-size: 0.8125rem; }
+.sai__edits.is-undone { opacity: 0.6; }
+.sai__edits-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: var(--mono-6b6b6b); font-weight: 600; }
+.sai__edits-head span { margin-right: auto; }
+.sai__edits-btn { padding: 3px 9px; border: 0; border-radius: 8px; background: rgba(var(--mono-ink), 0.07); color: var(--text-primary); font: inherit; font-size: 0.75rem; text-decoration: none; cursor: pointer; }
+.sai__edits-btn:hover { background: rgba(var(--mono-ink), 0.12); }
+.sai__edit { display: flex; align-items: center; gap: 6px; padding: 2px 0; min-width: 0; }
+.sai__edit-icon { display: grid; place-items: center; color: var(--mono-6b6b6b); }
+.sai__edit-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; }
+.sai__edit.is-error .sai__edit-path { text-decoration: line-through; opacity: 0.7; }
+.sai__edit-err { flex-shrink: 0; color: #f87171; font-size: 0.6875rem; }
+.sai__edits.is-undone .sai__edit-path { text-decoration: line-through; }
+
+.sai__project { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; margin: 0 0 8px 6px; padding: 4px 6px 4px 10px; border-radius: 10px; background: rgba(var(--mono-ink), 0.04); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a); color: var(--mono-6b6b6b); font-size: 0.8125rem; }
+.sai__project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-weight: 600; }
+.sai__project-meta { flex-shrink: 0; }
+.sai__project-link { flex-shrink: 0; color: var(--text-primary); text-decoration: underline; text-underline-offset: 2px; }
+.sai__project-close { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--mono-6b6b6b); cursor: pointer; }
+.sai__project-close:hover:not(:disabled) { background: rgba(var(--mono-ink), 0.1); color: var(--text-primary); }

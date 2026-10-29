@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from db import User, get_db
 from models import MessageEdit, PinToggle, PollVote, ReactionToggle
 from services.group_service import MAX_GROUP_MEMBERS, GroupService, _public_users
-from services.message_extras import build_poll_metadata, reply_snapshot
+from services.message_extras import build_poll_metadata, build_sticker_metadata, reply_snapshot
 from services.project_card import build_project_metadata
 from services.upload_service import save_chat_attachment
 from utils.auth import get_current_user
@@ -164,6 +164,9 @@ async def send_message(
     if data.type == "poll":
         metadata = build_poll_metadata(data.metadata)
         content = metadata["question"]
+    if data.type == "sticker":
+        metadata = build_sticker_metadata(data.metadata)
+        content = ""
     if data.type == "project":
         # Алдымен мүшелік — мүше емес адамға жоба туралы ештеңе ашылмайды
         GroupService.require_member(db, group_id, user.id)

@@ -1,7 +1,10 @@
 // Utility for storing images with localStorage quota management and IndexedDB fallback
 
+import { migrateLegacyDb } from './idbMigrate';
+
 class ImageStorage {
-  private dbName = 'kazakh-hub-images';
+  private dbName = 'codo-hub-images';
+  private legacyDbName = 'kazakh-hub-images';
   private dbVersion = 1;
   private storeName = 'profile-backgrounds';
   private db: IDBDatabase | null = null;
@@ -15,8 +18,9 @@ class ImageStorage {
         reject(request.error);
       };
 
-      request.onsuccess = () => {
+      request.onsuccess = async () => {
         this.db = request.result;
+        await migrateLegacyDb(this.legacyDbName, this.db, this.storeName);
         resolve();
       };
 

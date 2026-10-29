@@ -15,7 +15,8 @@ class ChatService:
         for msg in messages:
             if msg.get('fromUserId') == user_id:
                 conversation_partners.add(msg.get('toUserId'))
-            elif msg.get('toUserId') == user_id:
+            elif msg.get('toUserId') == user_id and not msg.get('request'):
+                # Қабылданбаған сұрау чат тізіміне емес, «Сұрауларға» түседі
                 conversation_partners.add(msg.get('fromUserId'))
         
         # Get all friends
@@ -35,8 +36,9 @@ class ChatService:
                 if ((msg.get('fromUserId') == user_id and msg.get('toUserId') == partner_id) or
                     (msg.get('fromUserId') == partner_id and msg.get('toUserId') == user_id))
                 and user_id not in (msg.get('deletedFor') or [])
+                and not (msg.get('request') and msg.get('toUserId') == user_id)
             ]
-            
+
             # Get last message if exists
             last_message = None
             last_message_time = ''

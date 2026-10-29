@@ -1,5 +1,6 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
 // Firebase configuration — will be initialized from SiteConfigContext
 // No hardcoded API keys — these come from the backend /api/config endpoint
@@ -92,4 +93,21 @@ export const getFirebaseDb = (): Firestore | null => {
  */
 export const isFirestoreBlocked = (): boolean => {
   return firestoreBlocked;
+};
+
+/**
+ * Google аккаунтымен Firebase Auth арқылы кіріп, backend-ке жіберілетін ID token-ді қайтарады.
+ * Сессияны backend өзі береді, сондықтан Firebase сессиясы бірден жабылады.
+ */
+export const signInWithGoogle = async (): Promise<string> => {
+  if (!app) {
+    throw new Error('Firebase is not initialized');
+  }
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const result = await signInWithPopup(auth, provider);
+  const idToken = await result.user.getIdToken();
+  signOut(auth).catch(() => {});
+  return idToken;
 };

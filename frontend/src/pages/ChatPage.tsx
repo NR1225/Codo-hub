@@ -25,7 +25,7 @@ import {
   UsersIcon,
 } from '../components/home/icons';
 import { monogram } from '../components/home/monogram';
-import { User, Message, FriendRequest, Chat, MessageAttachment, ChatGroupSummary, GroupUser, ChatPref, VoiceMeta, UploadOptions, UploadAbortedError } from '../utils/api';
+import { User, Message, FriendRequest, MessageRequest, Chat, MessageAttachment, ChatGroupSummary, GroupUser, ChatPref, VoiceMeta, UploadOptions, UploadAbortedError } from '../utils/api';
 import { apiService } from '../utils/api';
 import { websocketService, WebSocketMessage } from '../utils/websocket';
 import { formatDateTime } from '../utils/dateFormatter';
@@ -37,6 +37,8 @@ import GroupChat, { GroupAvatar } from '../components/chat/GroupChat';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import { groupEventText, groupSenderPrefix, messageBodyPreview } from '../components/chat/groupText';
 import ProjectCard from '../components/chat/ProjectCard';
+import StoryReplyQuote from '../components/chat/StoryReplyQuote';
+import { stickerSrc } from '../components/home/stories/storyUtils';
 import ShareProjectModal, { ProjectShare } from '../components/chat/ShareProjectModal';
 import {
   useMessageActions,
@@ -187,6 +189,8 @@ const ChatPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<FriendRequest[]>([]);
+  // Бейтаныстан келген, әлі қабылданбаған хабарламалар (профилім «жабық» болса)
+  const [messageRequests, setMessageRequests] = useState<MessageRequest[]>([]);
   const [searching, setSearching] = useState(false);
   const [friendsSearchQuery, setFriendsSearchQuery] = useState('');
   const [listFilter, setListFilter] = useState<ListFilterKey>(() => readStored(LIST_FILTER_KEY, 'all') as ListFilterKey);
@@ -373,6 +377,7 @@ const ChatPage: React.FC = () => {
       ]);
       setFriendRequests(incoming || []);
       setOutgoingFriendRequests(outgoing || []);
+      apiService.getMessageRequests().then(setMessageRequests, () => {});
     } catch (err) {
       console.error('Failed to load friend requests:', err);
       // If error, clear requests
@@ -650,6 +655,21 @@ const ChatPage: React.FC = () => {
       };
     }
   }, [currentUser?.id, activeTab, loadChats]);
+
+  // Хабарлама сұраулары: бейтаныс жазды → тізімді жаңарту; менің сұрауымды қабылдады → белгіні алу
+  useEffect(() => {
+    const onRequest = () => { loadFriendRequests(); };
+    const onAccepted = (data: WebSocketMessage) => {
+      setMessages((prev) => prev.map((m) => (m.request && m.toUserId === data.userId ? { ...m, request: undefined } : m)));
+      loadChatsRef.current?.();
+    };
+    websocketService.on('message_request', onRequest);
+    websocketService.on('message_request_accepted', onAccepted);
+    return () => {
+      websocketService.off('message_request', onRequest);
+      websocketService.off('message_request_accepted', onAccepted);
+    };
+  }, [loadFriendRequests]);
 
   // Load friend requests periodically - always load to show count on button
   useEffect(() => {
@@ -1117,6 +1137,22 @@ const ChatPage: React.FC = () => {
     });
   };
 
+  // Хабарлама сұрауы: қабылдау — чат ашылады; бас тарту — хабарламалары өшеді
+  const handleAcceptMessageRequest = (req: MessageRequest) =>
+    runRequestAction(`maccept:${req.user.id}`, async () => {
+      await apiService.acceptMessageRequest(req.user.id);
+      setMessageRequests((prev) => prev.filter((r) => r.user.id !== req.user.id));
+      await loadChats();
+      setActiveTab('friends');
+      openDirectChat({ id: req.user.id, username: req.user.username, avatar: req.user.avatar ?? undefined } as User);
+    });
+
+  const handleDeclineMessageRequest = (req: MessageRequest) =>
+    runRequestAction(`mdecline:${req.user.id}`, async () => {
+      await apiService.declineMessageRequest(req.user.id);
+      setMessageRequests((prev) => prev.filter((r) => r.user.id !== req.user.id));
+    });
+
   // Сұрау батырмасының белгішесі мен класы оның күйіне қарай
   const requestBtn = (key: string, icon: React.ReactNode) => {
     const status = requestStatus[key];
@@ -1546,7 +1582,9 @@ const ChatPage: React.FC = () => {
         return (
           <div className="chat-message-content">
             <div className="chat-message-sticker">
-              {message.metadata?.stickerId ? (
+              {message.metadata?.stickerId && stickerSrc(message.metadata.stickerId) ? (
+                <img className="chat-sticker-img" src={stickerSrc(message.metadata.stickerId) as string} alt="" draggable={false} />
+              ) : message.metadata?.stickerId ? (
                 <div className="sticker-placeholder">
                   Sticker: {message.metadata.stickerId}
                 </div>
@@ -1854,7 +1892,7 @@ const ChatPage: React.FC = () => {
       badge: allEntries.reduce((sum, e) => sum + (e.pref.muted || e.pref.archived ? 0 : e.unread), 0),
     },
     { key: 'add', label: t('chat.addTab'), icon: <AddFriendTabIcon size={17} /> },
-    { key: 'requests', label: t('chat.requests'), icon: <RequestsTabIcon size={17} />, badge: friendRequests.length },
+    { key: 'requests', label: t('chat.requests'), icon: <RequestsTabIcon size={17} />, badge: friendRequests.length + messageRequests.length },
   ];
 
   // Бүкіл бетті мөлдірден шығармаймыз — қара фон тұман болып көрінбеуі үшін (Home.tsx сияқты)
@@ -2256,7 +2294,7 @@ const ChatPage: React.FC = () => {
 
           {activeTab === 'requests' && (
             <div className="cht-list">
-              {friendRequests.length === 0 && outgoingFriendRequests.length === 0 ? (
+              {friendRequests.length === 0 && outgoingFriendRequests.length === 0 && messageRequests.length === 0 ? (
                 <div className="cht-hint">
                   <span className="cht-hint__icon">
                     <InboxIcon size={20} />
@@ -2265,6 +2303,57 @@ const ChatPage: React.FC = () => {
                 </div>
               ) : (
                 <>
+                  {messageRequests.length > 0 && (
+                    <>
+                      <h2 className="cht-section">{t('chat.messageRequest.title')}</h2>
+                      {messageRequests.map((req) => (
+                        <div key={req.user.id} className="cht-item is-static">
+                          <span className="cht-avatar">{avatarOf({ username: req.user.username, avatar: req.user.avatar ?? undefined })}</span>
+                          <div className="cht-item__body">
+                            <span className="cht-item__name">{req.user.username}</span>
+                            <span className="cht-item__last">
+                              {req.lastMessage.metadata?.storyReply ? `${t('chat.storyReply.short')}: ` : ''}
+                              {messageBodyPreview(req.lastMessage, t)}
+                            </span>
+                          </div>
+                          {req.count > 1 && <span className="cht-item__count">{req.count}</span>}
+                          <div className="cht-item__actions">
+                            {(() => {
+                              const b = requestBtn(`maccept:${req.user.id}`, <CheckSmallIcon size={16} />);
+                              return (
+                                <button
+                                  type="button"
+                                  className={`cht-icon-btn cht-icon-btn--primary ${b.className}`}
+                                  onClick={() => handleAcceptMessageRequest(req)}
+                                  disabled={b.disabled}
+                                  title={b.errorTitle ?? t('chat.messageRequest.accept')}
+                                  aria-label={t('chat.messageRequest.accept')}
+                                >
+                                  {b.content}
+                                </button>
+                              );
+                            })()}
+                            {(() => {
+                              const b = requestBtn(`mdecline:${req.user.id}`, <CloseIcon size={16} />);
+                              return (
+                                <button
+                                  type="button"
+                                  className={`cht-icon-btn ${b.className}`}
+                                  onClick={() => handleDeclineMessageRequest(req)}
+                                  disabled={b.disabled}
+                                  title={b.errorTitle ?? t('chat.messageRequest.decline')}
+                                  aria-label={t('chat.messageRequest.decline')}
+                                >
+                                  {b.content}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
                   {friendRequests.length > 0 && (
                     <>
                       <h2 className="cht-section">{t('chat.incomingRequests')}</h2>
@@ -2556,6 +2645,8 @@ const ChatPage: React.FC = () => {
                         {message.replyTo && (
                           <ReplyQuote reply={message.replyTo} currentUserId={currentUser?.id || ''} onJump={msgActions.jumpTo} />
                         )}
+                        {message.metadata?.storyReply && <StoryReplyQuote reply={message.metadata.storyReply} isOwn={isOwn} />}
+                        {message.metadata?.storyShare && <StoryReplyQuote reply={message.metadata.storyShare} isOwn={isOwn} kind="share" />}
                         {renderMessageContent(message)}
                         {isUploading && <UploadOverlay progress={message.uploadProgress || 0} onCancel={() => discardLocal(message.id)} />}
                         {/* Реакциялар — сол жақта мәтіннің астында, уақыт — сол қатардың оң жағында */}
@@ -2603,6 +2694,12 @@ const ChatPage: React.FC = () => {
                 </div>
               </div>
 
+              {!isSavedChat && messages.some((m) => m.request && m.fromUserId === currentUser?.id) && (
+                <div className="cht-request-note" role="status">
+                  <ClockIcon size={14} />
+                  {t('chat.messageRequest.pending', { name: selectedFriend.username })}
+                </div>
+              )}
               <MessageInput
                 key={selectedFriend.id}
                 draftKey={draftKeyFor('dm', selectedFriend.id)}

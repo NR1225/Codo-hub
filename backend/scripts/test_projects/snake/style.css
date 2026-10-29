@@ -1,0 +1,23 @@
+body {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  min-height: 100vh;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #ddd;
+}
+
+.hud { display: flex; gap: 24px; font-size: 18px; }
+.hud b { color: #51cf66; }
+
+canvas {
+  width: min(400px, 90vw);
+  aspect-ratio: 1;
+  border: 1px solid #333;
+  background: #1a1a1a;
+}
+
+.hint { margin: 0; color: #777; font-size: 13px; }

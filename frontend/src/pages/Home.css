@@ -3,23 +3,23 @@
 
 .home-page {
   /* Басты бет тақырыптан тәуелсіз — қара фон, монохром палитра (көк жоқ) */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --border-color: #262626;
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --primary-hover: #d4d4d4;
-  --home-accent: #fafafa;
-  --home-on-accent: #0a0a0a;
-  --home-surface: #111111;
+  --bg-primary: var(--mono-0a0a0a);
+  --bg-secondary: var(--mono-141414);
+  --border-color: var(--mono-262626);
+  --text-primary: var(--mono-f5f5f5);
+  --text-secondary: var(--mono-a3a3a3);
+  --primary-hover: var(--mono-d4d4d4);
+  --home-accent: var(--mono-fafafa);
+  --home-on-accent: var(--mono-0a0a0a);
+  --home-surface: var(--mono-111111);
   --home-radius: 20px;
 
   /* Барлық иконкалар үшін бірыңғай стиль */
   --home-icon-size: 32px;
   --home-icon-radius: 9px;
-  --home-icon-bg: #1c1c1c;
-  --home-icon-border: #2e2e2e;
-  --home-icon-color: #e5e5e5;
+  --home-icon-bg: var(--mono-1c1c1c);
+  --home-icon-border: var(--mono-2e2e2e);
+  --home-icon-color: var(--mono-e5e5e5);
 
   width: 100%;
   /* --header-h — хедердің нақты биіктігі (Header.tsx) */
@@ -27,7 +27,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  background: #000;
+  background: var(--mono-000000);
   color: var(--text-primary);
 }
 
@@ -83,289 +83,6 @@
   color: var(--home-accent);
 }
 
-/* ---------- Тарихтар (stories) ---------- */
-
-.home-stories {
-  margin: 0 -0.25rem;
-}
-
-.home-stories__list {
-  list-style: none;
-  margin: 0;
-  padding: 0.25rem 0.25rem 0.5rem;
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.home-stories__list::-webkit-scrollbar {
-  display: none;
-}
-
-.home-story {
-  width: 76px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-primary);
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.home-story__ring {
-  width: 68px;
-  height: 68px;
-  padding: 3px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #fafafa, #737373);
-  transition: transform 0.2s ease;
-}
-
-.home-story:hover .home-story__ring {
-  transform: scale(1.06);
-}
-
-.home-story:focus-visible {
-  outline: none;
-}
-
-.home-story:focus-visible .home-story__ring {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-accent) 45%, transparent);
-}
-
-.home-story.is-seen .home-story__ring {
-  background: var(--border-color);
-}
-
-.home-story__avatar {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 3px solid var(--bg-primary);
-  box-sizing: border-box;
-  background: var(--home-icon-bg);
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-
-.home-story--add .home-story__ring {
-  background: var(--home-icon-border);
-}
-
-.home-story--add .home-story__avatar {
-  font-size: 1.1rem;
-  color: var(--home-icon-color);
-}
-
-.home-story__name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-/* Тарихты қарау терезесі */
-.story-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(6px);
-  animation: storyFadeIn 0.2s ease;
-}
-
-.story-viewer__card {
-  position: relative;
-  width: min(420px, 100%);
-  height: min(720px, calc(100vh - 2rem));
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem 1.25rem 1.25rem;
-  box-sizing: border-box;
-  border-radius: 22px;
-  color: #fff;
-  border: 1px solid var(--border-color);
-  background: #0a0a0a;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-}
-
-.story-viewer__progress {
-  display: flex;
-  gap: 4px;
-}
-
-.story-viewer__bar {
-  flex: 1;
-  height: 3px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.story-viewer__fill {
-  display: block;
-  width: 0;
-  height: 100%;
-  background: #fff;
-}
-
-.story-viewer__fill.is-done {
-  width: 100%;
-}
-
-.story-viewer__fill.is-active {
-  animation: storyProgress linear forwards;
-}
-
-.story-viewer__head {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.story-viewer__avatar {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  font-weight: 800;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.story-viewer__meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.story-viewer__author {
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.story-viewer__date {
-  font-size: 0.78rem;
-  opacity: 0.75;
-}
-
-.story-viewer__close {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 1.1rem;
-  cursor: pointer;
-}
-
-.story-viewer__body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.75rem;
-  overflow: hidden;
-}
-
-.story-viewer__lang {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.story-viewer__title {
-  margin: 0;
-  font-size: 1.6rem;
-  font-weight: 800;
-  line-height: 1.2;
-  word-break: break-word;
-}
-
-.story-viewer__desc {
-  margin: 0;
-  opacity: 0.85;
-  line-height: 1.5;
-}
-
-.story-viewer__code {
-  margin: 0;
-  max-height: 260px;
-  overflow: hidden;
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: rgba(0, 0, 0, 0.35);
-  mask-image: linear-gradient(#000 70%, transparent);
-  -webkit-mask-image: linear-gradient(#000 70%, transparent);
-}
-
-.story-viewer__open {
-  align-self: stretch;
-}
-
-.story-viewer__nav {
-  position: absolute;
-  top: 50%;
-  width: 40px;
-  height: 40px;
-  transform: translateY(-50%);
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #0a0a0a;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-}
-
-.story-viewer__nav--prev { left: -56px; }
-.story-viewer__nav--next { right: -56px; }
-
-@keyframes storyProgress {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes storyFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 /* ---------- Құрылым: сол жақта sidebar, ортада Сайт ЖИ ---------- */
 
 .home-layout {
@@ -412,27 +129,11 @@
   }
 }
 
-@media (max-width: 768px) {
-  .story-viewer {
-    padding: 0;
-  }
-
-  .story-viewer__card {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-  }
-
-  .story-viewer__nav--prev { left: 0.5rem; }
-  .story-viewer__nav--next { right: 0.5rem; }
-}
-
 /* Sidebar (.hsb) мен Сайт ЖИ (.sai) бұл ережеге кірмейді — олардың анимациясы әрқашан ойнайды */
 @media (prefers-reduced-motion: reduce) {
-  .home-btn,
-  .home-story__ring,
-  .story-viewer {
+  .home-btn {
     transition: none;
     animation: none;
   }
 }
+

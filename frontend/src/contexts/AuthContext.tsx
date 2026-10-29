@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { apiService } from '../utils/api';
+import { setItemSafe } from '../utils/safeStorage';
 
 interface User {
   id: string;
@@ -112,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await apiService.refreshToken();
       setAccessToken(data.access_token);
       // Persist the renewed access token so reloads keep the session live
-      localStorage.setItem('accessToken', data.access_token);
+      setItemSafe('accessToken', data.access_token);
       // Schedule next regular refresh on success
       scheduleRefresh(REFRESH_INTERVAL_MS);
       return data.access_token;
@@ -153,9 +154,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccessToken(tokens.access_token);
     // Persist access token so a page reload keeps the session live
     // until the background refresh renews it.
-    localStorage.setItem('accessToken', tokens.access_token);
+    setItemSafe('accessToken', tokens.access_token);
     // Store user data in localStorage for UI display and persistence
-    localStorage.setItem('user', JSON.stringify(userData));
+    setItemSafe('user', JSON.stringify(userData));
     setUserState(userData);
     // Mark the time of this login
     lastLoginTime.current = Date.now();
@@ -181,11 +182,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setTokens = useCallback((tokens: AuthTokens) => {
     setAccessToken(tokens.access_token);
-    localStorage.setItem('accessToken', tokens.access_token);
+    setItemSafe('accessToken', tokens.access_token);
   }, []);
 
   const setUser = useCallback((userData: User) => {
-    localStorage.setItem('user', JSON.stringify(userData));
+    setItemSafe('user', JSON.stringify(userData));
     setUserState(userData);
   }, []);
 

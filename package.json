@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "kazakh-hub",
+  "name": "codo-hub",
   "version": "1.0.0",
   "scripts": {
     "dev": "npm --prefix frontend run dev",

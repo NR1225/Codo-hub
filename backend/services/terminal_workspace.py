@@ -13,6 +13,7 @@ Manifest жоба папкасынан тыс (``<user>/.kh-sync/<id>.json``) т
 """
 import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -20,6 +21,9 @@ import threading
 from typing import Dict, List, Optional
 
 from config import TERMINAL_WORKSPACE_DIR
+from services import shared_packages
+
+logger = logging.getLogger("codo_hub.terminal_workspace")
 
 # Pull кезінде қарамайтын папкалар (тәуелділіктер, кэш, build нәтижелері)
 IGNORED_DIRS = {
@@ -215,6 +219,11 @@ def push(user_id: str, project_id: str, project_name: str, files: List[dict],
         manifest["files"] = new_files
         manifest["folders"] = new_folders
         _save_manifest(user_id, project_id, manifest)
+        # node_modules — барлық қолданушыға ортақ бір жиынтыққа сілтеме
+        try:
+            shared_packages.attach(root)
+        except Exception as e:
+            logger.error("Shared packages attach failed for %s: %s", root, e)
         return root
 
 
@@ -302,7 +311,10 @@ def remove(user_id: str, project_id: str) -> None:
     with _lock(f"{user_id}:{project_id}"):
         manifest = _load_manifest(user_id, project_id)
         if manifest and manifest.get("dir"):
-            shutil.rmtree(os.path.join(user_root(user_id), manifest["dir"]), ignore_errors=True)
+            root = os.path.join(user_root(user_id), manifest["dir"])
+            # Алдымен ортақ node_modules сілтемелері — rmtree ортақ папканы өшірмесін
+            shared_packages.detach(root)
+            shutil.rmtree(root, ignore_errors=True)
         try:
             os.remove(_manifest_path(user_id, project_id))
         except OSError:

@@ -1,0 +1,263 @@
+/* Профильдегі «Пікірлер» — .profile-page палитрасында */
+
+.pop {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 20px;
+}
+
+.pop__filters { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pop__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--cdx-line-strong, var(--border-color));
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pop__filter:hover { color: var(--text-primary); }
+.pop__filter.is-on { border-color: var(--home-accent); background: var(--home-accent); color: var(--home-on-accent); }
+
+.pop__filter-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.22);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pop__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+/* Карточка: сол жақ жиегі — мақтау жасыл, шағым сары */
+.pop__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--cdx-line, var(--border-color));
+  border-left-width: 3px;
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  animation: popIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--d, 0) * 35ms);
+}
+
+.pop__item.is-praise { border-left-color: #22c55e; }
+.pop__item.is-complaint { border-left-color: #f59e0b; }
+
+.pop__item--skeleton {
+  min-height: 120px;
+  background: linear-gradient(100deg, var(--bg-secondary) 30%, var(--mono-1c1c1c) 50%, var(--bg-secondary) 70%);
+  background-size: 300% 100%;
+  animation: popShimmer 1.4s linear infinite;
+}
+
+.pop__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.pop__author {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.pop__author:hover .pop__name { text-decoration: underline; }
+.pop__author--gone { color: var(--text-secondary); font-style: italic; }
+
+.pop__avatar {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.pop__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pop__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 0.9rem; }
+
+.pop__badge {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pop__badge.is-praise { background: rgba(34, 197, 94, 0.14); color: #4ade80; }
+.pop__badge.is-complaint { background: rgba(245, 158, 11, 0.14); color: #fbbf24; }
+
+.pop__text {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pop__foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.pop__foot time { margin-right: auto; }
+
+.pop__story {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pop__story:hover { text-decoration: underline; }
+
+.pop__link {
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pop__link:hover { color: var(--text-primary); }
+.pop__link.is-danger { color: #f87171; }
+.pop__confirm { display: inline-flex; gap: 6px; }
+
+.pop__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.pop__empty p { margin: 0; }
+.pop__empty-title { color: var(--text-primary); font-weight: 700; }
+.pop__empty-text { font-size: 0.88rem; max-width: 360px; line-height: 1.5; }
+
+.pop__empty-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+}
+
+.pop__more { align-self: center; }
+
+/* Профиль панеліндегі қысқаша қорытынды */
+.prf-opinions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--cdx-line, var(--border-color));
+  border-radius: 12px;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.prf-opinions:hover { border-color: var(--cdx-line-strong, var(--border-color)); background: var(--bg-secondary); }
+.prf-opinions__label { flex: 1; color: var(--text-secondary); }
+.prf-opinions__praise { color: #4ade80; }
+.prf-opinions__complaint { color: #fbbf24; }
+
+/* Кодтар / Пікірлер табтары */
+.prf-tabs { display: flex; gap: 4px; min-width: 0; }
+
+.prf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.prf-tab:hover { color: var(--text-primary); }
+.prf-tab.is-on { color: var(--text-primary); background: var(--mono-1c1c1c); }
+
+@keyframes popIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes popShimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+
+@media (max-width: 640px) {
+  .pop { padding: 12px; }
+  .pop__list { grid-template-columns: 1fr; }
+  .prf-tab { font-size: 0.95rem; padding: 6px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop__item { animation: none; }
+}
+
+/* Шағымды Бүркіт неге қабылдады */
+.pop__verdict {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.pop__verdict b { color: var(--text-primary); }

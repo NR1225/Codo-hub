@@ -5,30 +5,30 @@
 .cht-page,
 .cht-ma-portal {
   /* Тақырыптан тәуелсіз — басты бетпен бірдей палитра */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --border-color: #262626;
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --primary-hover: #d4d4d4;
-  --home-accent: #fafafa;
-  --home-on-accent: #0a0a0a;
+  --bg-primary: var(--mono-0a0a0a);
+  --bg-secondary: var(--mono-141414);
+  --border-color: var(--mono-262626);
+  --text-primary: var(--mono-f5f5f5);
+  --text-secondary: var(--mono-a3a3a3);
+  --primary-hover: var(--mono-d4d4d4);
+  --home-accent: var(--mono-fafafa);
+  --home-on-accent: var(--mono-0a0a0a);
 
-  --cht-line: #1f1f1f;
-  --cht-line-strong: #333;
-  --cht-hover: #1a1a1a;
-  --cht-raise: #161616;
-  --cht-muted: #8f8f8f;
-  --cht-faint: #6b6b6b;
+  --cht-line: var(--mono-1f1f1f);
+  --cht-line-strong: var(--mono-333333);
+  --cht-hover: var(--mono-1a1a1a);
+  --cht-raise: var(--mono-161616);
+  --cht-muted: var(--mono-8f8f8f);
+  --cht-faint: var(--mono-6b6b6b);
   --cht-radius: 12px;
   --cht-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --cht-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --cht-danger: #f87171;
 
   /* Суреті жоқ аватарлардың фоны — сайт тақырыбына сай: қара тақырыпта қара */
-  --cht-avatar-bg: #000;
-  --cht-avatar-fg: #f5f5f5;
-  --cht-avatar-ring: rgba(255, 255, 255, 0.14);
+  --cht-avatar-bg: var(--mono-000000);
+  --cht-avatar-fg: var(--mono-f5f5f5);
+  --cht-avatar-ring: rgba(var(--mono-ink), 0.14);
 }
 
 /* Жарық тақырыпта — ақ */
@@ -43,7 +43,7 @@
   width: 100%;
   min-height: calc(100dvh - var(--header-h, 64px));
   box-sizing: border-box;
-  background: #000;
+  background: var(--mono-000000);
   color: var(--text-primary);
 }
 
@@ -70,8 +70,8 @@
   overflow: hidden;
   border: 1px solid var(--cht-line);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: chtPanelIn 0.6s var(--cht-ease) backwards;
 }
 
@@ -79,14 +79,14 @@
   gap: 8px;
   padding: 8px;
   border-radius: 18px;
-  background: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0c0c0c) 100%);
 }
 
 .cht-main {
   border-radius: 20px;
   background:
-    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-    linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+    radial-gradient(120% 60% at 50% 0%, rgba(var(--mono-ink), 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0b0b0b) 100%);
   animation-delay: 80ms;
 }
 
@@ -145,7 +145,7 @@
   gap: 2px;
   padding: 3px;
   border-radius: 12px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cht-line);
 }
 
@@ -222,7 +222,7 @@
   padding: 0 12px;
   box-sizing: border-box;
   border-radius: 999px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cht-line);
   color: var(--cht-faint);
   cursor: text;
@@ -235,8 +235,8 @@
 }
 
 .cht-search:focus-within {
-  background: #0e0e0e;
-  box-shadow: inset 0 0 0 1.5px var(--cht-line-strong), 0 0 0 4px rgba(255, 255, 255, 0.04);
+  background: var(--mono-0e0e0e);
+  box-shadow: inset 0 0 0 1.5px var(--cht-line-strong), 0 0 0 4px rgba(var(--mono-ink), 0.04);
   color: var(--text-primary);
 }
 
@@ -278,7 +278,7 @@
   margin: 0 -8px;
   padding: 2px 8px 4px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cht-section {
@@ -323,8 +323,8 @@
 }
 
 .cht-item.is-active {
-  background: #181818;
-  box-shadow: inset 0 0 0 1px #262626;
+  background: var(--mono-181818);
+  box-shadow: inset 0 0 0 1px var(--mono-262626);
 }
 
 /* Белсенді чаттың сол жағындағы ақ белгі */
@@ -411,7 +411,7 @@
 
 .cht-item__who {
   flex-shrink: 0;
-  color: #bdbdbd;
+  color: var(--mono-bdbdbd);
 }
 
 .cht-item__tick {
@@ -449,7 +449,7 @@
 
 .cht-item.has-unread .cht-item__last,
 .cht-item.has-unread .cht-kind-icon {
-  color: #d4d4d4;
+  color: var(--mono-d4d4d4);
 }
 
 .cht-item.has-unread .cht-item__time {
@@ -527,14 +527,14 @@ button.cht-avatar:hover {
 
 .cht-item.is-active .cht-avatar,
 .cht-item.has-unread .cht-avatar {
-  box-shadow: 0 0 0 2px #0c0c0c, 0 0 0 3.5px var(--home-accent);
+  box-shadow: 0 0 0 2px var(--mono-0c0c0c), 0 0 0 3.5px var(--home-accent);
 }
 
 .cht-avatar--xl {
   width: 88px;
   height: 88px;
   font-size: 2rem;
-  box-shadow: 0 0 0 3px #111, 0 0 0 5px #2e2e2e, 0 18px 40px -16px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 0 3px var(--mono-111111), 0 0 0 5px var(--mono-2e2e2e), 0 18px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
 }
 
 /* Белгіше батырмалары */
@@ -586,9 +586,9 @@ button.cht-avatar:hover {
 }
 
 .cht-icon-btn--glass {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--mono-ink), 0.1);
   box-shadow: none;
-  color: #fff;
+  color: var(--mono-ffffff);
   backdrop-filter: blur(8px);
 }
 
@@ -600,9 +600,9 @@ button.cht-avatar:hover {
   height: 26px;
   padding: 0 10px;
   border-radius: 999px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: #cfcfcf;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
+  color: var(--mono-cfcfcf);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -631,8 +631,8 @@ button.cht-avatar:hover {
   display: grid;
   place-items: center;
   border-radius: 13px;
-  background: linear-gradient(145deg, #2c2c2c, #151515);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-151515));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.08);
   color: var(--text-primary);
 }
 
@@ -655,8 +655,8 @@ button.cht-avatar:hover {
 .cht-skel span {
   border-radius: 999px;
   background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%) 0 0 / 200% 100%,
-    #181818;
+    linear-gradient(90deg, transparent 0%, rgba(var(--mono-ink), 0.06) 50%, transparent 100%) 0 0 / 200% 100%,
+    var(--mono-181818);
   animation: chtShimmer 1.4s ease-in-out infinite;
 }
 
@@ -792,7 +792,7 @@ button.cht-avatar:hover {
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 500;
@@ -870,7 +870,7 @@ button.cht-avatar:hover {
   gap: 2px;
   padding: 20px max(16px, calc((100% - 820px) / 2)) 12px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .chat-message {
@@ -913,8 +913,8 @@ button.cht-avatar:hover {
 /* Досымдікі — қараңғы, сол жақта */
 .chat-message.other {
   align-self: flex-start;
-  background: #161616;
-  box-shadow: inset 0 0 0 1px #242424;
+  background: var(--mono-161616);
+  box-shadow: inset 0 0 0 1px var(--mono-242424);
   color: var(--text-primary);
   transform-origin: bottom left;
 }
@@ -1000,21 +1000,21 @@ button.cht-avatar:hover {
 
 /* Мәтін көпіршігінің дизайны: жұмсақ градиент, үстіңгі жарқыл, тереңдік көлеңкесі */
 .chat-message.text.own {
-  --cht-bubble-tail: #ececec;
-  background: linear-gradient(180deg, #ffffff 0%, #ececec 100%);
+  --cht-bubble-tail: var(--mono-ececec);
+  background: linear-gradient(180deg, var(--mono-ffffff) 0%, var(--mono-ececec) 100%);
   box-shadow:
-    inset 0 1px 0 #fff,
-    inset 0 -1px 0 rgba(0, 0, 0, 0.06),
-    0 8px 22px -12px rgba(255, 255, 255, 0.28);
+    inset 0 1px 0 var(--mono-ffffff),
+    inset 0 -1px 0 rgba(0, 0, 0, calc(0.06 * var(--mono-shadow))),
+    0 8px 22px -12px rgba(var(--mono-ink), 0.28);
 }
 
 .chat-message.text.other {
-  --cht-bubble-tail: #141414;
-  background: linear-gradient(180deg, #1e1e1e 0%, #141414 100%);
+  --cht-bubble-tail: var(--mono-141414);
+  background: linear-gradient(180deg, var(--mono-1e1e1e) 0%, var(--mono-141414) 100%);
   box-shadow:
-    inset 0 0 0 1px #262626,
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 10px 24px -14px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px var(--mono-262626),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.07),
+    0 10px 24px -14px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
 }
 
 .chat-message.text.is-failed {
@@ -1196,7 +1196,7 @@ button.cht-avatar:hover {
   border: 0;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  color: var(--mono-ffffff);
   cursor: pointer;
   pointer-events: auto;
   backdrop-filter: blur(6px);
@@ -1213,7 +1213,7 @@ button.cht-avatar:hover {
 }
 
 .cht-upload__btn:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--mono-ffffff);
   outline-offset: 2px;
 }
 
@@ -1232,11 +1232,11 @@ button.cht-avatar:hover {
 }
 
 .cht-upload__track {
-  stroke: rgba(255, 255, 255, 0.18);
+  stroke: rgba(var(--mono-ink), 0.18);
 }
 
 .cht-upload__bar {
-  stroke: #fff;
+  stroke: var(--mono-ffffff);
   stroke-linecap: round;
   transition: stroke-dashoffset 0.25s ease;
 }
@@ -1245,7 +1245,7 @@ button.cht-avatar:hover {
   padding: 1px 7px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  color: var(--mono-ffffff);
   font-size: 0.68rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1297,7 +1297,7 @@ button.cht-avatar:hover {
   max-width: 100%;
   max-height: 340px;
   border-radius: 14px;
-  background: #000;
+  background: var(--mono-000000);
 }
 
 .chat-message-audio {
@@ -1330,7 +1330,7 @@ button.cht-avatar:hover {
 
 .chat-message.other .chat-message-file,
 .chat-message.other .chat-location-link {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--mono-ink), 0.05);
 }
 
 .chat-message-file:hover,
@@ -1401,7 +1401,7 @@ button.cht-avatar:hover {
 .sticker-placeholder {
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(127, 127, 127, 0.15);
+  background: rgba(var(--mono-rgb-127), 0.15);
   font-size: 0.8rem;
 }
 
@@ -1429,7 +1429,7 @@ button.cht-avatar:hover {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(var(--mono-ink), 0.07) 1px, transparent 1px);
   background-size: 22px 22px;
   mask-image: radial-gradient(45% 45% at 50% 50%, #000 0%, transparent 100%);
   -webkit-mask-image: radial-gradient(45% 45% at 50% 50%, #000 0%, transparent 100%);
@@ -1446,8 +1446,8 @@ button.cht-avatar:hover {
   display: grid;
   place-items: center;
   border-radius: 16px;
-  background: linear-gradient(145deg, #2c2c2c, #151515);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 30px -12px rgba(0, 0, 0, 0.9);
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-151515));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.08), 0 12px 30px -12px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   color: var(--text-primary);
 }
 
@@ -1457,7 +1457,7 @@ button.cht-avatar:hover {
   border-radius: 22px;
   background: var(--home-accent);
   color: var(--home-on-accent);
-  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04), 0 0 60px -10px rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 6px rgba(var(--mono-ink), 0.04), 0 0 60px -10px rgba(var(--mono-ink), 0.25);
   animation: chtFloat 4s ease-in-out infinite;
 }
 
@@ -1557,11 +1557,11 @@ button.cht-avatar:hover {
   flex-direction: column;
   overflow: hidden;
   border-radius: 22px;
-  background: linear-gradient(180deg, #151515 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-151515) 0%, var(--mono-0c0c0c) 100%);
   box-shadow:
-    inset 0 0 0 1px #262626,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 30px 80px -20px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px var(--mono-262626),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.05),
+    0 30px 80px -20px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
   color: var(--text-primary);
   animation: chtModalIn 0.4s var(--cht-spring);
 }
@@ -1591,7 +1591,7 @@ button.cht-avatar:hover {
   overflow-y: auto;
   padding: 20px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cht-profile {
@@ -1637,7 +1637,7 @@ button.cht-avatar:hover {
   border: 0;
   border-radius: 10px;
   outline: none;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1.5px var(--home-accent);
   color: var(--text-primary);
   font: inherit;
@@ -1657,7 +1657,7 @@ button.cht-avatar:hover {
   gap: 12px;
   padding: 10px 12px;
   border-radius: var(--cht-radius);
-  background: #0e0e0e;
+  background: var(--mono-0e0e0e);
   box-shadow: inset 0 0 0 1px var(--cht-line);
 }
 
@@ -1668,7 +1668,7 @@ button.cht-avatar:hover {
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: #1c1c1c;
+  background: var(--mono-1c1c1c);
   color: var(--text-primary);
 }
 
@@ -1710,7 +1710,7 @@ button.cht-avatar:hover {
   padding: 0;
   border: 0;
   border-radius: 12px;
-  background: #141414;
+  background: var(--mono-141414);
   box-shadow: inset 0 0 0 1px var(--cht-line);
   color: var(--text-primary);
   text-decoration: none;
@@ -1720,7 +1720,7 @@ button.cht-avatar:hover {
 
 .cht-media__item:hover {
   transform: scale(1.03);
-  box-shadow: inset 0 0 0 1px #3a3a3a;
+  box-shadow: inset 0 0 0 1px var(--mono-3a3a3a);
 }
 
 .cht-media__item img {
@@ -1775,7 +1775,7 @@ button.cht-avatar:hover {
   max-height: 100%;
   border-radius: 14px;
   object-fit: contain;
-  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
   animation: chtModalIn 0.35s var(--cht-ease);
 }
 
@@ -1852,12 +1852,12 @@ button.cht-avatar:hover {
   width: 88px;
   height: 88px;
   font-size: 2rem;
-  box-shadow: 0 0 0 3px #111, 0 0 0 5px #2e2e2e, 0 18px 40px -16px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 0 3px var(--mono-111111), 0 0 0 5px var(--mono-2e2e2e), 0 18px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
 }
 
 .cht-item.is-active .cht-gavatar,
 .cht-item.has-unread .cht-gavatar {
-  box-shadow: 0 0 0 2px #0c0c0c, 0 0 0 3.5px var(--home-accent);
+  box-shadow: 0 0 0 2px var(--mono-0c0c0c), 0 0 0 3.5px var(--home-accent);
 }
 
 .cht-item__name > svg {
@@ -1897,7 +1897,7 @@ button.cht-avatar:hover {
 
 .cht-stack .cht-avatar {
   margin-left: -8px;
-  box-shadow: 0 0 0 2px #111;
+  box-shadow: 0 0 0 2px var(--mono-111111);
 }
 
 .cht-stack .cht-avatar:first-child {
@@ -1952,7 +1952,7 @@ button.cht-avatar:hover {
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.01em;
-  color: #d4d4d4;
+  color: var(--mono-d4d4d4);
 }
 
 /* Жүйелік хабарлама — ортада, кішкентай таблетка */
@@ -1967,7 +1967,7 @@ button.cht-avatar:hover {
   max-width: 80%;
   padding: 5px 12px;
   border-radius: 999px;
-  background: #141414;
+  background: var(--mono-141414);
   box-shadow: inset 0 0 0 1px var(--cht-line);
   color: var(--cht-muted);
   font-size: 0.74rem;
@@ -2000,7 +2000,7 @@ button.cht-avatar:hover {
   border: 0;
   border-radius: var(--cht-radius);
   outline: none;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cht-line);
   color: var(--text-primary);
   font: inherit;
@@ -2171,7 +2171,7 @@ button.cht-avatar:hover {
   margin: 0 -6px;
   padding: 0 6px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cht-picker__row {
@@ -2212,7 +2212,7 @@ button.cht-avatar:hover {
   margin-bottom: 12px;
   padding: 12px;
   border-radius: 14px;
-  background: #0e0e0e;
+  background: var(--mono-0e0e0e);
   box-shadow: inset 0 0 0 1px var(--cht-line);
   animation: chtFadeDown 0.3s var(--cht-ease);
 }
@@ -2235,9 +2235,9 @@ button.cht-avatar:hover {
 }
 
 .cht-role--admin {
-  background: #1f1f1f;
-  box-shadow: inset 0 0 0 1px #333;
-  color: #e5e5e5;
+  background: var(--mono-1f1f1f);
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
+  color: var(--mono-e5e5e5);
 }
 
 .cht-you {
@@ -2251,7 +2251,7 @@ button.cht-avatar:hover {
   text-align: center;
   font-size: 0.86rem;
   line-height: 1.5;
-  color: #bdbdbd;
+  color: var(--mono-bdbdbd);
 }
 
 .cht-profile__meta {
@@ -2283,12 +2283,12 @@ button.cht-avatar:hover {
 
 .chat-message.own .cht-pcard {
   background: rgba(0, 0, 0, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, calc(0.08 * var(--mono-shadow)));
 }
 
 .chat-message.other .cht-pcard {
-  background: #111;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
+  background: var(--mono-111111);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
 }
 
 /* Шақыру картасы — жоғарғы жағында ақ жолақ */
@@ -2343,9 +2343,9 @@ button.cht-avatar:hover {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: linear-gradient(145deg, #2c2c2c, #191919);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  color: #ededed;
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-191919));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.08);
+  color: var(--mono-ededed);
 }
 
 .cht-item.is-active .cht-pcard__icon--sm {
@@ -2414,8 +2414,8 @@ button.cht-avatar:hover {
 }
 
 .chat-message.other .cht-pcard__chip {
-  background: #1f1f1f;
-  box-shadow: inset 0 0 0 1px #333;
+  background: var(--mono-1f1f1f);
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
 }
 
 .cht-pcard__stat {
@@ -2473,13 +2473,13 @@ button.cht-avatar:hover {
 }
 
 .chat-message.other .cht-pcard__btn {
-  background: #1f1f1f;
-  box-shadow: inset 0 0 0 1px #333;
+  background: var(--mono-1f1f1f);
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
   color: var(--text-primary);
 }
 
 .chat-message.other .cht-pcard__btn:hover {
-  background: #262626;
+  background: var(--mono-262626);
 }
 
 .chat-message.other .cht-pcard__btn.is-primary {
@@ -2524,7 +2524,7 @@ button.cht-avatar:hover {
   border-radius: 18px;
   background: var(--home-accent);
   color: var(--home-on-accent);
-  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04), 0 0 50px -10px rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 6px rgba(var(--mono-ink), 0.04), 0 0 50px -10px rgba(var(--mono-ink), 0.25);
   animation: chtFloat 4s ease-in-out infinite;
 }
 
@@ -2554,19 +2554,19 @@ button.cht-avatar:hover {
 
 /* Тақырып жолы — шыны әсері, хабарламалар астынан өтеді */
 .cht-bar {
-  background: rgba(14, 14, 14, 0.72);
+  background: rgba(var(--mono-rgb-14), 0.72);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
 .cht-bar__who.is-open {
   background: var(--cht-hover);
-  box-shadow: inset 0 0 0 1px #2a2a2a;
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
 }
 
 /* Хабарламалар фоны — нүктелі тор, хабарламалармен бірге айналады */
 .cht-messages {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(var(--mono-ink), 0.035) 1px, transparent 1px);
   background-size: 22px 22px;
   background-attachment: local;
 }
@@ -2581,7 +2581,7 @@ button.cht-avatar:hover {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--cht-line);
-  background: linear-gradient(180deg, #121212 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0c0c0c) 100%);
   animation: chtDetailsIn 0.4s var(--cht-ease);
 }
 
@@ -2617,7 +2617,7 @@ button.cht-avatar:hover {
   overflow-y: auto;
   padding: 22px 16px 16px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cht-details__foot {
@@ -2655,7 +2655,7 @@ button.cht-avatar:hover {
     bottom: 0;
     z-index: 20;
     width: min(360px, 100%);
-    box-shadow: -24px 0 60px -20px rgba(0, 0, 0, 0.95);
+    box-shadow: -24px 0 60px -20px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
     animation-name: chtDrawerIn;
   }
 
@@ -2745,8 +2745,8 @@ button.cht-avatar:hover {
 }
 
 .cht-filter.is-active {
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #3a3a3a;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-3a3a3a);
   color: var(--text-primary);
 }
 
@@ -2758,7 +2758,7 @@ button.cht-avatar:hover {
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: #2a2a2a;
+  background: var(--mono-2a2a2a);
   color: var(--text-primary);
   font-size: 0.62rem;
   font-weight: 800;
@@ -2864,7 +2864,7 @@ button.cht-avatar:hover {
     height: 16px;
     padding: 0 4px;
     font-size: 0.6rem;
-    box-shadow: 0 0 0 2px #0a0a0a;
+    box-shadow: 0 0 0 2px var(--mono-0a0a0a);
   }
 
   .is-collapsed .cht-side__head {
@@ -2913,7 +2913,7 @@ button.cht-avatar:hover {
     height: 10px;
     border-radius: 50%;
     background: var(--home-accent);
-    box-shadow: 0 0 0 2px #0c0c0c;
+    box-shadow: 0 0 0 2px var(--mono-0c0c0c);
     animation: chtPop 0.35s var(--cht-spring);
   }
 }

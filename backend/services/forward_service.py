@@ -35,8 +35,6 @@ async def forward_message(user_id: str, body) -> Dict[str, Any]:
         for target in body.targets:
             try:
                 if target.kind == "dm":
-                    if not FriendService.can_message(user_id, target.id):
-                        raise HTTPException(status_code=403, detail="Not friends")
                     msg = await MessageService.create_message(
                         from_user_id=user_id,
                         to_user_id=target.id,
@@ -45,7 +43,7 @@ async def forward_message(user_id: str, body) -> Dict[str, Any]:
                         message_type=message_type,
                         attachments=attachments,
                         metadata=metadata,
-                        extra=extra,
+                        extra={**extra, **FriendService.delivery_extra(user_id, target.id)},
                     )
                 else:
                     msg = await GroupService.send_message(

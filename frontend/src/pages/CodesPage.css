@@ -3,20 +3,20 @@
 
 .codes-page {
   /* Тақырыптан тәуелсіз — басты бетпен бірдей палитра */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --border-color: #262626;
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --primary-hover: #d4d4d4;
-  --home-accent: #fafafa;
-  --home-on-accent: #0a0a0a;
+  --bg-primary: var(--mono-0a0a0a);
+  --bg-secondary: var(--mono-141414);
+  --border-color: var(--mono-262626);
+  --text-primary: var(--mono-f5f5f5);
+  --text-secondary: var(--mono-a3a3a3);
+  --primary-hover: var(--mono-d4d4d4);
+  --home-accent: var(--mono-fafafa);
+  --home-on-accent: var(--mono-0a0a0a);
 
-  --cdx-line: #1f1f1f;
-  --cdx-line-strong: #333;
-  --cdx-hover: #1a1a1a;
-  --cdx-raise: #161616;
-  --cdx-muted: #8f8f8f;
+  --cdx-line: var(--mono-1f1f1f);
+  --cdx-line-strong: var(--mono-333333);
+  --cdx-hover: var(--mono-1a1a1a);
+  --cdx-raise: var(--mono-161616);
+  --cdx-muted: var(--mono-8f8f8f);
   --cdx-item: 40px;
   --cdx-radius: 12px;
   --cdx-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -26,7 +26,7 @@
   width: 100%;
   min-height: calc(100dvh - var(--header-h, 64px));
   box-sizing: border-box;
-  background: #000;
+  background: var(--mono-000000);
   color: var(--text-primary);
 }
 
@@ -54,8 +54,8 @@
   overflow: hidden;
   border: 1px solid var(--cdx-line);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: cdxPanelIn 0.6s var(--cdx-ease) backwards;
 }
 
@@ -63,14 +63,14 @@
   gap: 6px;
   padding: 8px;
   border-radius: 18px;
-  background: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0c0c0c) 100%);
 }
 
 .cdx-main {
   border-radius: 20px;
   background:
-    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-    linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+    radial-gradient(120% 60% at 50% 0%, rgba(var(--mono-ink), 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0b0b0b) 100%);
   animation-delay: 80ms;
 }
 
@@ -193,7 +193,7 @@
 }
 
 .cdx-row--ghost .cdx-row__label {
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   font-weight: 500;
 }
 
@@ -250,7 +250,7 @@ a.cdx-row {
 
 .cdx-cat .cdx-row__label {
   font-weight: 500;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
 }
 
 .cdx-cat .cdx-row__slot {
@@ -258,8 +258,8 @@ a.cdx-row {
 }
 
 .cdx-cat.is-active {
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
 }
 
 .cdx-cat.is-active .cdx-row__label {
@@ -295,12 +295,12 @@ a.cdx-row {
 /* Іздеу */
 .cdx-search {
   cursor: text;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cdx-line);
 }
 
 .cdx-search:hover {
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cdx-line-strong);
 }
 
@@ -327,7 +327,7 @@ a.cdx-row {
 }
 
 .cdx-search__input::placeholder {
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 .cdx-search__input::-webkit-search-cancel-button {
@@ -350,7 +350,7 @@ a.cdx-row {
   padding: 8px 8px 4px;
   border-top: 1px solid var(--cdx-line);
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 /* ---------- Тіл таңдау картасы: басқанда ішінде тізім ашылады ---------- */
@@ -359,7 +359,7 @@ a.cdx-row {
   position: relative;
   flex-shrink: 0;
   border-radius: 14px;
-  background: #0e0e0e;
+  background: var(--mono-0e0e0e);
   box-shadow: inset 0 0 0 1px var(--cdx-line);
   transition: box-shadow 0.2s ease, background-color 0.2s ease;
 }
@@ -369,10 +369,10 @@ a.cdx-row {
 }
 
 .cdx-lang.is-open {
-  background: #111;
+  background: var(--mono-111111);
   box-shadow:
-    inset 0 0 0 1px #3a3a3a,
-    0 14px 30px -18px rgba(0, 0, 0, 0.9);
+    inset 0 0 0 1px var(--mono-3a3a3a),
+    0 14px 30px -18px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
 }
 
 .cdx-lang__trigger {
@@ -410,7 +410,7 @@ a.cdx-row {
   border-radius: 10px;
   /* Әрқашан ақ: «Барлық тілдер» таңдалғанда да, нақты тіл таңдалғанда да */
   background: var(--home-accent);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.07);
   color: var(--home-on-accent);
   font-size: 0.9rem;
   font-weight: 800;
@@ -434,7 +434,7 @@ a.cdx-row {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 .cdx-lang__value {
@@ -453,7 +453,7 @@ a.cdx-row {
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: #1e1e1e;
+  background: var(--mono-1e1e1e);
   color: var(--cdx-muted);
   font-size: 0.72rem;
   font-weight: 700;
@@ -496,7 +496,7 @@ a.cdx-row {
 .cdx-lang__reset:hover,
 .cdx-lang__reset:focus-visible {
   outline: none;
-  background: #222;
+  background: var(--mono-222222);
   color: var(--text-primary);
 }
 
@@ -531,7 +531,7 @@ a.cdx-row {
   gap: 2px;
   padding: 2px 6px 6px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cdx-lang__option {
@@ -544,7 +544,7 @@ a.cdx-row {
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -580,7 +580,7 @@ a.cdx-row {
 }
 
 .cdx-lang__option.is-active {
-  background: #1c1c1c;
+  background: var(--mono-1c1c1c);
   color: var(--text-primary);
 }
 
@@ -602,7 +602,7 @@ a.cdx-row {
   font-size: 0.75rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 .cdx-lang__option > svg {
@@ -625,9 +625,9 @@ a.cdx-row {
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: linear-gradient(145deg, #2c2c2c, #191919);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  color: #ededed;
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-191919));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.07);
+  color: var(--mono-ededed);
   font-size: 0.75rem;
   font-weight: 800;
   line-height: 1;
@@ -737,11 +737,11 @@ a.cdx-row {
   padding: 6px;
   box-sizing: border-box;
   border-radius: 14px;
-  background: linear-gradient(180deg, #171717 0%, #0f0f0f 100%);
+  background: linear-gradient(180deg, var(--mono-171717) 0%, var(--mono-0f0f0f) 100%);
   box-shadow:
-    inset 0 0 0 1px #2a2a2a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 22px 48px -12px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px var(--mono-2a2a2a),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.05),
+    0 22px 48px -12px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
   transform-origin: top right;
   animation: cdxMenuIn 0.28s var(--cdx-spring);
 }
@@ -759,7 +759,7 @@ a.cdx-row {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 .cdx-menu__item {
@@ -771,7 +771,7 @@ a.cdx-row {
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 500;
@@ -794,7 +794,7 @@ a.cdx-row {
 }
 
 .cdx-menu__item.is-active {
-  background: #1f1f1f;
+  background: var(--mono-1f1f1f);
   color: var(--text-primary);
   font-weight: 700;
 }
@@ -822,7 +822,7 @@ a.cdx-row {
   padding: 3px;
   gap: 2px;
   border-radius: 11px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cdx-line);
 }
 
@@ -874,8 +874,8 @@ a.cdx-row {
   padding: 0 8px 0 12px;
   border: 0;
   border-radius: 999px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
   color: var(--text-primary);
   font: inherit;
   font-size: 0.78rem;
@@ -893,8 +893,8 @@ a.cdx-row {
 }
 
 .cdx-pill:hover {
-  background: #242424;
-  box-shadow: inset 0 0 0 1px #3a3a3a;
+  background: var(--mono-242424);
+  box-shadow: inset 0 0 0 1px var(--mono-3a3a3a);
 }
 
 .cdx-pill:hover > svg {
@@ -925,7 +925,7 @@ a.cdx-row {
   overflow-y: auto;
   padding: 16px 20px 24px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 /* ---------- Кодтар торы ---------- */
@@ -960,10 +960,10 @@ a.cdx-row {
   padding: 14px;
   box-sizing: border-box;
   border-radius: 16px;
-  background: linear-gradient(180deg, #141414 0%, #0e0e0e 100%);
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0e0e0e) 100%);
   box-shadow:
     inset 0 0 0 1px var(--cdx-line),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.03);
   color: var(--text-primary);
   text-decoration: none;
   /* Кезекпен «секіріп» шығады */
@@ -975,9 +975,9 @@ a.cdx-row {
 .cdx-card:hover {
   transform: translateY(-2px);
   box-shadow:
-    inset 0 0 0 1px #3a3a3a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 36px -18px rgba(0, 0, 0, 0.9);
+    inset 0 0 0 1px var(--mono-3a3a3a),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.05),
+    0 18px 36px -18px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
 }
 
 .cdx-card:active {
@@ -1010,9 +1010,9 @@ a.cdx-row {
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: linear-gradient(145deg, #2c2c2c, #191919);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  color: #ededed;
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-191919));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.07);
+  color: var(--mono-ededed);
   font-size: 0.9rem;
   font-weight: 800;
   transition: background 0.2s ease, color 0.2s ease, transform 0.3s var(--cdx-spring);
@@ -1058,7 +1058,7 @@ a.cdx-row {
 .cdx-card__author {
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #bdbdbd;
+  color: var(--mono-bdbdbd);
 }
 
 .cdx-card__lang {
@@ -1069,9 +1069,9 @@ a.cdx-row {
   text-overflow: ellipsis;
   padding: 3px 9px;
   border-radius: 999px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: #cfcfcf;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
+  color: var(--mono-cfcfcf);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1080,11 +1080,12 @@ a.cdx-row {
 
 /* Код үзіндісі — редактор терезесі сияқты */
 .cdx-card__preview {
+  position: relative;
   height: 132px;
   overflow: hidden;
   border-radius: 10px;
-  background: #070707;
-  box-shadow: inset 0 0 0 1px #1a1a1a;
+  background: var(--mono-070707);
+  box-shadow: inset 0 0 0 1px var(--mono-1a1a1a);
 }
 
 .cdx-card__code {
@@ -1096,11 +1097,45 @@ a.cdx-row {
   font-family: var(--cdx-mono-font);
   font-size: 0.72rem;
   line-height: 1.6;
-  color: #c9c9c9;
+  color: var(--mono-c9c9c9);
   white-space: pre;
   mask-image: linear-gradient(180deg, #000 60%, transparent), linear-gradient(90deg, #000 85%, transparent);
   mask-composite: intersect;
   -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+
+/* Іске қосылған веб-код — үзіндінің үстінен, жүктелгенде біртіндеп шығады */
+.cdx-live {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #fff;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+
+.cdx-live.is-ready {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s ease;
+}
+
+.cdx-live__frame {
+  display: block;
+  border: 0;
+  transform-origin: 0 0;
+  background: #fff;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cdx-live,
+  .cdx-live.is-ready {
+    transition: none;
+  }
 }
 
 .cdx-card__tree {
@@ -1112,7 +1147,7 @@ a.cdx-row {
   gap: 5px;
   font-family: var(--cdx-mono-font);
   font-size: 0.74rem;
-  color: #c9c9c9;
+  color: var(--mono-c9c9c9);
   mask-image: linear-gradient(180deg, #000 70%, transparent);
   -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent);
 }
@@ -1149,7 +1184,7 @@ a.cdx-row {
   overflow: hidden;
   font-size: 0.82rem;
   line-height: 1.5;
-  color: #bdbdbd;
+  color: var(--mono-bdbdbd);
 }
 
 .cdx-card__caption {
@@ -1205,7 +1240,7 @@ a.cdx-row {
 
 .cdx-card--list:hover {
   transform: none;
-  background: #161616;
+  background: var(--mono-161616);
 }
 
 .cdx-card--list .cdx-card__head {
@@ -1226,8 +1261,8 @@ a.cdx-row {
 .cdx-skel {
   border-radius: 16px;
   background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%) 0 0 / 200% 100%,
-    #121212;
+    linear-gradient(90deg, transparent 0%, rgba(var(--mono-ink), 0.05) 50%, transparent 100%) 0 0 / 200% 100%,
+    var(--mono-121212);
   box-shadow: inset 0 0 0 1px var(--cdx-line);
   animation: cdxShimmer 1.4s ease-in-out infinite;
 }
@@ -1272,7 +1307,7 @@ a.cdx-row {
   border: 0;
   border-radius: 9px;
   background: var(--error-color, #ef4444);
-  color: #fff;
+  color: var(--mono-ffffff);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -1299,7 +1334,7 @@ a.cdx-row {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(var(--mono-ink), 0.07) 1px, transparent 1px);
   background-size: 22px 22px;
   mask-image: radial-gradient(50% 50% at 50% 50%, #000 0%, transparent 100%);
   -webkit-mask-image: radial-gradient(50% 50% at 50% 50%, #000 0%, transparent 100%);
@@ -1312,8 +1347,8 @@ a.cdx-row {
   display: grid;
   place-items: center;
   border-radius: 16px;
-  background: linear-gradient(145deg, #2c2c2c, #151515);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 30px -12px rgba(0, 0, 0, 0.9);
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-151515));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.08), 0 12px 30px -12px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   color: var(--text-primary);
 }
 

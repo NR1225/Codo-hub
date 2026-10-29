@@ -6,6 +6,7 @@ import { apiService } from '../utils/api';
 import { subscribeToCode, unsubscribe } from '../utils/realtimeService';
 import { useAuth } from '../contexts/AuthContext';
 import CodeEditor from '../components/CodeEditor';
+import CodeRunPanel from '../components/codes/CodeRunPanel';
 import { isImageFile } from '../utils/fileHandler';
 import { formatDate, formatDateTime } from '../utils/dateFormatter';
 import { monogram } from '../components/home/monogram';
@@ -14,7 +15,9 @@ import {
   ArrowUpIcon,
   CheckIcon,
   ChevronIcon,
+  ClockIcon,
   CloseIcon,
+  CodeBracketsIcon,
   CommentIcon,
   CopyIcon,
   DownloadIcon,
@@ -35,8 +38,6 @@ type CurrentUser = { id: string; username: string } | null;
 
 // Тар экранда панельдер қойындылар арқылы ауысады (CSS ≤960px)
 type MobileTab = 'files' | 'code' | 'comments';
-
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 // Сурет мазмұны data URL, сілтеме немесе таза base64 болуы мүмкін
 function imageSrc(file: CodeFile): string {
@@ -66,36 +67,6 @@ function renderCommentContent(content: string) {
   });
 }
 
-// Пікір мен жауапқа сурет тіркеу — data URL ретінде оқылады
-function readImage(
-  e: React.ChangeEvent<HTMLInputElement>,
-  t: (key: string) => string,
-  onLoad: (dataUrl: string) => void
-) {
-  const file = e.target.files?.[0];
-  e.target.value = '';
-  if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    alert(t('viewCode.errorImageFilesOnly'));
-    return;
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    alert(t('viewCode.errorImageSizeLimit'));
-    return;
-  }
-  const reader = new FileReader();
-  reader.onloadend = () => onLoad(reader.result as string);
-  reader.onerror = () => alert(t('viewCode.errorReadImage'));
-  reader.readAsDataURL(file);
-}
-
-function withImage(text: string, image: string | null): string {
-  const trimmed = text.trim();
-  if (!image) return trimmed;
-  const tag = `<img src="${image}" alt="Comment image" />`;
-  return trimmed ? `${trimmed}\n${tag}` : tag;
-}
-
 // Жоғары деңгейлі пікір, астында оның барлық жауаптары (тегіс тізім, рекурсивті)
 function organizeComments(comments: Comment[]): Comment[] {
   const topLevel: Comment[] = [];
@@ -106,6 +77,19 @@ function organizeComments(comments: Comment[]): Comment[] {
   });
   const walk = (c: Comment): Comment[] => [c, ...(replies[c.id] || []).flatMap(walk)];
   return topLevel.flatMap(walk);
+}
+
+// Firestore снапшотынан тек жеңіл өрістер алынады: папканың ауыр content/folderStructure-ы
+// state-ке кірмейді, ал views кері кетпейді (Firestore-да ол жаңартылмайды)
+function mergeLive(prev: CodeFile, live: CodeFile): CodeFile {
+  const { content, folderStructure: _structure, views, viewedBy, ...rest } = live;
+  return {
+    ...prev,
+    ...rest,
+    ...(prev.isFolder ? {} : { content }),
+    views: Math.max(prev.views || 0, views || 0),
+    viewedBy: (viewedBy?.length || 0) > (prev.viewedBy?.length || 0) ? viewedBy : prev.viewedBy,
+  };
 }
 
 /* ---------- Файлдар ағашы ---------- */
@@ -345,6 +329,8 @@ const ViewCode: React.FC = () => {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('code');
+  // Іске қосу панелі (null — жабық); сан әр басқанда артады — жоба қайта іске қосылады
+  const [runId, setRunId] = useState<number | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -355,7 +341,6 @@ const ViewCode: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [commentText, setCommentText] = useState('');
-  const [commentImage, setCommentImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -372,16 +357,12 @@ const ViewCode: React.FC = () => {
       .filter((a) => !avatarsRequested.current.has(a));
     if (authors.length === 0) return;
     authors.forEach((a) => avatarsRequested.current.add(a));
-    Promise.all(
-      authors.map((author) =>
-        apiService.getUserByUsername(author)
-          .then((u) => [author, u.avatar] as const)
-          .catch(() => [author, undefined] as const)
-      )
-    ).then((results) => {
-      const found = Object.fromEntries(results.filter(([, a]) => a)) as Record<string, string>;
-      if (Object.keys(found).length) setAvatars((prev) => ({ ...prev, ...found }));
-    });
+    // Барлық авторлар бір сұраумен (әрқайсысына жеке сұрау rate limit-ке тірелетін)
+    apiService.getAvatars(authors)
+      .then((found) => {
+        if (Object.keys(found).length) setAvatars((prev) => ({ ...prev, ...found }));
+      })
+      .catch((err) => console.error('Failed to load avatars:', err));
   }, []);
 
   const loadFolderFiles = useCallback(async (folderId: string) => {
@@ -407,6 +388,32 @@ const ViewCode: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
+    let unsubscribeListener: () => void = () => {};
+
+    // Real-time тыңдаушы негізгі жүктеуден кейін қосылады — бетті ашуға бәсекелес болмайды
+    const listen = () => {
+      // Алғашқы снапшот — API-дан алынғанның көшірмесі, сондықтан өткізіледі;
+      // файлдар тізімі папка құрылымы шын өзгергенде ғана қайта жүктеледі
+      let structureSize: number | null = null;
+      unsubscribeListener = subscribeToCode(
+        id,
+        (updated) => {
+          if (cancelled) return;
+          const size = Object.keys(updated.folderStructure || {}).length;
+          if (structureSize === null) {
+            structureSize = size;
+            return;
+          }
+          setCode((prev) => (prev && prev.id === updated.id ? mergeLive(prev, updated) : prev));
+          loadAvatars(updated.comments);
+          if (updated.isFolder && size !== structureSize) {
+            structureSize = size;
+            loadFolderFiles(id);
+          }
+        },
+        (err) => console.error('Real-time listener error:', err)
+      );
+    };
 
     const load = async () => {
       try {
@@ -421,6 +428,7 @@ const ViewCode: React.FC = () => {
           setFolderFiles([]);
           setSelectedFile(null);
         }
+        listen();
         // Жауап жеңіл нұсқа — тек қаралым санағын жаңартамыз
         apiService.incrementView(id, user?.id ?? null)
           .then((updated) => {
@@ -437,16 +445,6 @@ const ViewCode: React.FC = () => {
       }
     };
     load();
-
-    const unsubscribeListener = subscribeToCode(
-      id,
-      (updated) => {
-        if (cancelled) return;
-        applyCode(updated);
-        if (updated.isFolder) loadFolderFiles(id);
-      },
-      (err) => console.error('Real-time listener error:', err)
-    );
 
     return () => {
       cancelled = true;
@@ -508,13 +506,16 @@ const ViewCode: React.FC = () => {
 
   /* ----- Әрекеттер ----- */
 
-  // Жоба Vibecoding-ке көшіріліп, бірден іске қосылады
-  const handleRun = () => {
-    if (!code) return;
-    const params = new URLSearchParams({ repo: code.id, run: '1' });
-    if (code.isFolder && selectedFile) params.set('file', selectedFile.folderPath || selectedFile.title);
-    navigate(`/vibecoding?${params.toString()}`);
+  // Сайттың ішінен келсе — алдыңғы бетке, сілтеме арқылы тікелей ашылса — жобалар тізіміне
+  // (navigate(-1) ол кезде сайттан шығарып жібереді)
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate('/codes');
   };
+
+  // Жоба осы беттің өзінде іске қосылады (ашық тұрса — қайта іске қосылады)
+  const handleRun = () => setRunId((id) => (id ?? 0) + 1);
 
   const handleCopy = async () => {
     if (!activeFile || contentLoading) return;
@@ -621,15 +622,13 @@ const ViewCode: React.FC = () => {
   // Жаңа пікір немесе жауап — бір форма арқылы
   const handleSubmitComment = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!code || !currentUser || isSubmitting || (!commentText.trim() && !commentImage)) return;
-    const content = withImage(commentText, commentImage);
+    const content = commentText.trim();
+    if (!code || !currentUser || isSubmitting || !content) return;
     const parent = replyTo;
     const savedText = commentText;
-    const savedImage = commentImage;
 
     setIsSubmitting(true);
     setCommentText('');
-    setCommentImage(null);
     setReplyTo(null);
 
     // Жай пікір бірден көрсетіледі (optimistic), жауап сервер жауабынан кейін
@@ -651,7 +650,6 @@ const ViewCode: React.FC = () => {
       console.error('Failed to add comment:', err);
       if (temp) setCode((prev) => (prev ? { ...prev, comments: (prev.comments || []).filter((c) => c.id !== temp.id) } : prev));
       setCommentText(savedText);
-      setCommentImage(savedImage);
       setReplyTo(parent);
       alert(t(parent ? 'viewCode.errorAddReply' : 'viewCode.errorAddComment'));
     } finally {
@@ -742,40 +740,21 @@ const ViewCode: React.FC = () => {
   const longDescription = (code.description?.length || 0) > 160;
 
   return (
-    <div className="vc-page">
+    <div className={`vc-page ${runId !== null ? 'is-running' : ''}`}>
       {/* ---------- Жоғарғы панель: атауы, мета, әрекеттер ---------- */}
       <header className="vc-panel vc-hero">
-        <button type="button" className="vc-icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')} title={t('common.back')}>
-          <ArrowLeftIcon />
-        </button>
-
-        <div className="vc-hero__mono" aria-hidden="true">
-          {code.isFolder ? <FolderIcon size={22} /> : monogram(code.title)}
-        </div>
-
-        <div className="vc-hero__info">
-          <h1 className="vc-hero__title">{code.title}</h1>
-          <div className="vc-hero__meta">
-            <Link to={`/profile/${code.author}`} className="vc-hero__author">
+        {/* Навигация: артқа · жол көрсеткіші — сол жақта, әрекеттер — оң жақта */}
+        <div className="vc-hero__nav">
+          <button type="button" className="vc-back" onClick={goBack} aria-label={t('common.back')} title={t('common.back')}>
+            <ArrowLeftIcon />
+          </button>
+          <nav className="vc-crumbs" aria-label={t('header.codes')}>
+            <Link to="/codes" className="vc-crumbs__link">{t('header.codes')}</Link>
+            <span className="vc-crumbs__sep" aria-hidden="true">/</span>
+            <Link to={`/profile/${code.author}`} className="vc-crumbs__link">
               {isOwner ? t('viewCode.youLabel') : `@${code.author}`}
             </Link>
-            <span className="vc-dot" />
-            <span>{formatDate(code.updatedAt || code.createdAt, language, 'long')}</span>
-            {code.language && (
-              <>
-                <span className="vc-dot" />
-                <span className="vc-tag vc-tag--lang">{code.language}</span>
-              </>
-            )}
-            {code.isFolder && (
-              <>
-                <span className="vc-dot" />
-                <span>{folderFiles.length} {t('viewCode.file')}</span>
-              </>
-            )}
-            <span className="vc-dot" />
-            <span className="vc-hero__stat"><EyeIcon /> {code.views || 0}</span>
-          </div>
+          </nav>
         </div>
 
         <div className="vc-hero__actions">
@@ -831,26 +810,41 @@ const ViewCode: React.FC = () => {
           )}
         </div>
 
-        {(code.description || tags.length > 0) && (
-          <div className="vc-hero__extra">
-            {code.description && (
-              <p className={`vc-hero__desc ${descExpanded || !longDescription ? '' : 'is-clamped'}`}>
-                {code.description}
-                {longDescription && (
-                  <button type="button" className="vc-link" onClick={() => setDescExpanded((v) => !v)}>
-                    {descExpanded ? t('viewCode.showLess') : t('viewCode.showMore')}
-                  </button>
-                )}
-              </p>
-            )}
-            {tags.length > 0 && (
-              <div className="vc-hero__tags">
-                {tags.map((tag) => <span key={tag} className="vc-tag">#{tag}</span>)}
-              </div>
-            )}
+        {/* Атауы, сипаттамасы және мәліметтер чиптері */}
+        <div className="vc-hero__main">
+          <h1 className="vc-hero__title" title={code.title}>{code.title}</h1>
+          {code.description && (
+            <p className={`vc-hero__desc ${descExpanded || !longDescription ? '' : 'is-clamped'}`}>
+              {code.description}
+              {longDescription && (
+                <button type="button" className="vc-link" onClick={() => setDescExpanded((v) => !v)}>
+                  {descExpanded ? t('viewCode.showLess') : t('viewCode.showMore')}
+                </button>
+              )}
+            </p>
+          )}
+          <div className="vc-hero__chips">
+            <Link to={`/profile/${code.author}`} className="vc-chip vc-chip--author">
+              <span className="vc-chip__avatar" aria-hidden="true">{monogram(code.author)}</span>
+              {isOwner ? t('viewCode.youLabel') : code.author}
+            </Link>
+            <span className="vc-chip"><ClockIcon /> {formatDate(code.updatedAt || code.createdAt, language, 'long')}</span>
+            {code.language && <span className="vc-chip vc-chip--lang"><CodeBracketsIcon /> {code.language}</span>}
+            {code.isFolder && <span className="vc-chip"><FileIcon size={14} /> {folderFiles.length} {t('viewCode.file')}</span>}
+            <span className="vc-chip"><EyeIcon /> {code.views || 0}</span>
+            {tags.map((tag) => <span key={tag} className="vc-chip vc-chip--tag">#{tag}</span>)}
           </div>
-        )}
+        </div>
       </header>
+
+      {runId !== null && (
+        <CodeRunPanel
+          codeId={code.id}
+          runId={runId}
+          selectedPath={code.isFolder ? selectedFile?.folderPath || selectedFile?.title : null}
+          onClose={() => setRunId(null)}
+        />
+      )}
 
       {/* ---------- Тар экранға арналған қойындылар ---------- */}
       <nav className="vc-tabs" role="tablist" aria-label={code.title}>
@@ -978,19 +972,7 @@ const ViewCode: React.FC = () => {
                   </button>
                 </div>
               )}
-              {commentImage && (
-                <div className="vc-composer__preview">
-                  <img src={commentImage} alt="" />
-                  <button type="button" className="vc-icon-btn vc-icon-btn--xs" onClick={() => setCommentImage(null)} aria-label={t('common.delete')}>
-                    <CloseIcon size={12} />
-                  </button>
-                </div>
-              )}
               <div className="vc-composer__row">
-                <label className="vc-icon-btn" title={t('viewCode.attachImage')}>
-                  <input type="file" accept="image/*" hidden onChange={(e) => readImage(e, t, setCommentImage)} />
-                  <ImageIcon size={17} />
-                </label>
                 <textarea
                   ref={composerRef}
                   className="vc-composer__input"
@@ -1009,7 +991,7 @@ const ViewCode: React.FC = () => {
                 <button
                   type="submit"
                   className="vc-send"
-                  disabled={(!commentText.trim() && !commentImage) || isSubmitting}
+                  disabled={!commentText.trim() || isSubmitting}
                   aria-label={replyTo ? t('viewCode.addReply') : t('viewCode.addComment')}
                 >
                   <ArrowUpIcon />

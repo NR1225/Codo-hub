@@ -16,6 +16,10 @@ class UserRegister(BaseModel):
         return validate_email(v)
 
 
+class FirebaseLogin(BaseModel):
+    id_token: str = Field(min_length=1, max_length=8192)
+
+
 class UserLogin(BaseModel):
     email: Optional[str] = Field(default=None, max_length=255)
     username: Optional[str] = Field(default=None, max_length=50)
@@ -49,6 +53,25 @@ class UserUpdate(BaseModel):
         if v is not None:
             return validate_email(v)
         return v
+
+
+class RegisterVerify(BaseModel):
+    email: str = Field(max_length=255)
+    code: str = Field(max_length=6, pattern=r'^\d{6}$')
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        return validate_email(v)
+
+
+class RegisterResend(BaseModel):
+    email: str = Field(max_length=255)
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        return validate_email(v)
 
 
 class ForgotPasswordRequest(BaseModel):

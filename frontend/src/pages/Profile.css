@@ -4,20 +4,20 @@
 
 .profile-page {
   /* Тақырыптан тәуелсіз — басты бетпен бірдей палитра */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --border-color: #262626;
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --primary-hover: #d4d4d4;
-  --home-accent: #fafafa;
-  --home-on-accent: #0a0a0a;
+  --bg-primary: var(--mono-0a0a0a);
+  --bg-secondary: var(--mono-141414);
+  --border-color: var(--mono-262626);
+  --text-primary: var(--mono-f5f5f5);
+  --text-secondary: var(--mono-a3a3a3);
+  --primary-hover: var(--mono-d4d4d4);
+  --home-accent: var(--mono-fafafa);
+  --home-on-accent: var(--mono-0a0a0a);
 
-  --cdx-line: #1f1f1f;
-  --cdx-line-strong: #333;
-  --cdx-hover: #1a1a1a;
-  --cdx-raise: #161616;
-  --cdx-muted: #8f8f8f;
+  --cdx-line: var(--mono-1f1f1f);
+  --cdx-line-strong: var(--mono-333333);
+  --cdx-hover: var(--mono-1a1a1a);
+  --cdx-raise: var(--mono-161616);
+  --cdx-muted: var(--mono-8f8f8f);
   --cdx-item: 40px;
   --cdx-radius: 12px;
   --cdx-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -27,7 +27,7 @@
   width: 100%;
   min-height: calc(100dvh - var(--header-h, 64px));
   box-sizing: border-box;
-  background: #000;
+  background: var(--mono-000000);
   color: var(--text-primary);
 }
 
@@ -54,14 +54,14 @@
   overflow: hidden;
   border: 1px solid var(--cdx-line);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: prfPanelIn 0.6s var(--cdx-ease) backwards;
 }
 
 .prf-side {
   border-radius: 18px;
-  background: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0c0c0c) 100%);
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -73,8 +73,8 @@
 .prf-main {
   border-radius: 20px;
   background:
-    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-    linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+    radial-gradient(120% 60% at 50% 0%, rgba(var(--mono-ink), 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0b0b0b) 100%);
   animation-delay: 80ms;
 }
 
@@ -93,11 +93,11 @@
   flex-shrink: 0;
   margin: 8px 8px 0;
   border-radius: 13px;
-  background-color: #0f0f0f;
+  background-color: var(--mono-0f0f0f);
   /* Сурет жоқта — басты беттегідей сөнетін нүктелі тор */
   background-image:
-    radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
-    radial-gradient(120% 100% at 0% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+    radial-gradient(rgba(var(--mono-ink), 0.09) 1px, transparent 1px),
+    radial-gradient(120% 100% at 0% 0%, rgba(var(--mono-ink), 0.08) 0%, transparent 60%);
   background-size: 18px 18px, 100% 100%;
   background-repeat: no-repeat;
   box-shadow: inset 0 0 0 1px var(--cdx-line);
@@ -113,7 +113,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, transparent 40%, rgba(12, 12, 12, 0.65) 100%);
+  background: linear-gradient(180deg, transparent 40%, rgba(var(--mono-rgb-12), 0.65) 100%);
   pointer-events: none;
 }
 
@@ -128,10 +128,10 @@
   place-items: center;
   border: 0;
   border-radius: 10px;
-  background: rgba(10, 10, 10, 0.6);
+  background: rgba(var(--mono-rgb-10), 0.6);
   backdrop-filter: blur(8px);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.1);
   cursor: pointer;
   transition: background-color 0.15s ease, transform 0.25s var(--cdx-spring);
 }
@@ -142,7 +142,7 @@
 }
 
 .prf-cover__btn:hover {
-  background: rgba(30, 30, 30, 0.85);
+  background: rgba(var(--mono-rgb-30), 0.85);
   transform: scale(1.06);
 }
 
@@ -177,8 +177,8 @@
   font-size: 2.1rem;
   font-weight: 800;
   box-shadow:
-    0 0 0 4px #121212,
-    0 12px 30px -10px rgba(0, 0, 0, 0.9);
+    0 0 0 4px var(--mono-121212),
+    0 12px 30px -10px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: prfAvatarIn 0.7s var(--cdx-spring) 0.15s backwards;
 }
 
@@ -214,7 +214,7 @@
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cdx-line-strong);
   color: var(--cdx-muted);
   font-family: var(--cdx-mono-font);
@@ -225,7 +225,7 @@
 
 .prf-chip:hover {
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px #4a4a4a;
+  box-shadow: inset 0 0 0 1px var(--mono-4a4a4a);
 }
 
 .prf-chip.is-done {
@@ -265,7 +265,7 @@
   align-items: center;
   padding: 12px;
   border-radius: 13px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--cdx-line);
   animation: prfStatIn 0.45s var(--cdx-ease) backwards;
   animation-delay: calc(200ms + var(--d, 0) * 50ms);
@@ -285,9 +285,9 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
-  color: #e5e5e5;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
+  color: var(--mono-e5e5e5);
   font-size: 0.85rem;
 }
 
@@ -364,7 +364,7 @@
 
 .prf-btn--ghost:hover {
   background: var(--cdx-hover);
-  box-shadow: inset 0 0 0 1px #4a4a4a;
+  box-shadow: inset 0 0 0 1px var(--mono-4a4a4a);
 }
 
 .prf-btn--icon {
@@ -397,11 +397,11 @@
 .prf-main__count {
   padding: 2px 9px;
   border-radius: 999px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
   font-size: 0.75rem;
   font-weight: 700;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
 }
 
 .prf-main__tools {
@@ -421,7 +421,7 @@
   overflow-y: auto;
   padding: 20px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 /* ---------- Бос күй / қате ---------- */
@@ -451,10 +451,10 @@
   place-items: center;
   margin-bottom: 8px;
   border-radius: 18px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
   font-size: 1.6rem;
-  color: #e5e5e5;
+  color: var(--mono-e5e5e5);
 }
 
 .prf-error__icon {

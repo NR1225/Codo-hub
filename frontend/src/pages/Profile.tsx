@@ -16,6 +16,8 @@ import { ViewMode, readViewMode, saveViewMode } from '../components/codes/codeUt
 import { monogram } from '../components/home/monogram';
 import EditProfileModal from '../components/modals/EditProfileModal';
 import ChangeBackgroundModal from '../components/modals/ChangeBackgroundModal';
+import ProfileOpinions from '../components/profile/ProfileOpinions';
+import ProfileChatSettings from '../components/profile/ProfileChatSettings';
 // Код карталары (.cdx-card) мен тор/тізім ауыстырғышы (.cdx-seg) — кодтар бетінің стильдері
 import './CodesPage.css';
 import './Profile.css';
@@ -112,6 +114,25 @@ const Profile: React.FC = () => {
   const [isIdCopied, setIsIdCopied] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [view, setView] = useState<ViewMode>(readViewMode);
+  // Оң жақ панель: кодтар не адам туралы пікірлер (стористерден)
+  // «Чат» (кім жаза алады) — тек өз профилімде
+  const [tab, setTab] = useState<'codes' | 'opinions' | 'chat'>('codes');
+  const [opinionCounts, setOpinionCounts] = useState({ praise: 0, complaint: 0 });
+  const profileUsername = user?.username;
+
+  // Басқа профильге ауысқанда — «Кодтар» табы және пікірлер саны (панельдегі қорытынды үшін)
+  useEffect(() => {
+    setTab('codes');
+    setOpinionCounts({ praise: 0, complaint: 0 });
+    if (!profileUsername) return;
+    let alive = true;
+    apiService.getOpinions(profileUsername, { limit: 1 })
+      .then((data) => alive && setOpinionCounts({ praise: data.praise, complaint: data.complaint }))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [profileUsername]);
 
   useEffect(() => {
     // Кэш бар болса — фонда жаңартамыз (silent), әйтпесе толық жүктеу.
@@ -287,6 +308,8 @@ const Profile: React.FC = () => {
   }
 
   const isOwnProfile = !!currentUser && currentUser.username === user.username;
+  const opinionTotal = opinionCounts.praise + opinionCounts.complaint;
+
   const statItems = [
     { key: 'codes', icon: faLaptop, value: userCodes.length, label: t('profile.codeFiles') },
     { key: 'likes', icon: faHeart, value: stats.totalLikes, label: t('profile.likes') },
@@ -362,6 +385,13 @@ const Profile: React.FC = () => {
               ))}
             </div>
 
+            {/* Пікірлер қорытындысы — басқанда «Пікірлер» табы ашылады */}
+            <button type="button" className="prf-opinions" onClick={() => setTab('opinions')}>
+              <span className="prf-opinions__label">{t('profile.opinions.title')}</span>
+              <span className="prf-opinions__praise">👍 {opinionCounts.praise}</span>
+              <span className="prf-opinions__complaint">⚠️ {opinionCounts.complaint}</span>
+            </button>
+
             {isOwnProfile && (
               <div className="prf-actions">
                 <button type="button" className="prf-btn prf-btn--primary" onClick={() => setIsEditModalOpen(true)}>
@@ -383,13 +413,27 @@ const Profile: React.FC = () => {
 
           <main className="prf-main">
             <header className="prf-main__head">
-              <h2 className="prf-main__title">
-                {isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
-                <span className="prf-main__count">{userCodes.length}</span>
-              </h2>
-              <div className="prf-main__tools">
-                {userCodes.length > 0 && <ViewToggle value={view} onChange={changeView} />}
+              <div className="prf-tabs" role="tablist">
+                <button type="button" role="tab" aria-selected={tab === 'codes'}
+                  className={`prf-tab ${tab === 'codes' ? 'is-on' : ''}`} onClick={() => setTab('codes')}>
+                  {isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
+                  <span className="prf-main__count">{userCodes.length}</span>
+                </button>
+                <button type="button" role="tab" aria-selected={tab === 'opinions'}
+                  className={`prf-tab ${tab === 'opinions' ? 'is-on' : ''}`} onClick={() => setTab('opinions')}>
+                  {t('profile.opinions.title')}
+                  <span className="prf-main__count">{opinionTotal}</span>
+                </button>
                 {isOwnProfile && (
+                  <button type="button" role="tab" aria-selected={tab === 'chat'}
+                    className={`prf-tab ${tab === 'chat' ? 'is-on' : ''}`} onClick={() => setTab('chat')}>
+                    {t('profile.chatSettings.tab')}
+                  </button>
+                )}
+              </div>
+              <div className="prf-main__tools">
+                {tab === 'codes' && userCodes.length > 0 && <ViewToggle value={view} onChange={changeView} />}
+                {tab === 'codes' && isOwnProfile && (
                   <button type="button" className="prf-btn prf-btn--primary" onClick={() => navigate('/upload')}>
                     <FontAwesomeIcon icon={faPlus} />
                     <span className="prf-btn__text">{t('profile.createNewProject')}</span>
@@ -399,7 +443,11 @@ const Profile: React.FC = () => {
             </header>
 
             <div className="prf-main__body">
-              {userCodes.length === 0 ? (
+              {tab === 'chat' && isOwnProfile ? (
+                <ProfileChatSettings />
+              ) : tab === 'opinions' ? (
+                <ProfileOpinions username={user.username} currentUserId={currentUser?.id} onCountsChange={setOpinionCounts} />
+              ) : userCodes.length === 0 ? (
                 <div className="prf-empty">
                   <span className="prf-empty__icon">
                     <FontAwesomeIcon icon={faFileAlt} />

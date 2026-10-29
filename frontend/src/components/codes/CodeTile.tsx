@@ -5,7 +5,8 @@ import { CodeFile } from '../../utils/api';
 import { formatDate } from '../../utils/dateFormatter';
 import { FileIcon, FolderIcon, HeartIcon, CommentIcon, EyeIcon } from '../home/icons';
 import { monogram } from '../home/monogram';
-import { ViewMode, codeSnippet, folderEntries } from './codeUtils';
+import { ViewMode, codeSnippet, folderEntries, isLivePreviewable } from './codeUtils';
+import CodeLivePreview from './CodeLivePreview';
 
 /* ---------- Код картасы ---------- */
 
@@ -58,6 +59,8 @@ const CodeTile: React.FC<{ code: CodeFile; index: number; view: ViewMode }> = ({
           ) : (
             <p className="cdx-card__desc">{code.description}</p>
           )}
+          {/* Веб-код болса — үзіндінің үстінен іске қосылған беті шығады */}
+          {isLivePreviewable(code) && <CodeLivePreview codeId={code.id} title={code.title} />}
         </div>
       )}
 

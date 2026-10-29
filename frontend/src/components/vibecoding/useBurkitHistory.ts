@@ -12,6 +12,8 @@ export interface BurkitMessage {
   timestamp: string;
   /** Хабармен бірге жіберілген файл (контекст) */
   context?: string;
+  /** Тіркелген фото/файл/папкалардың аттары (мазмұны тарихта сақталмайды) */
+  attachments?: { kind: 'image' | 'file' | 'folder'; name: string; count?: number }[];
   /** Қате туралы хабар — Бүркітке келесі сұраумен жіберілмейді */
   error?: boolean;
   /** Бүркіт (Agent) жобаға жазған файлдар мен Notes жазбалары */
@@ -19,6 +21,10 @@ export interface BurkitMessage {
   /** Жауап аяқталмай қалды (бет жаңартылды / панель жабылды) — қайта ашылғанда жалғасады.
       user хабарында — жауап әлі басталмаған, assistant хабарында — жартылай жазылған */
   pending?: boolean;
+  /** «[Құрал нәтижесі]» — Бүркіттің read/run блоктарының нәтижесі (қолданушы жазбаған, ықшам көрсетіледі) */
+  tool?: boolean;
+  /** Assistant хабарындағы орындалған/өткізілген run блоктары (блоктың реттік нөмірі) */
+  ran?: number[];
 }
 
 export interface BurkitEdit {
@@ -27,6 +33,11 @@ export interface BurkitEdit {
   path: string;
   created: boolean;
   noteId?: string;
+  /** Файл өшірілді немесе жылжытылды (from — бастапқы жолы) */
+  action?: 'delete' | 'move';
+  from?: string;
+  /** Өзгеріс орындалмады (себебі) */
+  error?: string;
 }
 
 export interface BurkitConversation {
@@ -42,9 +53,12 @@ export interface BurkitConversation {
 
 const MAX_CONVERSATIONS = 100;
 
-const storageKey = (userId?: string) => `vibe-burkit-history:${userId ?? 'guest'}`;
+/** Тарих қай беттің Бүркітіне тиесілі: vibe — Vibecoding, site — басты бет */
+export type BurkitScope = 'vibe' | 'site';
+
+const storageKey = (scope: BurkitScope, userId?: string) => `${scope}-burkit-history:${userId ?? 'guest'}`;
 // Қай сөйлесу ашық тұрғаны — бет жаңартылғанда сол чатқа қайту үшін
-const activeKey = (historyKey: string) => historyKey.replace('vibe-burkit-history:', 'vibe-burkit-active:');
+const activeKey = (historyKey: string) => historyKey.replace('-burkit-history:', '-burkit-active:');
 
 export type BurkitView = 'chat' | 'history';
 
@@ -78,9 +92,32 @@ export function titleFromText(text: string): string {
   return short.charAt(0).toUpperCase() + short.slice(1) || 'Жаңа сөйлесу';
 }
 
-export function useBurkitHistory() {
+const DAY = 24 * 60 * 60 * 1000;
+
+/** Тарих тізіміндегі топ: Бүгін, Кеше, Осы аптада… */
+export function historyGroupLabel(iso: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = today.getTime() - new Date(iso).setHours(0, 0, 0, 0);
+  if (diff <= 0) return 'Бүгін';
+  if (diff <= DAY) return 'Кеше';
+  if (diff < 7 * DAY) return 'Осы аптада';
+  if (diff < 30 * DAY) return 'Осы айда';
+  return 'Ертерек';
+}
+
+/** Бүгін болса — сағаты, әйтпесе — күні */
+export function historyShortTime(iso: string): string {
+  const date = new Date(iso);
+  const sameDay = new Date().toDateString() === date.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+
+export function useBurkitHistory(scope: BurkitScope = 'vibe') {
   const { user } = useAuth();
-  const key = storageKey(user?.id);
+  const key = storageKey(scope, user?.id);
   const [conversations, setConversations] = useState<BurkitConversation[]>(() => load(key));
 
   // Қолданушы ауысса — өз тарихы жүктеледі

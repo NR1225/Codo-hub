@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useBreakpoint, Breakpoint } from '../hooks/useBreakpoint';
 import { useAuth } from './AuthContext';
 import { apiService, VibecodingProjectDTO } from '../utils/api';
+import { isQuotaError } from '../utils/safeStorage';
 import { logEvent } from '../utils/vibeActivity';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ interface VibecodingState {
 // ─── Actions ─────────────────────────────────────────────────────────
 
 type VibecodingAction =
-  | { type: 'CREATE_PROJECT'; payload: { name: string } }
+  | { type: 'CREATE_PROJECT'; payload: { name: string; id?: string } }
   | { type: 'DELETE_PROJECT'; payload: { projectId: string } }
   | { type: 'SWITCH_PROJECT'; payload: { projectId: string } }
   | { type: 'RENAME_PROJECT'; payload: { projectId: string; name: string } }
@@ -75,6 +76,7 @@ type VibecodingAction =
   /** Файлды/папканы жылжыту немесе атын өзгерту: from жолы (ішіндегілерімен) to жолына көшеді */
   | { type: 'MOVE_PATH'; payload: { from: string; to: string } }
   | { type: 'UPDATE_FILE_CONTENT'; payload: { fileId: string; content: string } }
+  | { type: 'WRITE_FILE'; payload: { path: string; content: string; open?: boolean } }
   | { type: 'OPEN_FILE'; payload: { fileId: string } }
   | { type: 'CLOSE_FILE'; payload: { fileId: string } }
   | { type: 'SET_ACTIVE_FILE'; payload: { fileId: string | null } }
@@ -179,7 +181,7 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
   switch (action.type) {
     case 'CREATE_PROJECT': {
       const newProject: Project = {
-        id: uuidv4(),
+        id: action.payload.id ?? uuidv4(),
         name: action.payload.name,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -370,6 +372,36 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
               }
             : p
         ),
+      };
+    }
+
+    // Жол бойынша жазу (Бүркіт): бар болса — жаңартып ашады, жоқ болса — жасайды.
+    // Бір кадрда бірнеше рет шақырылса да әрқашан соңғы күйге қарайды
+    case 'WRITE_FILE': {
+      if (!state.activeProjectId) return state;
+      const path = normalizePath(action.payload.path);
+      const project = state.projects.find(p => p.id === state.activeProjectId);
+      if (!path || !project) return state;
+      const existing = project.files.find(f => f.path === path);
+      const name = path.split('/').pop() || path;
+      const file: VirtualFile = existing
+        ? { ...existing, content: action.payload.content, isDirty: true }
+        : { id: uuidv4(), name, path, content: action.payload.content, language: detectLanguage(name), isDirty: true };
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === state.activeProjectId
+            ? {
+                ...p,
+                files: existing ? p.files.map(f => (f.id === file.id ? file : f)) : [...p.files, file],
+                updatedAt: new Date().toISOString(),
+              }
+            : p
+        ),
+        ...(action.payload.open !== false && {
+          openFileIds: state.openFileIds.includes(file.id) ? state.openFileIds : [...state.openFileIds, file.id],
+          activeFileId: file.id,
+        }),
       };
     }
 
@@ -611,6 +643,7 @@ function describeAction(action: VibecodingAction, state: VibecodingState): { tex
     case 'DELETE_FOLDER': return { text: `Папка жойылды: ${action.payload.path}` };
     case 'RENAME_FILE': return { text: `Файл атауы өзгертілді: ${fileName(action.payload.fileId)} → ${action.payload.name}` };
     case 'MOVE_PATH': return { text: `Жылжытылды: ${action.payload.from} → ${action.payload.to}` };
+    case 'WRITE_FILE': return { text: `Бүркіт файлға жазды: ${action.payload.path}`, key: `edit:${action.payload.path}` };
     case 'UPDATE_FILE_CONTENT': {
       const path = fileName(action.payload.fileId);
       return { text: `Файл өңделді: ${path}`, key: `edit:${path}` };
@@ -709,10 +742,26 @@ function saveLayout(layout: LayoutState) {
 function saveState(state: VibecodingState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return;
   } catch (err) {
     // Әдетте — жад шегі толды (жобалар тым үлкен). Жобалар серверде сақталады.
-    console.warn('Vibecoding state was not saved to localStorage:', err);
+    if (!isQuotaError(err)) {
+      console.warn('Vibecoding state was not saved to localStorage:', err);
+      return;
+    }
   }
+  // Жүктелген жобалардың көшірмелерінсіз (repo-…) — олар кодтар бетінен қайта ашылады
+  const projects = state.projects.filter(p => !p.id.startsWith('repo-'));
+  try {
+    if (projects.length > 0 && projects.length < state.projects.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, projects, openFileIds: [], activeFileId: null,
+        activeProjectId: projects.some(p => p.id === state.activeProjectId) ? state.activeProjectId : projects[0].id }));
+      return;
+    }
+  } catch { /* төменде */ }
+  // Ескі үлкен жазба жадты толтырып тұрмасын (кіру токені де сақталмай қалады) — жобалар серверде
+  if (state.ownerId) localStorage.removeItem(STORAGE_KEY);
+  console.warn('Vibecoding state is too large for localStorage; projects stay on the server');
 }
 
 // Әр ашылғанда localStorage-тан қайта оқылады — модуль жүктелген кездегі
@@ -758,7 +807,7 @@ function snapshotOf(project: Project): string {
   return JSON.stringify({ name, files, folders });
 }
 
-function fromServer(dto: VibecodingProjectDTO): Project {
+export function fromServer(dto: VibecodingProjectDTO): Project {
   return {
     id: dto.id,
     name: dto.name,

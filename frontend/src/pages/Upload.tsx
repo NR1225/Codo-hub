@@ -7,8 +7,9 @@ const Upload: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(true);
   const navigate = useNavigate();
 
-  const handleSuccess = () => {
-    navigate('/');
+  // Жүктелген соң — бірден жаңа жобаның бетіне
+  const handleSuccess = (folderId: string) => {
+    navigate(folderId ? `/view/${folderId}` : '/');
   };
 
   const handleClose = () => {

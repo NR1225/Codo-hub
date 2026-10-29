@@ -1,0 +1,81 @@
+/* Сторисқа жауап үзіндісі (хабарлама ішінде) */
+
+.srq {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 260px;
+  margin-bottom: 6px;
+  padding: 6px 10px 6px 6px;
+  border-left: 3px solid var(--accent-color, #8b5cf6);
+  border-radius: 10px;
+  background: rgba(127, 127, 127, 0.14);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+a.srq:hover { background: rgba(127, 127, 127, 0.22); }
+.srq.is-gone { opacity: 0.7; }
+
+.srq__thumb {
+  width: 36px;
+  height: 64px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.srq__thumb img,
+.srq__thumb video { width: 100%; height: 100%; object-fit: cover; }
+.srq__gone { font-size: 1rem; }
+
+.srq__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.srq__label { font-size: 0.72rem; font-weight: 700; opacity: 0.75; }
+
+.srq__caption {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Чатта: менің хабарламам әлі «сұрау» күйінде */
+.cht-request-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-color, rgba(127, 127, 127, 0.4));
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.cht-item__count {
+  flex-shrink: 0;
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.22);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* Жіберілген сторис — үлкенірек карта */
+.srq.is-share { max-width: 220px; flex-direction: column; align-items: stretch; padding: 6px; border-left: 0; }
+.srq.is-share .srq__thumb { width: 100%; height: auto; aspect-ratio: 9 / 16; max-height: 300px; border-radius: 8px; }
+.srq.is-share .srq__gone { font-size: 1.6rem; }
+.srq.is-share .srq__text { padding: 2px 4px 2px; }
+
+/* Codo стикері чатта — көпіршіксіз, үлкен сурет */
+.chat-sticker-img { display: block; width: 148px; height: 148px; object-fit: contain; }
+.chat-message.sticker:has(.chat-sticker-img) { background: none !important; box-shadow: none !important; border: 0 !important; }

@@ -2,8 +2,15 @@
 from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime
+from fastapi import HTTPException
 from database import friends, friend_requests, save_friends, save_friend_requests
 from services.user_lookup import find_public_user
+
+
+# Жеке хабарлама құпиялығы: open — бәрі тікелей чатқа, closed — бейтаныстар «сұрауға», friends — тек достар
+DM_PRIVACY = ("open", "closed", "friends")
+DEFAULT_DM_PRIVACY = "closed"
+FRIENDS_ONLY_DETAIL = "Бұл адам тек достарынан хабарлама қабылдайды"
 
 
 class FriendService:
@@ -76,14 +83,63 @@ class FriendService:
         if FriendService.are_friends(user_id, friend_id):
             return True
 
-        # Check if they have any previous messages
+        # Бұрын хат жазысқан (қабылданбаған сұрау есептелмейді)
         from database import messages
         has_messages = any(
-            (msg.get('fromUserId') == user_id and msg.get('toUserId') == friend_id) or
-            (msg.get('fromUserId') == friend_id and msg.get('toUserId') == user_id)
+            ((msg.get('fromUserId') == user_id and msg.get('toUserId') == friend_id) or
+             (msg.get('fromUserId') == friend_id and msg.get('toUserId') == user_id))
+            and not msg.get('request')
             for msg in messages
         )
         return has_messages
+
+    @staticmethod
+    def get_dm_privacy(user_id: str) -> Optional[str]:
+        """Қолданушының баптауы; қолданушы табылмаса — None"""
+        from db import SessionLocal, User
+        db = SessionLocal()
+        try:
+            row = db.query(User.dm_privacy).filter(User.id == user_id).first()
+        finally:
+            db.close()
+        if row is None:
+            return None
+        return row[0] if row[0] in DM_PRIVACY else DEFAULT_DM_PRIVACY
+
+    @staticmethod
+    def set_dm_privacy(user_id: str, value: str) -> str:
+        from db import SessionLocal, User
+        if value not in DM_PRIVACY:
+            raise HTTPException(status_code=400, detail="Белгісіз баптау")
+        db = SessionLocal()
+        try:
+            db.query(User).filter(User.id == user_id).update({User.dm_privacy: value})
+            db.commit()
+        finally:
+            db.close()
+        return value
+
+    @staticmethod
+    def delivery_mode(sender_id: str, target_id: str) -> str:
+        """Хабарлама қайда барады: 'direct' — чатқа, 'request' — сұрауға, 'blocked' — жіберуге болмайды"""
+        if FriendService.can_message(sender_id, target_id):
+            return "direct"
+        privacy = FriendService.get_dm_privacy(target_id)
+        if privacy == "open":
+            return "direct"
+        if privacy == "closed":
+            return "request"
+        return "blocked"
+
+    @staticmethod
+    def delivery_extra(sender_id: str, target_id: str) -> Dict[str, Any]:
+        """create_message-ке берілетін белгі: сұрау болса {'request': True}; рұқсат жоқ болса — 403"""
+        mode = FriendService.delivery_mode(sender_id, target_id)
+        if mode == "blocked":
+            if FriendService.get_dm_privacy(target_id) is None:
+                raise HTTPException(status_code=404, detail="Қолданушы табылмады")
+            raise HTTPException(status_code=403, detail=FRIENDS_ONLY_DETAIL)
+        return {'request': True} if mode == "request" else {}
     
     @staticmethod
     def create_friend_request(from_user_id: str, to_user_id: str) -> Dict[str, Any]:

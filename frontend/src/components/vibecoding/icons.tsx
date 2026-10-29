@@ -418,3 +418,10 @@ export const GlobeIcon: React.FC<P> = ({ size }) => (
     <path d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5s1.2-6.1 3.5-8.5Z" />
   </Icon>
 );
+
+export const SplitIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <path d="M12 4.5v15" />
+  </Icon>
+);

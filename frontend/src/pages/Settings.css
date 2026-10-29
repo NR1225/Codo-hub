@@ -3,20 +3,20 @@
 
 .settings-page {
   /* Тақырыптан тәуелсіз — басты бетпен бірдей палитра */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --border-color: #262626;
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --primary-hover: #d4d4d4;
-  --home-accent: #fafafa;
-  --home-on-accent: #0a0a0a;
+  --bg-primary: var(--mono-0a0a0a);
+  --bg-secondary: var(--mono-141414);
+  --border-color: var(--mono-262626);
+  --text-primary: var(--mono-f5f5f5);
+  --text-secondary: var(--mono-a3a3a3);
+  --primary-hover: var(--mono-d4d4d4);
+  --home-accent: var(--mono-fafafa);
+  --home-on-accent: var(--mono-0a0a0a);
 
-  --stg-line: #1f1f1f;
-  --stg-line-strong: #333;
-  --stg-hover: #1a1a1a;
-  --stg-raise: #161616;
-  --stg-muted: #8f8f8f;
+  --stg-line: var(--mono-1f1f1f);
+  --stg-line-strong: var(--mono-333333);
+  --stg-hover: var(--mono-1a1a1a);
+  --stg-raise: var(--mono-161616);
+  --stg-muted: var(--mono-8f8f8f);
   --stg-item: 40px;
   --stg-radius: 12px;
   --stg-danger: #f87171;
@@ -29,7 +29,7 @@
   width: 100%;
   min-height: calc(100dvh - var(--header-h, 64px));
   box-sizing: border-box;
-  background: #000;
+  background: var(--mono-000000);
   color: var(--text-primary);
 }
 
@@ -56,8 +56,8 @@
   overflow: hidden;
   border: 1px solid var(--stg-line);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: stgPanelIn 0.6s var(--stg-ease) backwards;
 }
 
@@ -65,14 +65,14 @@
   gap: 4px;
   padding: 8px;
   border-radius: 18px;
-  background: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0c0c0c) 100%);
 }
 
 .stg-main {
   border-radius: 20px;
   background:
-    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
-    linear-gradient(180deg, #121212 0%, #0b0b0b 100%);
+    radial-gradient(120% 60% at 50% 0%, rgba(var(--mono-ink), 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0b0b0b) 100%);
   animation-delay: 80ms;
 }
 
@@ -170,7 +170,7 @@
   border: 0;
   border-radius: var(--stg-radius);
   background: transparent;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   font: inherit;
   text-align: left;
   text-decoration: none;
@@ -314,7 +314,7 @@
   padding: 24px 28px 32px;
   animation: stgBodyIn 0.4s var(--stg-ease);
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 @keyframes stgBodyIn {
@@ -349,8 +349,8 @@
   box-sizing: border-box;
   border: 1px solid var(--stg-line);
   border-radius: 16px;
-  background: linear-gradient(180deg, #151515 0%, #0e0e0e 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, var(--mono-151515) 0%, var(--mono-0e0e0e) 100%);
+  box-shadow: inset 0 1px 0 rgba(var(--mono-ink), 0.03);
 }
 
 .stg-card--wide {
@@ -365,15 +365,15 @@
 
 .stg-card--hero {
   background:
-    radial-gradient(80% 120% at 0% 0%, rgba(255, 255, 255, 0.07) 0%, transparent 60%),
-    linear-gradient(180deg, #151515 0%, #0e0e0e 100%);
+    radial-gradient(80% 120% at 0% 0%, rgba(var(--mono-ink), 0.07) 0%, transparent 60%),
+    linear-gradient(180deg, var(--mono-151515) 0%, var(--mono-0e0e0e) 100%);
 }
 
 .stg-card--danger {
   border-color: color-mix(in srgb, var(--stg-danger) 35%, transparent);
   background:
     radial-gradient(80% 100% at 0% 0%, rgba(248, 113, 113, 0.08) 0%, transparent 60%),
-    linear-gradient(180deg, #151515 0%, #0e0e0e 100%);
+    linear-gradient(180deg, var(--mono-151515) 0%, var(--mono-0e0e0e) 100%);
 }
 
 .stg-card--danger .stg-card__title svg {
@@ -417,7 +417,7 @@
   gap: 4px;
   padding: 4px;
   border-radius: 13px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--stg-line);
 }
 
@@ -458,6 +458,85 @@
   color: var(--home-on-accent);
 }
 
+/* «Аккаунт» — бір карточкадағы ашылатын бөлімдер */
+.stg-acc {
+  gap: 2px;
+  padding: 8px;
+}
+
+.stg-acc__item + .stg-acc__item {
+  border-top: 1px solid var(--stg-line);
+  padding-top: 2px;
+}
+
+.stg-acc__head .stg-pill {
+  margin-right: 10px;
+}
+
+.stg-acc__item.is-open .stg-row__arrow,
+.stg-acc__item.is-open .stg-acc__head:hover .stg-row__arrow {
+  transform: rotate(90deg);
+}
+
+.stg-acc__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 12px 16px 52px;
+}
+
+.stg-acc .stg-acc__head {
+  height: 48px;
+}
+
+/* Шрифт өлшемі бүкіл бетте бірдей: сол жақ панель де, барлық қойындылар да */
+.settings-page .stg-row__label,
+.settings-page .stg-folder__title {
+  font-size: 1.1rem;
+}
+
+.settings-page .stg-row__slot,
+.settings-page .stg-folder__icon {
+  font-size: 1.12rem;
+}
+
+.settings-page .stg-side__name,
+.settings-page .stg-card__title {
+  font-size: 1.12rem;
+}
+
+.settings-page .stg-main__title,
+.settings-page .stg-card__title--lg {
+  font-size: 1.6rem;
+}
+
+.settings-page .stg-side__email,
+.settings-page .stg-field__label,
+.settings-page .stg-main__desc,
+.settings-page .stg-folder__meta {
+  font-size: 0.98rem;
+}
+
+.settings-page .stg-input,
+.settings-page .stg-text,
+.settings-page .stg-msg,
+.settings-page .stg-warnings li,
+.settings-page .stg-switch-row,
+.settings-page .stg-folder__desc {
+  font-size: 1.08rem;
+}
+
+.settings-page .stg-btn,
+.settings-page .stg-segment__btn {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 600px) {
+  .stg-acc__body {
+    padding-left: 12px;
+  }
+}
+
 /* ---------- Ауыстырғыш (switch) ---------- */
 
 .stg-switch-row {
@@ -467,10 +546,10 @@
   gap: 16px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--stg-line);
   font-size: 0.92rem;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   cursor: pointer;
 }
 
@@ -483,7 +562,7 @@
   flex-shrink: 0;
   margin: 0;
   border-radius: 999px;
-  background: #2a2a2a;
+  background: var(--mono-2a2a2a);
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -496,7 +575,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #8f8f8f;
+  background: var(--mono-8f8f8f);
   transition: transform 0.3s var(--stg-spring), background-color 0.2s ease;
 }
 
@@ -536,7 +615,7 @@
   box-sizing: border-box;
   border: 1px solid var(--stg-line);
   border-radius: 11px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   color: var(--text-primary);
   font: inherit;
   font-size: 0.92rem;
@@ -544,13 +623,13 @@
 }
 
 .stg-input::placeholder {
-  color: #5c5c5c;
+  color: var(--mono-5c5c5c);
 }
 
 .stg-input:focus {
   outline: none;
   border-color: var(--stg-line-strong);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(var(--mono-ink), 0.06);
 }
 
 .stg-input--code {
@@ -619,7 +698,7 @@
 
 .stg-btn--ghost:hover:not(:disabled) {
   background: var(--stg-hover);
-  box-shadow: inset 0 0 0 1px #4a4a4a;
+  box-shadow: inset 0 0 0 1px var(--mono-4a4a4a);
 }
 
 .stg-btn--danger {
@@ -719,11 +798,11 @@
 .stg-secret {
   padding: 10px 12px;
   border-radius: 10px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--stg-line);
   font-family: var(--stg-mono-font);
   font-size: 0.82rem;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   word-break: break-all;
 }
 
@@ -742,7 +821,7 @@
 .stg-recovery__code {
   padding: 6px 8px;
   border-radius: 8px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--stg-line);
   font-family: var(--stg-mono-font);
   font-size: 0.8rem;
@@ -766,7 +845,7 @@
   box-sizing: border-box;
   border: 1px solid var(--stg-line);
   border-radius: 16px;
-  background: linear-gradient(180deg, #151515 0%, #0e0e0e 100%);
+  background: linear-gradient(180deg, var(--mono-151515) 0%, var(--mono-0e0e0e) 100%);
   transition: border-color 0.2s ease, transform 0.25s var(--stg-ease);
   animation: stgBodyIn 0.4s var(--stg-ease) backwards;
   animation-delay: calc(var(--d, 0) * 30ms);
@@ -779,7 +858,7 @@
 
 .stg-folder--skeleton {
   height: 128px;
-  background: linear-gradient(90deg, #121212 0%, #1a1a1a 50%, #121212 100%);
+  background: linear-gradient(90deg, var(--mono-121212) 0%, var(--mono-1a1a1a) 50%, var(--mono-121212) 100%);
   background-size: 200% 100%;
   animation: stgShimmer 1.4s linear infinite;
 }
@@ -803,9 +882,9 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
-  color: #e5e5e5;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
+  color: var(--mono-e5e5e5);
 }
 
 .stg-folder__title {
@@ -865,10 +944,10 @@
   place-items: center;
   margin-bottom: 8px;
   border-radius: 18px;
-  background: #1c1c1c;
-  box-shadow: inset 0 0 0 1px #2e2e2e;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
   font-size: 1.6rem;
-  color: #e5e5e5;
+  color: var(--mono-e5e5e5);
 }
 
 .stg-empty__title {
@@ -908,7 +987,7 @@
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
   box-shadow: inset 0 0 0 1px var(--stg-line-strong);
 }
 
@@ -918,6 +997,225 @@
   font-size: 0.8rem;
   text-align: center;
   color: var(--stg-muted);
+}
+
+/* ---------- Ақпарат: жинақы карталар, мүмкіндіктер, пернелер ---------- */
+
+.stg-card--compact {
+  gap: 10px;
+  padding: 16px;
+}
+
+.stg-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stg-card__head--row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stg-card__head--row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stg-text--muted {
+  font-size: 0.84rem;
+  color: var(--stg-muted);
+}
+
+.stg-links--dense .stg-row {
+  height: 34px;
+}
+
+.stg-segment--inline {
+  display: inline-grid;
+  flex-shrink: 0;
+}
+
+.stg-segment--inline .stg-segment__btn {
+  height: 30px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+}
+
+/* Мүмкіндіктер — 3 бағанды плиткалар */
+.stg-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stg-feature {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  border-radius: var(--stg-radius);
+  background: var(--mono-0c0c0c);
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s var(--stg-ease);
+}
+
+.stg-feature:hover {
+  background: var(--stg-hover);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong);
+  transform: translateY(-1px);
+}
+
+.stg-feature:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.stg-feature__icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--stg-raise);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong);
+  color: var(--mono-e5e5e5);
+}
+
+.stg-feature__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stg-feature__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stg-feature__desc {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--stg-muted);
+}
+
+.stg-feature__arrow {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--stg-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.stg-feature:hover .stg-feature__arrow {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* Пернелер — екі бағанды тізім */
+.stg-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+}
+
+.stg-keys__row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  border-bottom: 1px solid var(--stg-line);
+  animation: stgRowIn 0.3s var(--stg-ease) backwards;
+}
+
+.stg-keys__label {
+  min-width: 0;
+  font-size: 0.86rem;
+  color: var(--mono-d9d9d9);
+}
+
+.stg-keys__combo {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stg-keys__plus,
+.stg-keys__or {
+  font-size: 0.72rem;
+  color: var(--stg-muted);
+}
+
+.stg-keys__or {
+  margin: 0 4px;
+}
+
+.stg-kbd {
+  min-width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: var(--stg-raise);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong), inset 0 -2px 0 rgba(0, 0, 0, calc(0.5 * var(--mono-shadow)));
+  color: var(--mono-ededed);
+  font-family: var(--stg-mono-font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stg-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--stg-muted);
+}
+
+@media (min-width: 1101px) {
+  .stg-card--hero.stg-card--compact {
+    padding: 20px 24px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .stg-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .stg-features,
+  .stg-keys {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stg-feature__arrow {
+    opacity: 1;
+  }
 }
 
 /* ---------- Қауіпті аймақ ---------- */
@@ -937,7 +1235,7 @@
   gap: 10px;
   font-size: 0.88rem;
   line-height: 20px;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
 }
 
 .stg-warnings__x {
@@ -1141,3 +1439,44 @@
     animation: none;
   }
 }
+
+/* «Біз жайлы» қойындысы: мәтін сәл ірірек — оқуға жеңіл болсын */
+.stg-grid--info .stg-card__title { font-size: 1.08rem; }
+.stg-grid--info .stg-card__title--lg { font-size: 1.55rem; }
+.stg-grid--info .stg-text { font-size: 0.98rem; }
+.stg-grid--info .stg-text--muted { font-size: 0.92rem; }
+.stg-grid--info .stg-row { font-size: 0.95rem; }
+.stg-grid--info .stg-badge { font-size: 0.86rem; }
+.stg-grid--info .stg-feature__title { font-size: 0.98rem; }
+.stg-grid--info .stg-feature__desc { font-size: 0.86rem; }
+.stg-grid--info .stg-keys__label { font-size: 0.94rem; }
+.stg-grid--info .stg-keys__row { min-height: 42px; }
+.stg-grid--info .stg-kbd { height: 24px; min-width: 24px; font-size: 0.8rem; }
+.stg-grid--info .stg-keys__plus,
+.stg-grid--info .stg-keys__or { font-size: 0.8rem; }
+.stg-grid--info .stg-segment--inline .stg-segment__btn { font-size: 0.9rem; }
+.stg-grid--info .stg-note { font-size: 0.86rem; }
+.stg-grid--info .stg-copy { font-size: 0.86rem; }
+
+/* «Біз жайлы» → ішкі бет (/settings/info/<doc>): бөлек беттің мазмұны карта ішінде */
+.stg-doc {
+  gap: 8px;
+}
+
+.stg-doc__bar {
+  display: flex;
+  align-items: center;
+}
+
+.stg-doc__back {
+  text-decoration: none;
+}
+
+.stg-doc__back svg {
+  transition: transform 0.15s ease;
+}
+
+.stg-doc__back:hover svg {
+  transform: translateX(-3px);
+}
+

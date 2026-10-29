@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { PanelIcon, PlusIcon, SearchIcon } from './icons';
+import { FolderIcon, PanelIcon, PlusIcon, SearchIcon } from './icons';
 import { monogram } from './monogram';
 import './HomeSidebar.css';
 
@@ -12,6 +12,8 @@ import './HomeSidebar.css';
 export interface SidebarItem {
   key: string;
   title: string;
+  /** Папка-жоба — әріптің орнына папка белгішесі */
+  isFolder?: boolean;
   onOpen: () => void;
 }
 
@@ -171,7 +173,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
                 >
                   <span className="hsb__slot">
                     <span className="hsb__mono" aria-hidden="true">
-                      {monogram(item.title)}
+                      {item.isFolder ? <FolderIcon size={15} /> : monogram(item.title)}
                     </span>
                   </span>
                   <span className="hsb__label">{item.title}</span>

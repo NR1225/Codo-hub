@@ -51,8 +51,9 @@ from config import (
 )
 
 from services.terminal_workspace import user_root
+from services.shared_packages import NPM_CACHE
 
-logger = logging.getLogger("kazakh_hub.terminal")
+logger = logging.getLogger("codo_hub.terminal")
 
 # Check platform for PTY support
 IS_WINDOWS = sys.platform == "win32"
@@ -103,6 +104,11 @@ def _build_env(workspace: str, lang: str = "en") -> Dict[str, str]:
     env.setdefault("PATH", r"C:\Windows\System32" if IS_WINDOWS else "/usr/bin:/bin")
     env["TERM"] = "xterm-256color"
     env["COLORTERM"] = "truecolor"
+    # Ортақ npm кэші: бір рет жүктелген пакет басқа жобаларда қайта жүктелмейді
+    env["npm_config_cache"] = NPM_CACHE
+    env["npm_config_prefer_offline"] = "true"
+    # Dev-серверлер (Vite `open: true`, CRA т.б.) сервер компьютерінде браузер ашпасын
+    env["BROWSER"] = "none"
     # Jail HOME / TEMP to the per-user workspace.
     if IS_WINDOWS:
         env["USERPROFILE"] = workspace
@@ -122,8 +128,8 @@ def _build_env(workspace: str, lang: str = "en") -> Dict[str, str]:
         posix_locale, language, _ = _LANG_LOCALES.get(lang, _LANG_LOCALES["en"])
         env["LC_MESSAGES"] = posix_locale
         env["LANGUAGE"] = language
-        # Промпт Windows-тағыдай: "kazakh-hub ~/жоба $"
-        env["PS1"] = r"\[\e[1;36m\]kazakh-hub\[\e[0m\] \[\e[90m\]\w\[\e[0m\] \[\e[32m\]\$\[\e[0m\] "
+        # Промпт Windows-тағыдай: "codo ~/жоба $"
+        env["PS1"] = r"\[\e[1;36m\]codo\[\e[0m\] \[\e[90m\]\w\[\e[0m\] \[\e[32m\]\$\[\e[0m\] "
     return env
 
 
@@ -157,7 +163,7 @@ def _unix_preexec():
 # анықтамасы тек ағылшынша әрі «-- More --» беттеуімен шығады.
 _HELP_TEXT = {
     "kk": {
-        "title": "Kazakh Hub терминалы — негізгі командалар",
+        "title": "Codo терминалы — негізгі командалар",
         "sections": [
             ("Файлдар мен папкалар", [
                 ("ls", "папкадағы файлдар тізімі"),
@@ -186,7 +192,7 @@ _HELP_TEXT = {
         "note": "Мұнда жасалған файлдар редакторда да пайда болады.",
     },
     "ru": {
-        "title": "Терминал Kazakh Hub — основные команды",
+        "title": "Терминал Codo — основные команды",
         "sections": [
             ("Файлы и папки", [
                 ("ls", "список файлов в папке"),
@@ -215,7 +221,7 @@ _HELP_TEXT = {
         "note": "Созданные здесь файлы появляются и в редакторе.",
     },
     "en": {
-        "title": "Kazakh Hub terminal — basic commands",
+        "title": "Codo terminal — basic commands",
         "sections": [
             ("Files and folders", [
                 ("ls", "list files in the folder"),
@@ -274,7 +280,7 @@ def _shell_command(lang: str = "en") -> list:
     """Платформаға сай интерактивті shell.
 
     Windows: PowerShell (жоқ болса cmd.exe), Linux/macOS: bash (жоқ болса sh).
-    Промпт барлық жерде бірдей әрі қысқа: ``kazakh-hub ~/жоба >``.
+    Промпт барлық жерде бірдей әрі қысқа: ``codo ~/жоба >``.
     """
     if IS_WINDOWS:
         ps = shutil.which("pwsh") or shutil.which("powershell")
@@ -290,7 +296,7 @@ def _shell_command(lang: str = "en") -> list:
                 "function prompt {"
                 " $p=(Get-Location).Path;"
                 " if($p.StartsWith($env:USERPROFILE)){$p='~'+$p.Substring($env:USERPROFILE.Length).Replace('\\','/')};"
-                " \"$([char]27)[1;36mkazakh-hub$([char]27)[0m $([char]27)[90m$p$([char]27)[0m $([char]27)[32m>$([char]27)[0m \" }"
+                " \"$([char]27)[1;36mcodo$([char]27)[0m $([char]27)[90m$p$([char]27)[0m $([char]27)[32m>$([char]27)[0m \" }"
             )
             return [ps, "-NoLogo", "-NoProfile", "-NoExit", "-Command", init]
         return [os.environ.get("COMSPEC", "cmd.exe"), "/K", "chcp 65001 >nul"]

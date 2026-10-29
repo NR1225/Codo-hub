@@ -50,6 +50,8 @@ const MEDIA_LABEL_TYPES = ['image', 'video', 'location', 'sticker', 'poll', 'pro
 export function messageBodyPreview(message: Message, t: TFunction): string {
   const text = message.type === 'project' ? projectPreview(message) : stripFormatting(message.content || '');
   if (text) return text;
+  if (message.type === 'sticker' && message.metadata?.stickerId) return `🐺 ${t('chat.actions.media.sticker')}`;
+  if (message.metadata?.storyShare) return t('chat.storyShare.preview', { name: message.metadata.storyShare.author });
   if (message.type === 'audio') return t('chat.voice.message');
   if (message.type && MEDIA_LABEL_TYPES.includes(message.type)) return t(`chat.actions.media.${message.type}`);
   return message.attachments?.[0]?.filename || '';

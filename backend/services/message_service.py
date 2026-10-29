@@ -75,14 +75,15 @@ class MessageService:
             except Exception as e:
                 print(f'Warning: Firestore sync failed for message: {e}')
         
-        # Send via WebSocket to recipient if online
+        # Сұрау чатқа емес, алушының «Сұраулар» тізіміне түседі
+        is_request = bool(new_message.get('request'))
         await manager.send_personal_message({
-            'type': 'new_message',
+            'type': 'message_request' if is_request else 'new_message',
             'message': new_message
         }, to_user_id)
-        
+
         # Update status to delivered if recipient is online
-        if not is_saved and manager.is_user_online(to_user_id):
+        if not is_saved and not is_request and manager.is_user_online(to_user_id):
             new_message['status'] = 'delivered'
             save_messages()
         
@@ -153,9 +154,10 @@ class MessageService:
         """Get unread message count for a specific chat"""
         unread_messages = [
             msg for msg in messages
-            if msg.get('fromUserId') == friend_id and 
-               msg.get('toUserId') == user_id and 
-               not msg.get('read', False)
+            if msg.get('fromUserId') == friend_id and
+               msg.get('toUserId') == user_id and
+               not msg.get('read', False) and
+               not msg.get('request')
         ]
         return len(unread_messages)
     
@@ -164,7 +166,7 @@ class MessageService:
         """Get total unread message count for a user"""
         unread_messages = [
             msg for msg in messages
-            if msg.get('toUserId') == user_id and not msg.get('read', False)
+            if msg.get('toUserId') == user_id and not msg.get('read', False) and not msg.get('request')
         ]
         return len(unread_messages)
 
@@ -258,6 +260,68 @@ class MessageService:
         save_messages()
         await MessageService._notify_both(msg, {'type': 'message_updated', 'message': msg})
         return msg
+
+    # ---------- Хабарлама сұраулары (бейтаныстан келген, әлі қабылданбаған) ----------
+
+    @staticmethod
+    def list_requests(user_id: str) -> List[Dict[str, Any]]:
+        """Маған келген сұраулар — жіберуші бойынша топталған, ең жаңасы бірінші"""
+        from services.user_lookup import find_public_user
+
+        groups: Dict[str, Dict[str, Any]] = {}
+        for msg in messages:
+            if msg.get('toUserId') != user_id or not msg.get('request') or user_id in (msg.get('deletedFor') or []):
+                continue
+            group = groups.setdefault(msg.get('fromUserId'), {'count': 0, 'lastMessage': None})
+            group['count'] += 1
+            if not group['lastMessage'] or msg.get('createdAt', '') > group['lastMessage'].get('createdAt', ''):
+                group['lastMessage'] = msg
+
+        result = []
+        for sender_id, group in groups.items():
+            sender = find_public_user(sender_id)
+            if not sender:
+                continue
+            result.append({
+                'user': {'id': sender['id'], 'username': sender['username'], 'avatar': sender.get('avatar')},
+                'count': group['count'],
+                'lastMessage': group['lastMessage'],
+                'lastMessageTime': group['lastMessage'].get('createdAt', ''),
+            })
+        result.sort(key=lambda r: r['lastMessageTime'], reverse=True)
+        return result
+
+    @staticmethod
+    async def accept_request(user_id: str, peer_id: str) -> int:
+        """Сұрауды қабылдау: хабарламалар кәдімгі чатқа айналады"""
+        accepted = []
+        for msg in messages:
+            if msg.get('fromUserId') == peer_id and msg.get('toUserId') == user_id and msg.get('request'):
+                msg.pop('request', None)
+                accepted.append(msg)
+        if accepted:
+            save_messages()
+            for msg in accepted:
+                if FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_MESSAGE:
+                    try:
+                        FIRESTORE_SYNC_MESSAGE(msg)
+                    except Exception as e:
+                        print(f'Warning: Firestore sync failed for message: {e}')
+            await manager.send_personal_message({'type': 'message_request_accepted', 'userId': user_id}, peer_id)
+        return len(accepted)
+
+    @staticmethod
+    def decline_request(user_id: str, peer_id: str) -> int:
+        """Сұраудан бас тарту: сол адамның қабылданбаған хабарламалары өшеді"""
+        before = len(messages)
+        messages[:] = [
+            m for m in messages
+            if not (m.get('fromUserId') == peer_id and m.get('toUserId') == user_id and m.get('request'))
+        ]
+        removed = before - len(messages)
+        if removed:
+            save_messages()
+        return removed
 
     @staticmethod
     def clear_conversation(user_id: str, friend_id: str) -> int:

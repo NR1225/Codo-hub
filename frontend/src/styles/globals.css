@@ -205,10 +205,18 @@ body::before {
 }
 
 /* Selection */
+/* ::selection supports only solid background-color (gradients are ignored) */
+/* Opaque highlight + fixed dark text: readable on any underlying background
+   (white cards, dark hero, gradient text with transparent -webkit-text-fill-color) */
 ::selection {
-  background: var(--accent-gradient);
+  background-color: #fbbf24;
   color: #0a0a0a;
-  text-shadow: 0 0.51px 1.0px rgba(0, 0, 0, 0.2);
+  -webkit-text-fill-color: #0a0a0a;
+  text-shadow: none;
+}
+
+.dark-theme ::selection {
+  background-color: #a3a3a3;
 }
 
 /* Focus styles */
@@ -617,7 +625,7 @@ select {
 /* Басты беттің жүктелу орны — беттің өзіндей қара */
 .page-skeleton--home {
   min-height: calc(100dvh - var(--header-h, 64px));
-  background: #000;
+  background: var(--mono-000000);
 }
 
 @keyframes skeleton-fade {

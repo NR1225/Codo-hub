@@ -27,7 +27,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
-logger = logging.getLogger("kazakh_hub")
+logger = logging.getLogger("codo_hub")
 
 # Import routes
 from routes import api_router
@@ -138,7 +138,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        if request.url.path.startswith("/api/run/"):
+            # Іске қосылған жоба: тек сайттың өз беттерінің iframe-інде ашылады, ал sandbox
+            # құжаттың origin-ін бос етеді — жоба коды сайттың деректеріне қол жеткізе алмайды.
+            # «*» — sandbox құжатынан (origin: null) ES модульдері мен fetch жүктелуі үшін.
+            response.headers["Content-Security-Policy"] = (
+                "sandbox allow-scripts allow-forms allow-modals allow-popups allow-pointer-lock allow-downloads; "
+                f"frame-ancestors 'self' {' '.join(_cors_origins)}"
+            )
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            if "access-control-allow-credentials" in response.headers:
+                del response.headers["access-control-allow-credentials"]
+        else:
+            response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["X-Request-ID"] = os.urandom(16).hex()
@@ -400,6 +412,7 @@ TERMINAL_AUTH_TIMEOUT_SECONDS = 10
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
     project_id: str = Query(None, alias="projectId", max_length=64),
+    code_id: str = Query(None, alias="codeId", max_length=64),
     cols: int = Query(80, ge=1, le=1000),
     rows: int = Query(24, ge=1, le=1000),
     lang: str = Query("kk", max_length=8),
@@ -468,6 +481,19 @@ async def terminal_websocket_endpoint(
     try:
         # Жоба файлдарын терминал папкасына жазу — терминал жобаның ішінде ашылады
         cwd = None
+        if code_id and not project:
+            # Кодты көру бетінен іске қосу: жүктелген жобаның көшірмесі қолданушының папкасында
+            from services.code_service import CodeService
+            from services.code_run_service import terminal_files
+            code = CodeService.find_code_by_id(code_id)
+            if code and not code.get("folderId"):
+                try:
+                    cwd = await asyncio.to_thread(
+                        terminal_workspace.push, user_id, f"code-{code['id']}", code.get("title") or "project",
+                        terminal_files(code), [], True,
+                    )
+                except Exception as e:
+                    logger.error(f"Terminal workspace sync failed for code {code_id}: {e}")
         if project:
             try:
                 cwd = await asyncio.to_thread(

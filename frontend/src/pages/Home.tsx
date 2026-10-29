@@ -8,6 +8,7 @@ import { isFirestoreBlocked } from '../utils/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import HomeStories from '../components/home/HomeStories';
 import SiteAI from '../components/home/SiteAI';
+import { VIBE_PROJECTS_EVENT } from '../utils/burkitProjectTools';
 import HomeSidebar from '../components/home/HomeSidebar';
 import UploadModal from '../components/modals/UploadModal';
 import './Home.css';
@@ -68,27 +69,33 @@ const Home: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
   const [vibeProjects, setVibeProjects] = useState<VibecodingProjectSummary[]>(() => readVibecodingProjects(user?.id));
 
-  // Vibecoding жобалары серверден (тек өзімдікі); сервер қолжетімсіз болса — браузердегі көшірме
+  // Vibecoding жобалары серверден (тек өзімдікі); сервер қолжетімсіз болса — браузердегі көшірме.
+  // Бүркіт жоба жасаса/өшірсе (VIBE_PROJECTS_EVENT) — тізім қайта жүктеледі
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    apiService
-      .getVibecodingProjects()
-      .then((list) => {
-        if (cancelled) return;
-        setVibeProjects(
-          list.map((p) => ({
-            id: p.id,
-            name: p.name,
-            updatedAt: p.updatedAt || p.createdAt,
-          }))
-        );
-      })
-      .catch(() => {
-        // localStorage-тағы тізім қалады
-      });
+    const load = () => {
+      apiService
+        .getVibecodingProjects()
+        .then((list) => {
+          if (cancelled) return;
+          setVibeProjects(
+            list.map((p) => ({
+              id: p.id,
+              name: p.name,
+              updatedAt: p.updatedAt || p.createdAt,
+            }))
+          );
+        })
+        .catch(() => {
+          // localStorage-тағы тізім қалады
+        });
+    };
+    load();
+    window.addEventListener(VIBE_PROJECTS_EVENT, load);
     return () => {
       cancelled = true;
+      window.removeEventListener(VIBE_PROJECTS_EVENT, load);
     };
   }, [user]);
 
@@ -237,6 +244,7 @@ const Home: React.FC = () => {
           items={projects.map((item) => ({
             key: `${item.kind}-${item.id}`,
             title: item.kind === 'repo' ? item.code.title : item.project.name,
+            isFolder: item.kind === 'vibe' || !!item.code.isFolder,
             onOpen: () => openProject(item),
           }))}
           loading={loading && codes.length === 0}
@@ -251,7 +259,7 @@ const Home: React.FC = () => {
 
         <main className="home-center">
           {/* Жоғарыда — тарихтар */}
-          {codes.length > 0 && <HomeStories codes={codes} />}
+          <HomeStories codes={codes} />
 
           {/* Ортада — Сайт ЖИ */}
           <SiteAI codes={codes} />

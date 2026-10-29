@@ -1,5 +1,7 @@
 // Offline storage utility using IndexedDB for large file caching
 
+import { migrateLegacyDb } from './idbMigrate';
+
 interface PendingUpload {
   id: string;
   type: 'file' | 'folder';
@@ -15,7 +17,8 @@ interface PendingUpload {
 }
 
 class OfflineStorage {
-  private dbName = 'kazakh-hub-uploads';
+  private dbName = 'codo-hub-uploads';
+  private legacyDbName = 'kazakh-hub-uploads';
   private dbVersion = 1;
   private storeName = 'pending-uploads';
   private db: IDBDatabase | null = null;
@@ -29,8 +32,9 @@ class OfflineStorage {
         reject(request.error);
       };
 
-      request.onsuccess = () => {
+      request.onsuccess = async () => {
         this.db = request.result;
+        await migrateLegacyDb(this.legacyDbName, this.db, this.storeName);
         resolve();
       };
 

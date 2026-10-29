@@ -24,7 +24,7 @@ from db import (
     FriendListRecord, LegacyUserRecord,
 )
 
-logger = logging.getLogger("kazakh_hub")
+logger = logging.getLogger("codo_hub")
 
 # Global data storage
 codes: List[Dict[str, Any]] = []
@@ -158,18 +158,20 @@ def load_data():
     friends.update(loaded_friends)
 
 
-def save_codes(only_ids: Optional[Iterable[str]] = None):
+def save_codes(only_ids: Optional[Iterable[str]] = None, sync_firestore: bool = True):
     """Кодтарды SQLite-қа сақтау; өзгергендерін Firestore-ға синхрондау.
 
     only_ids берілсе — тек сол кодтар салыстырылады (барлық 1000+ кодты
     әр жолы JSON-ға айналдырмау үшін; бір кодты өзгертетін әрекеттерге).
+    sync_firestore=False — тек SQLite (мысалы, қаралым санағы: Firestore-ға толық
+    құжатты қайта жазу сұрауды бөгейді және барлық тыңдаушыларға ауыр снапшот жібереді).
     """
     if only_ids is not None:
         wanted = {str(i) for i in only_ids}
         changed, _ = _codes.sync(_by_id([c for c in codes if str(c.get("id")) in wanted]), partial=True)
     else:
         changed, _ = _codes.sync(_by_id(codes))
-    if changed and FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
+    if changed and sync_firestore and FIRESTORE_SYNC_AVAILABLE and FIRESTORE_SYNC_CODE:
         changed_ids = set(changed)
         try:
             for code in codes:

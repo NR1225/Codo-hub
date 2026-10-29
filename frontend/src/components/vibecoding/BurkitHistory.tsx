@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeftIcon, PlusIcon, SearchIcon, CloseIcon, PinIcon, EditIcon, TrashIcon, DownloadIcon, HistoryIcon } from './icons';
 import { FileTypeIcon } from './fileIcons';
+import { historyGroupLabel as groupLabel, historyShortTime as shortTime } from './useBurkitHistory';
 import type { BurkitConversation } from './useBurkitHistory';
 
 /* Бүркіт тарихы: іздеу, күн бойынша топтар, бекіту, атын өзгерту,
@@ -17,28 +18,6 @@ interface Props {
   onTogglePin: (id: string) => void;
   onExport: (conv: BurkitConversation) => void;
   onClearAll: () => void;
-}
-
-const DAY = 24 * 60 * 60 * 1000;
-
-function groupLabel(iso: string): string {
-  const date = new Date(iso);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = today.getTime() - new Date(date).setHours(0, 0, 0, 0);
-  if (diff <= 0) return 'Бүгін';
-  if (diff <= DAY) return 'Кеше';
-  if (diff < 7 * DAY) return 'Осы аптада';
-  if (diff < 30 * DAY) return 'Осы айда';
-  return 'Ертерек';
-}
-
-function shortTime(iso: string): string {
-  const date = new Date(iso);
-  const sameDay = new Date().toDateString() === date.toDateString();
-  return sameDay
-    ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleDateString([], { day: 'numeric', month: 'short' });
 }
 
 const BurkitHistory: React.FC<Props> = ({

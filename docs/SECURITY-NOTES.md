@@ -1,40 +1,77 @@
-# Қауіпсіздік ескертпелері (pentest)
-
-> Дата: 2026-10-21 · Қамту: жергілікті backend `http://127.0.0.1:3000` (авторизацияланған тест).
-> HSTS бойынша бөлек құжат: [SECURITY-HSTS.md](./SECURITY-HSTS.md).
-
-## Берік болып шыққаны ✅
-
-- **JWT** — қолтаңба тексеріледі; `alg=none` және өзгертілген payload → 401.
-- **IDOR** — `/messages/{id}`, `/friends/{id}` бөтенге 403; топтар мүшелікті тексереді;
-  кодты бөтен адам өшіре/өңдей алмайды (author тексерісі).
-- **Rate-limit** — login IP бойынша `5/minute` → 429; әрі аккаунт блогы (5 қате → 15 мин).
-- **CORS** — бөтен Origin-ды шағылыстырмайды (тек тізімдегі origin-дер).
-- **Қате жауаптарда stack trace жоқ**; `forgot-password` энумерация бермейді
-  («If the email exists…»).
-- **Қауіпсіздік тақырыптары** бар: `X-Content-Type-Options`, `X-Frame-Options`,
-  `Referrer-Policy`, `Permissions-Policy`.
-
-## Түзетілгені 🔧
-
-- **Код авторын спуфинг** (`POST /api/codes`) — бұрын клиент `author` өрісін жіберетін.
-  Енді сервер `author`-ды әрқашан аутентификацияланған қолданушыға мәжбүрлейді
-  (`backend/routes/codes.py`).
-- **Server баннері** — `server: uvicorn` тақырыбы өшірілді: `python main.py` үшін
-  `server_header=False` (`backend/main.py`), Docker/Cloud Run үшін `--no-server-header`
-  (`backend/Dockerfile`). Бұрын Docker жолында баннер әлі көрінетін.
-- **Қолданылмайтын SMS endpoint-тері** (`/api/auth/sms/*`) — тіркелу тек email-ге
-  ауысқаннан кейін де ашық тұрған. Енді маршруттар, модельдер, `sms_verifications`
-  кестесі және конфиг толық алынып тасталды (шабуыл беті азайды).
-- **HSTS** — `SecurityHeadersMiddleware` енді тек HTTPS сұраныстарына
-  `Strict-Transport-Security` қосады (`HSTS_MAX_AGE`, `HSTS_INCLUDE_SUBDOMAINS`).
-  Толығырақ: [SECURITY-HSTS.md](./SECURITY-HSTS.md).
-- **CAPTCHA** — тіркелу мен кіруге Cloudflare Turnstile қосылды. Ол тек
-  `TURNSTILE_SECRET_KEY` (backend) және `VITE_TURNSTILE_SITE_KEY` (frontend) орнатылғанда
-  іске қосылады; бос болса, бұрынғыдай жұмыс істейді.
-
----
-
+# Қауіпсіздік ескертпелері (pentest)
+
+
+
+> Дата: 2026-10-21 · Қамту: жергілікті backend `http://127.0.0.1:3000` (авторизацияланған тест).
+
+> HSTS бойынша бөлек құжат: [SECURITY-HSTS.md](./SECURITY-HSTS.md).
+
+
+
+## Берік болып шыққаны ✅
+
+
+
+- **JWT** — қолтаңба тексеріледі; `alg=none` және өзгертілген payload → 401.
+
+- **IDOR** — `/messages/{id}`, `/friends/{id}` бөтенге 403; топтар мүшелікті тексереді;
+
+  кодты бөтен адам өшіре/өңдей алмайды (author тексерісі).
+
+- **Rate-limit** — login IP бойынша `5/minute` → 429; әрі аккаунт блогы (5 қате → 15 мин).
+
+- **CORS** — бөтен Origin-ды шағылыстырмайды (тек тізімдегі origin-дер).
+
+- **Қате жауаптарда stack trace жоқ**; `forgot-password` энумерация бермейді
+
+  («If the email exists…»).
+
+- **Қауіпсіздік тақырыптары** бар: `X-Content-Type-Options`, `X-Frame-Options`,
+
+  `Referrer-Policy`, `Permissions-Policy`.
+
+
+
+## Түзетілгені 🔧
+
+
+
+- **Код авторын спуфинг** (`POST /api/codes`) — бұрын клиент `author` өрісін жіберетін.
+
+  Енді сервер `author`-ды әрқашан аутентификацияланған қолданушыға мәжбүрлейді
+
+  (`backend/routes/codes.py`).
+
+- **Server баннері** — `server: uvicorn` тақырыбы өшірілді: `python main.py` үшін
+
+  `server_header=False` (`backend/main.py`), Docker/Cloud Run үшін `--no-server-header`
+
+  (`backend/Dockerfile`). Бұрын Docker жолында баннер әлі көрінетін.
+
+- **Қолданылмайтын SMS endpoint-тері** (`/api/auth/sms/*`) — тіркелу тек email-ге
+
+  ауысқаннан кейін де ашық тұрған. Енді маршруттар, модельдер, `sms_verifications`
+
+  кестесі және конфиг толық алынып тасталды (шабуыл беті азайды).
+
+- **HSTS** — `SecurityHeadersMiddleware` енді тек HTTPS сұраныстарына
+
+  `Strict-Transport-Security` қосады (`HSTS_MAX_AGE`, `HSTS_INCLUDE_SUBDOMAINS`).
+
+  Толығырақ: [SECURITY-HSTS.md](./SECURITY-HSTS.md).
+
+- **CAPTCHA** — тіркелу мен кіруге Cloudflare Turnstile қосылды. Ол тек
+
+  `TURNSTILE_SECRET_KEY` (backend) және `VITE_TURNSTILE_SITE_KEY` (frontend) орнатылғанда
+
+  іске қосылады; бос болса, бұрынғыдай жұмыс істейді.
+
+
+
+---
+
+
+
 ## Ашық, төмен-тәуекел элементтер (әдейі қалдырылған)
 
 ### 1) Тіркелуде email энумерациясы
@@ -68,7 +105,7 @@
 
 ## Деректер қоймасы
 
-Барлық деректің ақиқат көзі — **SQLite** (`backend/data/kazakh_hub.db`):
+Барлық деректің ақиқат көзі — **SQLite** (`backend/data/codo_hub.db`):
 
 | Кесте | Мазмұны | Қолданатын код |
 |---|---|---|

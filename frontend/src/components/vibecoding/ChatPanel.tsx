@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useVibecoding, VirtualFile } from '../../contexts/VibecodingContext';
 import { useBurkitEdits, lineStats } from '../../contexts/BurkitEditsContext';
+import BurkitLogo from '../BurkitLogo';
+import BurkitKeyCard from '../BurkitKeyCard';
 import {
-  SparkleIcon,
   PlusIcon,
   CopyIcon,
   CheckIcon,
@@ -21,8 +22,15 @@ import {
   RefreshIcon,
   ChevronIcon,
   SettingsIcon,
+  TerminalIcon,
+  TrashIcon,
+  PlayIcon,
+  FolderIcon,
 } from './icons';
 import { FileTypeIcon } from './fileIcons';
+import { BurkitAttachButton, BurkitAttachmentChip } from '../BurkitAttach';
+import { useBurkitAttachments } from '../useBurkitAttachments';
+import { Attachment, budgetFiles } from '../../utils/burkitAttachments';
 import BurkitHistory from './BurkitHistory';
 import {
   useBurkitHistory,
@@ -33,11 +41,35 @@ import {
   BurkitMessage,
 } from './useBurkitHistory';
 import { apiService, BurkitError, BurkitStatus, ProjectNotesDTO } from '../../utils/api';
-import { getWorkspaceSnapshot } from '../../utils/vibeActivity';
+import { getWorkspaceSnapshot, subscribeTerminalOutput } from '../../utils/vibeActivity';
+import { BURKIT_ASK_EVENT, takeBurkitQuestion, runInTerminal } from '../../utils/vibeBridge';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { fromServer } from '../../contexts/VibecodingContext';
+import {
+  runProjectAction,
+  describeProjectAction,
+  loadSiteContext,
+  CONFIRM_OPS,
+  ALWAYS_CONFIRM_OPS,
+  BurkitSiteContext,
+  ProjectHost,
+} from '../../utils/burkitProjectTools';
+import type { BlockAction, CodeBlock } from './burkitBlocks';
+import {
+  extractCodeBlocks,
+  parseFence,
+  actionLabel,
+  applySearchReplace,
+  parseMentions,
+  mentionCandidates,
+} from './burkitBlocks';
 
-/* Бүркіт — Vibecoding-тегі код көмекшісі (Google Gemini), Cursor сияқты: Agent режимінде
-   жобаның файлдарына және оған автоматты байланысқан Notes папкасына өзі жазады, өзгерістер
-   «Қабылдау / Қайтару» арқылы қаралады (редакторда diff). Ask режимі тек жауап береді.
+/* Бүркіт — Vibecoding-тегі код көмекшісі (Google Gemini), Cursor/Claude сияқты агент: Agent режимінде
+   жобаның файлдарын жазады, бөлшектеп өңдейді, өшіреді, жылжытады, оқиды, терминалда команда орындайды
+   (burkitBlocks.ts) және нәтижесін көріп, жұмысты өзі жалғастырады. Файлдар мен Notes өзгерістері
+   «Қабылдау / Қайтару» арқылы қаралады (редакторда diff). Ask режимі тек жауап береді (файл оқи алады).
+   Хабарда @файл / @папка — сол файлдар контекстке бірінші болып қосылады.
    Дизайны басты беттегі Бүркіттікі (SiteAI). Сөйлесулер тарихта сақталады. */
 
 // Бүркітке жіберілетін соңғы хабарлар саны және ашық файлдың ең үлкен көлемі (backend шектеулері)
@@ -58,7 +90,6 @@ function uiLanguageOf(lang: string | undefined): 'kk' | 'ru' | 'en' {
   return code === 'ru' || code === 'en' ? code : 'kk';
 }
 const MAX_FILE_CHARS = 100_000;
-const AI_STUDIO_URL = 'https://aistudio.google.com/apikey';
 
 // «/» командалары: таңдағанда сұрау мәтіні дайындалады
 interface SlashCommand {
@@ -92,150 +123,69 @@ function generateId(): string {
   }
 }
 
-interface CodeBlock {
-  language: string;
-  code: string;
-  /** ```python path=src/main.py — Agent режимінде осы файлға жазылады */
-  path?: string;
-  /** ```markdown note="Жоспар" — жобаның Notes папкасындағы жазбаға жазылады */
-  note?: string;
-  /** Жазылатын толық мәтін (trim-сіз) */
-  raw: string;
-}
-
-// path= ішіндегі жолды тазалау: «./», басындағы «/» алынады; «..» бар жол қабылданбайды
-function cleanPath(path?: string): string | undefined {
-  const clean = path?.trim().replace(/^\.?\/+/, '');
-  if (!clean || clean.split('/').some((part) => part === '..' || part === '')) return undefined;
-  return clean;
-}
-
-// Блоктың бірінші жолы: ```тіл path=… немесе ```тіл note="…"
-const FENCE_TARGET = /^```[\w+#.-]*[ \t]+(path|note)=("[^"\n]*"|[^\s`]+)/;
-
-function fenceTarget(line: string): { path?: string; note?: string } {
-  const m = FENCE_TARGET.exec(line);
-  if (!m) return {};
-  const value = m[2].replace(/^"|"$/g, '').trim();
-  return m[1] === 'path' ? { path: cleanPath(value) } : { note: value || undefined };
-}
-
-function extractCodeBlocks(content: string): CodeBlock[] {
-  const blocks: CodeBlock[] = [];
-  const regex = /^(```([\w+#.-]+)?[^\n]*)\n([\s\S]*?)^```/gm;
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    blocks.push({ language: match[2] || 'plaintext', ...fenceTarget(match[1]), code: match[3].trim(), raw: match[3] });
-  }
-  return blocks;
-}
-
-// Жоба файлдарын Бүркітке жіберу: ашық файл бөлек барады, қалғандары — жалпы көлем шегіне дейін
+// Жоба файлдарын Бүркітке жіберу: ашық файл бөлек барады, қалғандары — жалпы көлем шегіне дейін.
+// @ арқылы атап өтілген файлдар (немесе папкалардың ішіндегілері) бірінші орынға алынады
 const MAX_PROJECT_CHARS = 150_000;
 
-function projectContext(files: VirtualFile[], activePath?: string) {
+function projectContext(files: VirtualFile[], activePath?: string, mentions: string[] = []) {
   let budget = MAX_PROJECT_CHARS;
-  return files.map((f) => {
-    if (f.path === activePath || f.content.length > budget) return { path: f.path };
+  const mentioned = (p: string) => mentions.some((m) => p === m || p.startsWith(`${m}/`));
+  const included = new Set<string>();
+  [...files.filter((f) => mentioned(f.path)), ...files].forEach((f) => {
+    if (included.has(f.path) || f.path === activePath || f.content.length > budget) return;
     budget -= f.content.length;
-    return { path: f.path, content: f.content };
+    included.add(f.path);
   });
+  return files.map((f) => (included.has(f.path) ? { path: f.path, content: f.content } : { path: f.path }));
+}
+
+// Бір пайдаланушы хабарына Бүркіт өзі жасай алатын қадамдар (құрал нәтижесі → жалғасы)
+const MAX_AUTO_STEPS = 10;
+const TOOL_PREFIX = '[Құрал нәтижесі]';
+// read нәтижесінде бір файлдың ең үлкен көлемі
+const MAX_READ_CHARS = 60_000;
+const MAX_RUN_OUTPUT = 8_000;
+const SHELL_LANGS = new Set(['bash', 'sh', 'shell', 'zsh', 'console', 'powershell', 'ps1', 'cmd']);
+
+// Жауап аяқталған соң орындалатын блоктар: командалар (тек Agent) және сайттағы жоба әрекеттері
+function isActionBlock(block: CodeBlock, agent: boolean): boolean {
+  const { action } = block;
+  return (action?.kind === 'run' && agent && !!block.code) || action?.kind === 'project';
+}
+
+// Ask режимінде де сұраусыз орындалатын (ештеңені өзгертпейтін) жоба әрекеттері
+const READONLY_OPS = new Set(['list', 'open']);
+
+function needsApproval(action: BlockAction | undefined, autoRun: boolean, agent: boolean): boolean {
+  if (action?.kind === 'run') return !autoRun;
+  if (action?.kind !== 'project') return false;
+  if (!agent && !READONLY_OPS.has(action.op)) return true;
+  return CONFIRM_OPS.has(action.op) && (!autoRun || ALWAYS_CONFIRM_OPS.has(action.op));
+}
+
+// Құрал нәтижесінің бір жолдық атауы: орындалған командалар мен оқылған файлдар
+function toolSummary(content: string): string {
+  const parts = [
+    ...[...content.matchAll(/^\$ (.+)$/gm)].map((m) => `$ ${m[1]}`),
+    ...[...content.matchAll(/^Файл (\S+):$/gm)].map((m) => `оқылды: ${m[1]}`),
+  ];
+  return parts.length > 0 ? parts.join(' · ') : 'Құрал нәтижесі';
+}
+
+// Терминал шығысын тазалау: \r\n → \n, жалғыз \r жолды қайта жазады (прогресс-бар)
+function cleanOutput(text: string): string {
+  const out = text.replace(/\r\n/g, '\n').replace(/[^\n]*\r(?!\n|$)/g, '').replace(/\r/g, '');
+  return out.length > MAX_RUN_OUTPUT ? `…${out.slice(-MAX_RUN_OUTPUT)}` : out;
 }
 
 type BurkitMode = 'agent' | 'ask';
-const MODE_KEY = 'vibe-burkit-mode';
-
-function loadMode(): BurkitMode {
-  try {
-    return localStorage.getItem(MODE_KEY) === 'ask' ? 'ask' : 'agent';
-  } catch {
-    return 'agent';
-  }
-}
 
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-// Gemini кілтін енгізу/ауыстыру/өшіру картасы
-interface KeyCardProps {
-  status: BurkitStatus | null;
-  onChange: (status: BurkitStatus) => void;
-  onClose?: () => void;
-}
-
-const KeyCard: React.FC<KeyCardProps> = ({ status, onChange, onClose }) => {
-  const [value, setValue] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const run = async (action: () => Promise<BurkitStatus>) => {
-    setBusy(true);
-    setError('');
-    try {
-      onChange(await action());
-      setValue('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Қате орын алды');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const save = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (value.trim()) run(() => apiService.saveBurkitKey(value.trim()));
-  };
-
-  return (
-    <form className="vx-ai__key" onSubmit={save}>
-      <div className="vx-ai__key-head">
-        <b>Gemini API кілті</b>
-        {onClose && (
-          <button type="button" className="vx-icon-btn vx-icon-btn--xs" onClick={onClose} title="Жабу">
-            <CloseIcon size={12} />
-          </button>
-        )}
-      </div>
-      <p className="vx-ai__key-text">
-        {status?.source === 'own' && <>Өз кілтіңіз қосулы: <code>{status.keyHint}</code></>}
-        {status?.source === 'shared' && <>Сіз сайттың ортақ кілтін қолданып жатырсыз. Өз кілтіңізді қойсаңыз, сол қолданылады.</>}
-        {(!status || status.source === 'none') && (
-          <>
-            Бүркітті қолдану үшін тегін кілт алыңыз:{' '}
-            <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer" className="vx-ai__link">aistudio.google.com</a>
-            {' '}→ «Create API key».
-          </>
-        )}
-      </p>
-      <div className="vx-ai__key-row">
-        <input
-          type="password"
-          className="vx-ai__key-input"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={status?.source === 'own' ? 'Жаңа кілт' : 'Кілтті осында қойыңыз'}
-          autoComplete="off"
-          spellCheck={false}
-          aria-label="Gemini API кілті"
-        />
-        <button type="submit" className="vx-ai__key-btn" disabled={busy || !value.trim()}>
-          {busy ? '…' : 'Сақтау'}
-        </button>
-      </div>
-      {error && <p className="vx-ai__key-error">{error}</p>}
-      {status?.source === 'own' && (
-        <button type="button" className="vx-ai__key-remove" disabled={busy} onClick={() => run(() => apiService.deleteBurkitKey())}>
-          Кілтті өшіру
-        </button>
-      )}
-      <p className="vx-ai__key-note">Кілт серверде шифрланып сақталады, оны тек сіздің аккаунтыңыз қолданады.</p>
-    </form>
-  );
-};
 
 // Жол ішіндегі markdown: **bold**, *italic*, `code`, [link](url)
 function renderInlineMarkdown(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
-  const inlineRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))/g;
+  const inlineRegex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))|((?<![\w])@[\w.\-/]*[\w/])/g;
   let lastIndex = 0;
   let m;
   let k = 0;
@@ -250,7 +200,7 @@ function renderInlineMarkdown(text: string): React.ReactNode {
           {m[8]}
         </a>
       );
-    }
+    } else if (m[10]) parts.push(<span key={`m-${k}`} className="vx-ai__mention">{m[10]}</span>);
     lastIndex = m.index + m[0].length;
     k++;
   }
@@ -280,7 +230,7 @@ async function copyText(text: string) {
 
 const ChatPanel: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { dispatch, activeFile, activeProject, openFiles, isMobile, isTablet, syncReady } = useVibecoding();
+  const { dispatch, activeFile, activeProject, openFiles, isMobile, isTablet, syncReady, flushProjects } = useVibecoding();
   const history = useBurkitHistory();
 
   // Бет жаңартылса немесе панель жабылып-ашылса — сол чат пен көрініс қалпына келеді
@@ -296,15 +246,43 @@ const ChatPanel: React.FC = () => {
   const [slashIndex, setSlashIndex] = useState(0);
   // Бүркіт қай кілтпен жұмыс істейді (null — әлі жүктелмеді)
   const [status, setStatus] = useState<BurkitStatus | null>(null);
+  const [statusChecked, setStatusChecked] = useState(false);
+  // Терминалдан келген сұрақ («Бүркіттен сұрау») — Бүркіт бос болғанда жіберіледі
+  const [incoming, setIncoming] = useState<string | null>(null);
   const [keyOpen, setKeyOpen] = useState(false);
-  const [mode, setMode] = useState<BurkitMode>(loadMode);
+  // Бүркіт әрқашан автоматты агент: файлдарға жазады, командаларды сұрамай орындайды
+  // (тек қайтарылмайтын жоба әрекеттері расталады)
+  const mode: BurkitMode = 'agent';
   // Жобаға автоматты байланысқан Notes папкасы (жоба серверге сақталмаған болса — null)
   const [projectNotes, setProjectNotes] = useState<ProjectNotesDTO | null>(null);
   const edits = useBurkitEdits();
+  const autoRun = true;
+  // Қазір орындалып жатқан әрекет (команда / жоба әрекеті): «хабар id:блок нөмірі»
+  const [runningAction, setRunningAction] = useState<string | null>(null);
+  // Бүркіт көрсеткен сілтемелер (бөлісу сілтемесі т.б.): «хабар id:блок нөмірі» → url
+  const [actionLinks, setActionLinks] = useState<Record<string, string>>({});
+  // Сайттағы жобалар, достар, топтар — project блоктары үшін Бүркітке барады
+  const [siteContext, setSiteContext] = useState<BurkitSiteContext | null>(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { state: vibeState } = useVibecoding();
+  const projectsRef = useRef(vibeState.projects);
+  projectsRef.current = vibeState.projects;
+  // Курсор орны — @ ескертулер тізімі үшін
+  const [caret, setCaret] = useState(0);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  // Қолмен орындалатын командалары бар жауаптың жиналған нәтижелері (replyId → нәтижелер)
+  const heldRef = useRef(new Map<string, string[]>());
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  // Тіркемелердің мазмұны тек жадта (хабар id → тіркемелер); тарихта тек аттары сақталады
+  const filesRef = useRef(new Map<string, Attachment[]>());
 
   const isOverlay = isMobile || isTablet;
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const focusInput = useCallback(() => inputRef.current?.focus(), []);
+  const attach = useBurkitAttachments(focusInput);
   const abortRef = useRef<AbortController | null>(null);
   // Жауап келіп жатқанда жоба ауысса — файлдарға жазбаймыз
   const projectRef = useRef(activeProject);
@@ -340,16 +318,11 @@ const ChatPanel: React.FC = () => {
   }, [conversationId, view, historyKey, saveActive]);
 
   useEffect(() => {
-    apiService.getBurkitStatus().then(setStatus).catch(() => setStatus(null));
+    apiService.getBurkitStatus()
+      .then(setStatus)
+      .catch(() => setStatus(null))
+      .finally(() => setStatusChecked(true));
   }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(MODE_KEY, mode);
-    } catch {
-      // жеке терезе — режим тек осы сессияда
-    }
-  }, [mode]);
 
   const projectId = activeProject?.id;
   const refreshNotes = useCallback(() => {
@@ -402,9 +375,155 @@ const ChatPanel: React.FC = () => {
   );
   useEffect(() => setSlashIndex(0), [slashQuery]);
 
+  // «@» жазылса — жобаның файлдары мен папкалары (курсорға дейінгі сөз)
+  const mentionQuery = activeProject && caret >= 0 ? /(?:^|\s)@([^\s@]*)$/.exec(inputValue.slice(0, caret))?.[1] : undefined;
+  const mentionMatches = useMemo(
+    () => (mentionQuery === undefined || !activeProject
+      ? []
+      : mentionCandidates(activeProject.files.map((f) => f.path), mentionQuery)),
+    [mentionQuery, activeProject]
+  );
+  useEffect(() => setMentionIndex(0), [mentionQuery]);
+
+  const markRan = useCallback((replyId: string, index: number) => {
+    dirtyRef.current = true;
+    setMessages((prev) => prev.map((m) => (
+      m.id === replyId && !m.ran?.includes(index) ? { ...m, ran: [...(m.ran ?? []), index] } : m
+    )));
+  }, []);
+
+  // Команданы жобаның терминалында орындап, шығысын жинау. Аяқталды деп shell шақыруы (…$)
+  // қайта шыққанда санаймыз; шығыс ұзақ тоқтаса — команда әлі жұмыс істеп тұр (сервер т.б.)
+  const runCommand = useCallback(async (command: string, signal: AbortSignal): Promise<string> => {
+    const project = projectRef.current;
+    if (!project) return `$ ${command}\nОрындалмады: жоба ашылмаған.`;
+
+    let unsubscribe = () => {};
+    try {
+      // Терминал папкасы серверде — Бүркіт жазған файлдар алдымен сонда жетсін
+      await flushProjects().catch(() => {});
+      dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: true });
+      let out = '';
+      let last = Date.now();
+      unsubscribe = subscribeTerminalOutput((text) => {
+        out += text;
+        last = Date.now();
+      });
+      await runInTerminal(project.id, command);
+      const started = Date.now();
+      const result = await new Promise<'done' | 'running' | 'stopped'>((resolve) => {
+        const timer = window.setInterval(() => {
+          const now = Date.now();
+          const idle = now - last;
+          let state: 'done' | 'running' | 'stopped' | null = null;
+          if (signal.aborted) state = 'stopped';
+          else if (idle > 700 && now - started > 900 && /[$#%>]\s*$/.test(cleanOutput(out))) state = 'done';
+          else if ((idle > 6_000 && now - started > 2_000) || now - started > 120_000) state = 'running';
+          if (state) {
+            window.clearInterval(timer);
+            resolve(state);
+          }
+        }, 250);
+      });
+      const note = result === 'running'
+        ? '\n(Команда әлі жұмыс істеп тұр — бұл оның алғашқы шығысы.)'
+        : result === 'stopped' ? '\n(Қолданушы күтуді тоқтатты.)' : '';
+      return `$ ${command}\n~~~text\n${cleanOutput(out).trim() || '(шығыс жоқ)'}\n~~~${note}`;
+    } catch (e) {
+      return `$ ${command}\nОрындалмады: ${e instanceof Error ? e.message : 'терминал қатесі'}`;
+    } finally {
+      unsubscribe();
+    }
+  }, [dispatch, flushProjects]);
+
+  // Сайттағы жобалармен жұмыс (project блоктары): Vibecoding-те жобалар контекст арқылы өзгереді
+  const host = useMemo<ProjectHost | null>(() => (user ? {
+    userId: user.id,
+    username: user.username,
+    get currentProjectId() { return projectRef.current?.id ?? null; },
+    listVibe: async () => projectsRef.current.map((p) => ({ id: p.id, name: p.name })),
+    createVibe: async (name) => {
+      const id = generateId();
+      dispatch({ type: 'CREATE_PROJECT', payload: { name, id } });
+      return id;
+    },
+    deleteVibe: async (id) => {
+      dispatch({ type: 'DELETE_PROJECT', payload: { projectId: id } });
+    },
+    flush: () => flushProjects().catch(() => {}),
+    openVibe: (id, dto) => {
+      if (dto) dispatch({ type: 'UPSERT_PROJECT', payload: { project: fromServer(dto) } });
+      dispatch({ type: 'OPEN_PROJECT_FILE', payload: { projectId: id } });
+    },
+    navigate,
+  } : null), [user, dispatch, flushProjects, navigate]);
+
+  const refreshSite = useCallback(() => {
+    if (host) loadSiteContext(host).then(setSiteContext).catch(() => {});
+  }, [host]);
+  useEffect(refreshSite, [refreshSite]);
+
+  // Бір әрекет блогын орындау; қайтарғаны — Бүркітке баратын нәтиже
+  const executeBlock = useCallback(async (block: CodeBlock, signal: AbortSignal, replyId: string, index: number): Promise<string> => {
+    const key = `${replyId}:${index}`;
+    setRunningAction(key);
+    try {
+      if (block.action?.kind === 'run') return await runCommand(block.code, signal);
+      if (block.action?.kind !== 'project') return '';
+      const label = describeProjectAction(block.action);
+      if (!host) return `${label}: орындалмады — жүйеге кіру керек.`;
+      try {
+        const result = await runProjectAction(block.action, host, block.code);
+        if (result.link) setActionLinks((prev) => ({ ...prev, [key]: result.link! }));
+        if (block.action.op !== 'list' && block.action.op !== 'open') refreshSite();
+        return `${label}: ${result.text}`;
+      } catch (e) {
+        return `${label}: орындалмады — ${e instanceof Error ? e.message : 'қате'}`;
+      }
+    } finally {
+      setRunningAction(null);
+    }
+  }, [runCommand, host, refreshSite]);
+
+  // Құрал нәтижелерін Бүркітке жіберіп, жұмысты жалғастыру (агент циклі)
+  const respondRef = useRef<((thread: BurkitMessage[], file: VirtualFile | null, resume?: BurkitMessage, step?: number) => void) | null>(null);
+  const continueWith = useCallback((base: BurkitMessage[], feedback: string[], file: VirtualFile | null, step: number) => {
+    dirtyRef.current = true;
+    if (step > MAX_AUTO_STEPS) {
+      setMessages((prev) => [...prev, {
+        id: generateId(),
+        role: 'assistant',
+        content: '⚠️ Бүркіт қатарынан тым көп қадам жасады. Жалғастыру үшін хабар жазыңыз.',
+        timestamp: new Date().toISOString(),
+        error: true,
+      }]);
+      return;
+    }
+    const toolMsg: BurkitMessage = {
+      id: generateId(),
+      role: 'user',
+      tool: true,
+      content: `${TOOL_PREFIX}\n\n${feedback.join('\n\n')}`,
+      timestamp: new Date().toISOString(),
+      pending: true,
+    };
+    setMessages((prev) => [...prev, toolMsg]);
+    respondRef.current?.([...base, toolMsg], file, undefined, step);
+  }, []);
+
+  // Хабарлар + тіркемелер (жалпы көлем шегіне дейін, жаңалары бірінші)
+  const withFiles = (list: BurkitMessage[]) => {
+    const files = budgetFiles(list.map((m) => filesRef.current.get(m.id) ?? []));
+    return list.map((m, i) => ({
+      role: m.role,
+      content: m.content || 'Тіркелген файлдарды қара.',
+      ...(files[i].length > 0 && { files: files[i] }),
+    }));
+  };
+
   // Бүркіттен жауап: мәтін бөлік-бөлік келіп, бір хабарға жиналады
-  // resume — үзілген жауап: жаңа мәтін соның соңына жалғанады
-  const respond = useCallback(async (thread: BurkitMessage[], file: typeof activeFile, resume?: BurkitMessage) => {
+  // resume — үзілген жауап: жаңа мәтін соның соңына жалғанады; step — агент циклінің қадамы
+  const respond = useCallback(async (thread: BurkitMessage[], file: VirtualFile | null, resume?: BurkitMessage, step = 0) => {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsLoading(true);
@@ -415,6 +534,10 @@ const ChatPanel: React.FC = () => {
     let full = resume?.content ?? '';
     // Үзілгенге дейін жабылған блоктар файлдарға жазылып қойған — қайта жазбаймыз
     let applied = resume ? extractCodeBlocks(full).length : 0;
+    // Келесі қадамда Бүркітке баратын нәтижелер (read, run, сәтсіз өзгерістер)
+    const feedback: string[] = [];
+    const lastUserText = [...thread].reverse().find((m) => m.role === 'user' && !m.tool)?.content ?? '';
+    const mentions = project ? parseMentions(lastUserText, project.files.map((f) => f.path)) : [];
     const write = (text: string, error?: boolean) => {
       const first = !started;
       started = true;
@@ -432,35 +555,62 @@ const ChatPanel: React.FC = () => {
       setMessages((prev) => prev.map((m) => (m.id === replyId ? { ...m, edits: [...(m.edits ?? []), edit] } : m)));
     };
 
-    // Жабылған path=/note= блоктарын бірден жазу (Cursor сияқты — жауап аяқталуын күтпей)
+    // Жабылған блоктарды бірден орындау (Cursor сияқты — жауап аяқталуын күтпей); read/run — соңында
     const applyBlocks = () => {
       if (!agent || projectRef.current?.id !== project?.id) return;
       const blocks = extractCodeBlocks(full);
       for (; applied < blocks.length; applied++) {
-        const block = blocks[applied];
-        if (block.path) {
-          const { created } = edits.applyEdit(block.path, block.raw);
-          addEdit({ kind: 'file', path: block.path, created });
-        } else if (block.note) {
-          const title = block.note;
-          edits.applyNote(title, block.raw)
+        const { action, raw } = blocks[applied];
+        if (!action) continue;
+        if (action.kind === 'write') {
+          const { created } = edits.applyEdit(action.path, raw);
+          addEdit({ kind: 'file', path: action.path, created });
+        } else if (action.kind === 'edit') {
+          const current = edits.readFile(action.path);
+          if (current === null) {
+            addEdit({ kind: 'file', path: action.path, created: false, error: 'файл жоқ' });
+            feedback.push(`edit=${action.path}: мұндай файл жоқ. Жаңа файлды path= блогымен жаса.`);
+            continue;
+          }
+          const result = applySearchReplace(current, raw);
+          if (result.applied > 0) {
+            const { created } = edits.applyEdit(action.path, result.content);
+            addEdit({ kind: 'file', path: action.path, created });
+          }
+          if (result.failed.length > 0) {
+            if (result.applied === 0) addEdit({ kind: 'file', path: action.path, created: false, error: 'табылмады' });
+            feedback.push(
+              `edit=${action.path}: ${result.failed.length} SEARCH бөлігі файлдан табылмады (қалғаны орындалды):\n` +
+              result.failed.map((s) => `~~~\n${s}\n~~~`).join('\n') +
+              '\nФайлдың қазіргі мәтінін read арқылы оқып, дәл мәтінмен қайтала.'
+            );
+          }
+        } else if (action.kind === 'delete') {
+          const removed = edits.applyDelete(action.path);
+          if (removed.length > 0) addEdit({ kind: 'file', path: action.path, created: false, action: 'delete' });
+          else feedback.push(`delete ${action.path}: мұндай файл немесе папка жоқ.`);
+        } else if (action.kind === 'move') {
+          const moved = edits.applyMove(action.from, action.to);
+          if (moved > 0) addEdit({ kind: 'file', path: action.to, from: action.from, created: false, action: 'move' });
+          else feedback.push(`move ${action.from} → ${action.to}: орындалмады (бастапқы жол жоқ немесе жаңа жол бос емес).`);
+        } else if (action.kind === 'note') {
+          const title = action.title;
+          edits.applyNote(title, raw)
             .then(({ noteId, created }) => {
               addEdit({ kind: 'note', path: title, created, noteId });
               refreshNotes();
             })
-            .catch((e) => write(`\n\n⚠️ «${title}» жазбасына жазу мүмкін болмады: ${e instanceof Error ? e.message : ''}`));
+            .catch((e) => addEdit({ kind: 'note', path: title, created: false, error: e instanceof Error ? e.message : 'қате' }));
         }
       }
     };
 
+    let next: BurkitMessage[] | null = null;
     try {
       await apiService.streamBurkitChat(
         {
           messages: [
-            ...thread
-              .filter((m) => !m.error)
-              .slice(-MAX_HISTORY)
-              .map((m) => ({ role: m.role, content: m.content })),
+            ...withFiles(thread.filter((m) => !m.error).slice(-MAX_HISTORY)),
             ...(resume ? [{ role: 'user' as const, content: CONTINUE_PROMPT }] : []),
           ],
           fileName: file?.path,
@@ -468,10 +618,18 @@ const ChatPanel: React.FC = () => {
           mode: agent ? 'agent' : 'ask',
           uiLanguage: uiLanguageOf(i18n.language),
           workspace: { ...getWorkspaceSnapshot(), openFiles: openFilesRef.current.slice(0, 200).map((f) => f.path) },
+          // Жобалар тізімі әрқашан ең соңғы күйден (жоба жасалып/өшіп жатуы мүмкін)
+          ...(siteContext && {
+            site: {
+              ...siteContext,
+              projects: projectsRef.current.slice(0, 100).map((p) => ({ name: p.name, current: p.id === project?.id || undefined })),
+            },
+          }),
           ...(project && {
             projectId: project.id,
             projectName: project.name,
-            projectFiles: projectContext(project.files, file?.path),
+            projectFiles: projectContext(project.files, file?.path, mentions),
+            mentions,
           }),
         },
         (chunk) => {
@@ -481,8 +639,41 @@ const ChatPanel: React.FC = () => {
         },
         controller.signal
       );
+
+      // Жауап аяқталды: файлдарды оқу және командалар
+      const blocks = extractCodeBlocks(full);
+      if (project && projectRef.current?.id === project.id) {
+        blocks.forEach(({ action }) => {
+          if (action?.kind !== 'read') return;
+          const content = edits.readFile(action.path);
+          feedback.push(content === null
+            ? `read ${action.path}: мұндай файл жоқ.`
+            : `Файл ${action.path}:\n\`\`\`\n${content.length > MAX_READ_CHARS ? `${content.slice(0, MAX_READ_CHARS)}\n…(қысқартылды)` : content}\n\`\`\``);
+        });
+      }
+      // Командалар мен жоба әрекеттері — ретімен; растау керектері қолданушыны күтеді
+      const done = resume?.ran ?? [];
+      let held = false;
+      for (let i = 0; i < blocks.length; i++) {
+        const { action } = blocks[i];
+        if (done.includes(i) || !isActionBlock(blocks[i], agent)) continue;
+        if (controller.signal.aborted) break;
+        if (action?.kind === 'run' && projectRef.current?.id !== project?.id) break;
+        if (needsApproval(action, autoRun, agent)) {
+          held = true;
+          continue;
+        }
+        feedback.push(await executeBlock(blocks[i], controller.signal, replyId, i));
+        markRan(replyId, i);
+      }
+      // Қолданушы «Іске қосу» басқанша нәтижелер күтіп тұрады
+      if (held) heldRef.current.set(replyId, feedback.splice(0));
       dirtyRef.current = true;
       setMessages(clearPending);
+      if (feedback.length > 0 && !controller.signal.aborted) {
+        const reply: BurkitMessage = { id: replyId, role: 'assistant', content: full, timestamp: new Date().toISOString() };
+        next = resume ? thread.map((m) => (m.id === replyId ? reply : m)) : [...thread, reply];
+      }
     } catch (e) {
       // Бет жаңартылды / панель жабылды — pending белгісі қалады, кейін жалғасады
       // (қолданушы өзі тоқтатса — stop() белгіні алып тастайды)
@@ -499,21 +690,94 @@ const ChatPanel: React.FC = () => {
         setIsLoading(false);
       }
     }
-  }, [t, i18n, mode, edits, refreshNotes]);
+    if (next) continueWith(next, feedback, file, step + 1);
+  }, [t, i18n, mode, edits, refreshNotes, autoRun, executeBlock, markRan, continueWith, siteContext]);
+  respondRef.current = respond;
 
-  const sendMessage = useCallback((text: string) => {
+  // run / project блогы: «Іске қосу» / «Өткізу». Жауаптың барлық әрекеті қаралғанда нәтижелер Бүркітке барады
+  const handleRunBlock = useCallback(async (msg: BurkitMessage, index: number, skip: boolean) => {
+    if (isLoading) return;
+    const blocks = extractCodeBlocks(msg.content);
+    const block = blocks[index];
+    if (!block) return;
+    const held = heldRef.current.get(msg.id) ?? [];
+    heldRef.current.set(msg.id, held);
+    markRan(msg.id, index);
+    if (!skip) {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setIsLoading(true);
+      try {
+        held.push(await executeBlock(block, controller.signal, msg.id, index));
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsLoading(false);
+        }
+      }
+      if (controller.signal.aborted) return;
+    }
+    const handled = new Set([...(msg.ran ?? []), index]);
+    if (blocks.some((b, i) => isActionBlock(b, mode === 'agent') && !handled.has(i))) return;
+    heldRef.current.delete(msg.id);
+    if (held.length > 0) continueWith(messagesRef.current, held, contextFile, 1);
+  }, [isLoading, markRan, executeBlock, continueWith, contextFile, mode]);
+
+  // Кәдімгі shell блогын терминалға жіберу (нәтижесі Бүркітке бармайды)
+  const handleSendToTerminal = useCallback(async (command: string) => {
+    const project = projectRef.current;
+    if (!project) return;
+    await flushProjects().catch(() => {});
+    dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: true });
+    runInTerminal(project.id, command).catch(() => {});
+  }, [dispatch, flushProjects]);
+
+  const sendMessage = useCallback((text: string, files: Attachment[] = []) => {
     const content = text.trim();
-    if (!content || isLoading) return;
+    if ((!content && files.length === 0) || isLoading) return;
     if (!conversationId) setConversationId(generateId());
     dirtyRef.current = true;
+    heldRef.current.clear();
+    const id = generateId();
+    if (files.length > 0) filesRef.current.set(id, files);
     const thread: BurkitMessage[] = [
       ...messages,
-      { id: generateId(), role: 'user', content, timestamp: new Date().toISOString(), context: contextFile?.name, pending: true },
+      {
+        id,
+        role: 'user',
+        content,
+        timestamp: new Date().toISOString(),
+        context: contextFile?.name,
+        pending: true,
+        ...(files.length > 0 && {
+          attachments: files.map((a) => ({ kind: a.kind, name: a.name, ...(a.count && { count: a.count }) })),
+        }),
+      },
     ];
     setMessages(thread);
     setInputValue('');
+    setCaret(0);
     respond(thread, contextFile);
   }, [isLoading, conversationId, messages, contextFile, respond]);
+
+  useEffect(() => {
+    const grab = () => {
+      const q = takeBurkitQuestion();
+      if (q) setIncoming(q);
+    };
+    grab(); // панель сұрақпен бірге ашылған болса
+    window.addEventListener(BURKIT_ASK_EVENT, grab);
+    return () => window.removeEventListener(BURKIT_ASK_EVENT, grab);
+  }, []);
+
+  useEffect(() => {
+    if (!incoming || isLoading || !statusChecked) return;
+    setIncoming(null);
+    setView('chat');
+    // Кілт жоқ болса — сұрақ енгізу өрісінде күтіп тұрады
+    if (needsKey) setInputValue(incoming);
+    else sendMessage(incoming);
+  }, [incoming, isLoading, statusChecked, needsKey, sendMessage]);
 
   // Жауапты тоқтату (келген бөлігі сақталады)
   const stop = () => {
@@ -598,7 +862,38 @@ const ChatPanel: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  // @ тізімінен таңдау: курсорға дейінгі «@сөз» толық жолмен ауысады
+  const pickMention = (candidate: { path: string; folder: boolean }) => {
+    const before = inputValue.slice(0, caret).replace(/@([^\s@]*)$/, `@${candidate.path}${candidate.folder ? '/' : ''} `);
+    setInputValue(before + inputValue.slice(caret));
+    setCaret(before.length);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(before.length, before.length);
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionMatches.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setMentionIndex((i) => (i + step + mentionMatches.length) % mentionMatches.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        pickMention(mentionMatches[mentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setCaret(-1); // тізім жабылады (келесі теруге дейін)
+        return;
+      }
+    }
     if (slashMatches.length > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -619,8 +914,15 @@ const ChatPanel: React.FC = () => {
     // Enter — жіберу, Shift+Enter — жаңа жол (әріп теру кезінде IME-ге кедергі жасамау)
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      sendMessage(inputValue);
+      submit();
     }
+  };
+
+  // Мәтін + тіркемелер бірге жіберіледі
+  const submit = () => {
+    if (isLoading || attach.busy || (!inputValue.trim() && attach.attached.length === 0)) return;
+    sendMessage(inputValue, attach.attached);
+    attach.clear();
   };
 
   const markCopied = (id: string) => {
@@ -644,6 +946,73 @@ const ChatPanel: React.FC = () => {
     for (let i = 2; taken.has(name); i++) name = `snippet-${i}.${ext}`;
     dispatch({ type: 'CREATE_FILE', payload: { name, path: name, content: code } });
   }, [activeProject, dispatch]);
+
+  // Әрекет блогының күйі: орындалып жатыр / қаралды / «Өткізу · Іске қосу» батырмалары
+  const renderActionState = (msg: BurkitMessage, idx: number, canAct: boolean, runLabel: string) => (
+    <div className="vx-ai__run">
+      {runningAction === `${msg.id}:${idx}` ? (
+        <span className="vx-ai__run-state">
+          <span className="vx-ai__dots"><span /><span /><span /></span>
+          Орындалып жатыр…
+        </span>
+      ) : msg.ran?.includes(idx) ? (
+        <span className="vx-ai__run-state is-done">
+          <CheckIcon size={11} />
+          Қаралды
+        </span>
+      ) : canAct && !isLoading ? (
+        <>
+          <button type="button" className="vx-ai__run-btn" onClick={() => handleRunBlock(msg, idx, true)}>
+            Өткізу
+          </button>
+          <button type="button" className="vx-ai__run-btn is-primary" onClick={() => handleRunBlock(msg, idx, false)}>
+            <PlayIcon size={11} />
+            {runLabel}
+          </button>
+        </>
+      ) : (
+        <span className="vx-ai__run-state">Орындалмаған</span>
+      )}
+    </div>
+  );
+
+  // Сайттағы жоба әрекеті (жариялау, бөлісу, жіберу…) — сипаттамасы, сілтемесі, растау батырмалары
+  const renderProjectAction = (
+    msg: BurkitMessage,
+    idx: number,
+    action: Extract<BlockAction, { kind: 'project' }>,
+    note: string,
+    isLast: boolean
+  ) => {
+    const key = `${msg.id}:${idx}`;
+    const link = actionLinks[key];
+    const danger = ALWAYS_CONFIRM_OPS.has(action.op);
+    return (
+      <div key={`code-${idx}`} className={`vx-ai__code vx-ai__code--target vx-ai__code--project ${danger ? 'is-danger' : ''}`}>
+        <div className="vx-ai__code-bar">
+          <span className="vx-ai__code-lang">
+            {action.op === 'delete' || action.op === 'unpublish' ? <TrashIcon size={14} /> : <FolderIcon size={14} />}
+            {describeProjectAction(action)}
+          </span>
+        </div>
+        {note && <p className="vx-ai__project-note">{note}</p>}
+        {link && (
+          <div className="vx-ai__project-link">
+            <a href={link} target="_blank" rel="noopener noreferrer">{link}</a>
+            <button
+              type="button"
+              className={`vx-icon-btn vx-icon-btn--xs ${copiedId === key ? 'is-done' : ''}`}
+              onClick={() => copyText(link).then(() => markCopied(key))}
+              title="Сілтемені көшіру"
+            >
+              {copiedId === key ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+            </button>
+          </div>
+        )}
+        {renderActionState(msg, idx, isLast, danger ? 'Растау' : 'Орындау')}
+      </div>
+    );
+  };
 
   const renderMessageContent = (msg: BurkitMessage) => {
     const elements: React.ReactNode[] = [];
@@ -669,32 +1038,68 @@ const ChatPanel: React.FC = () => {
     });
 
     // Жауап әлі келіп жатыр, ал соңғы блок жабылмаған — қай файлға жазып жатқанын көрсету
-    const writing = inCodeBlock && isLoading && msg.id === lastAssistantId ? fenceTarget(openFence) : {};
-    const writingTarget = writing.path ?? (writing.note && `📓 ${writing.note}`);
+    const writing = inCodeBlock && isLoading && msg.id === lastAssistantId ? parseFence(openFence).action : undefined;
+    const writingTarget = actionLabel(writing);
 
     if (msg.role === 'assistant') {
+      const isLast = msg.id === lastAssistantId;
       extractCodeBlocks(msg.content).forEach((block, idx) => {
         const blockId = `${msg.id}-code-${idx}`;
         const copied = copiedId === blockId;
         const ext = LANG_EXT[block.language.toLowerCase()] ?? 'txt';
-        const target = block.path ?? block.note;
+        const { action } = block;
+        const target = actionLabel(action);
+        if (action?.kind === 'project') {
+          elements.push(renderProjectAction(msg, idx, action, block.code, isLast));
+          return;
+        }
+        const isRun = action?.kind === 'run';
+        // Құрал блоктары (delete/move/read) — мәтінсіз, бір жол
+        const compact = action?.kind === 'delete' || action?.kind === 'move' || action?.kind === 'read';
+        const shell = !action && SHELL_LANGS.has(block.language.toLowerCase());
+        const icon = action?.kind === 'note' ? <span aria-hidden="true">📓</span>
+          : isRun || shell ? <TerminalIcon size={14} />
+          : action?.kind === 'delete' ? <TrashIcon size={14} />
+          : action?.kind === 'read' ? <SearchIcon size={14} />
+          : <FileTypeIcon name={action?.kind === 'write' || action?.kind === 'edit' ? action.path : action?.kind === 'move' ? action.to : `x.${ext}`} size={15} />;
+        const label = isRun ? 'Терминал'
+          : action?.kind === 'delete' ? `Өшіру: ${action.path}`
+          : action?.kind === 'move' ? `Жылжыту: ${action.from} → ${action.to}`
+          : action?.kind === 'read' ? `Оқу: ${action.path}`
+          : action?.kind === 'edit' ? `${action.path} · өңдеу`
+          : target ?? block.language;
         elements.push(
-          <div key={`code-${idx}`} className={`vx-ai__code ${target ? 'vx-ai__code--target' : ''}`}>
+          <div
+            key={`code-${idx}`}
+            className={`vx-ai__code ${action ? 'vx-ai__code--target' : ''} ${compact ? 'vx-ai__code--compact' : ''} ${isRun ? 'vx-ai__code--run' : ''}`}
+          >
             <div className="vx-ai__code-bar">
               <span className="vx-ai__code-lang">
-                {block.note ? <span aria-hidden="true">📓</span> : <FileTypeIcon name={block.path ?? `x.${ext}`} size={15} />}
-                {target ?? block.language}
+                {icon}
+                {label}
               </span>
               <div className="vx-ai__code-actions">
-                <button
-                  type="button"
-                  onClick={() => copyText(block.code).then(() => markCopied(blockId))}
-                  className={`vx-icon-btn vx-icon-btn--xs ${copied ? 'is-done' : ''}`}
-                  title={copied ? t('vibecoding.chat.copied') : t('vibecoding.chat.copyCode')}
-                >
-                  {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
-                </button>
-                {activeFile && !target && (
+                {!compact && (
+                  <button
+                    type="button"
+                    onClick={() => copyText(block.code).then(() => markCopied(blockId))}
+                    className={`vx-icon-btn vx-icon-btn--xs ${copied ? 'is-done' : ''}`}
+                    title={copied ? t('vibecoding.chat.copied') : t('vibecoding.chat.copyCode')}
+                  >
+                    {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                  </button>
+                )}
+                {shell && activeProject && (
+                  <button
+                    type="button"
+                    onClick={() => handleSendToTerminal(block.code)}
+                    className="vx-icon-btn vx-icon-btn--xs"
+                    title="Терминалда іске қосу"
+                  >
+                    <PlayIcon size={12} />
+                  </button>
+                )}
+                {activeFile && !action && (
                   <button
                     type="button"
                     onClick={() => handleInsertCode(block.code)}
@@ -704,7 +1109,7 @@ const ChatPanel: React.FC = () => {
                     <InsertIcon size={13} />
                   </button>
                 )}
-                {!target && (
+                {!action && (
                   <button
                     type="button"
                     onClick={() => handleNewFile(block.code, block.language)}
@@ -716,9 +1121,12 @@ const ChatPanel: React.FC = () => {
                 )}
               </div>
             </div>
-            <pre>
-              <code>{block.code}</code>
-            </pre>
+            {!compact && (
+              <pre>
+                <code>{isRun ? `$ ${block.code}` : block.code}</code>
+              </pre>
+            )}
+            {isRun && renderActionState(msg, idx, isLast && mode === 'agent', 'Іске қосу')}
           </div>
         );
       });
@@ -751,10 +1159,26 @@ const ChatPanel: React.FC = () => {
     const notePending = isNote ? edits.pendingNotes.find((n) => n.noteId === edit.noteId) : undefined;
     const pending = !!(filePending || notePending);
     const file = !isNote ? activeProject?.files.find((f) => f.path === edit.path) : undefined;
-    const stats = filePending && file ? lineStats(filePending.original, file.content) : null;
+    const stats = filePending && file && !filePending.deleted ? lineStats(filePending.original, file.content) : null;
+    if (edit.error) {
+      return (
+        <div key={key} className="vx-ai__edit is-failed">
+          <span className="vx-ai__edit-name">
+            {isNote ? <span aria-hidden="true">📓</span> : <FileTypeIcon name={edit.path} size={13} />}
+            {edit.path}
+          </span>
+          <span className="vx-ai__edit-tag is-error">{edit.error}</span>
+        </div>
+      );
+    }
     return (
-      <div key={key} className={`vx-ai__edit ${pending ? 'is-pending' : ''}`}>
-        {isNote ? (
+      <div key={key} className={`vx-ai__edit ${pending ? 'is-pending' : ''} ${edit.action === 'delete' ? 'is-deleted' : ''}`}>
+        {edit.action === 'delete' ? (
+          <span className="vx-ai__edit-name">
+            <TrashIcon size={13} />
+            {edit.path}
+          </span>
+        ) : isNote ? (
           <Link to={`/notes?note=${encodeURIComponent(edit.noteId ?? '')}`} target="_blank" className="vx-ai__edit-name">
             <span aria-hidden="true">📓</span>
             {edit.path}
@@ -766,6 +1190,8 @@ const ChatPanel: React.FC = () => {
           </button>
         )}
         {edit.created && <span className="vx-ai__edit-tag">жаңа</span>}
+        {edit.action === 'delete' && <span className="vx-ai__edit-tag is-error">өшірілді</span>}
+        {edit.action === 'move' && edit.from && <span className="vx-ai__edit-tag" title={`Бұрынғы жолы: ${edit.from}`}>← {edit.from}</span>}
         {stats && (
           <span className="vx-ai__edit-stats">
             <span className="is-add">+{stats.added}</span>
@@ -871,7 +1297,10 @@ const ChatPanel: React.FC = () => {
 
       <div className="vx-ai__scroll ide-scrollbar" ref={scrollRef} aria-live="polite">
         {keyOpen && !(isEmpty && needsKey) && (
-          <KeyCard
+          <BurkitKeyCard
+            cls="vx-ai"
+            closeClassName="vx-icon-btn vx-icon-btn--xs"
+            closeIcon={<CloseIcon size={12} />}
             status={status}
             onChange={(s) => {
               setStatus(s);
@@ -884,7 +1313,7 @@ const ChatPanel: React.FC = () => {
           // Жаңа чат: ортада жарық жиекті белгіше, атау және дайын сұраулар (басты беттің Бүркіті сияқты)
           <div className="vx-ai__hero">
             <div className="vx-ai__orb" aria-hidden="true">
-              <SparkleIcon size={26} />
+              <BurkitLogo size={50} />
             </div>
             <h2 className="vx-ai__hero-title">Бүркіт</h2>
             <p className="vx-ai__hero-sub">
@@ -906,7 +1335,7 @@ const ChatPanel: React.FC = () => {
 
             {needsKey ? (
               // Кілт жоқ — дайын сұраулардың орнына кілт енгізу
-              <KeyCard status={status} onChange={setStatus} />
+              <BurkitKeyCard cls="vx-ai" status={status} onChange={setStatus} />
             ) : (
               <div className="vx-ai__chips">
                 {quickActions.map((cmd, i) => (
@@ -944,11 +1373,31 @@ const ChatPanel: React.FC = () => {
           </div>
         ) : (
           <div className="vx-ai__thread">
-            {messages.map((msg) => (
+            {messages.map((msg) => (msg.tool ? (
+              // Құрал нәтижесі (read/run) — Бүркітке барған мәтін, ықшам күйде
+              <details key={msg.id} className="vx-ai__tool">
+                <summary>
+                  <TerminalIcon size={12} />
+                  <span>{toolSummary(msg.content)}</span>
+                  <ChevronIcon size={11} />
+                </summary>
+                <pre className="ide-scrollbar">{msg.content.slice(TOOL_PREFIX.length).trim()}</pre>
+              </details>
+            ) : (
               <div key={msg.id} className={`vx-ai__msg vx-ai__msg--${msg.role} ${msg.error ? 'is-error' : ''}`}>
-                <div className="vx-ai__content">
-                  <div className="vx-ai__text">{renderMessageContent(msg)}</div>
-                </div>
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className="vx-ai__atts">
+                    {msg.attachments.map((a, i) => {
+                      const live = filesRef.current.get(msg.id)?.[i];
+                      return <BurkitAttachmentChip key={i} cls="vx-ai" item={live ?? { ...a, id: String(i), files: [] }} />;
+                    })}
+                  </div>
+                )}
+                {msg.content && (
+                  <div className="vx-ai__content">
+                    <div className="vx-ai__text">{renderMessageContent(msg)}</div>
+                  </div>
+                )}
                 {msg.context && (
                   <div className="vx-ai__ref">
                     <FileTypeIcon name={msg.context} size={13} />
@@ -973,7 +1422,7 @@ const ChatPanel: React.FC = () => {
                   )}
                 </div>
               </div>
-            ))}
+            )))}
 
             {/* Жауаптың алғашқы бөлігі келгенше */}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
@@ -1005,7 +1454,12 @@ const ChatPanel: React.FC = () => {
             </div>
             <div className="vx-ai__review-list ide-scrollbar">
               {edits.pending.map((p) =>
-                renderEditRow({ kind: 'file', path: p.path, created: p.original === null }, `rf-${p.path}`)
+                renderEditRow({
+                  kind: 'file',
+                  path: p.path,
+                  created: p.original === null,
+                  ...(p.deleted ? { action: 'delete' as const } : p.movedFrom ? { action: 'move' as const, from: p.movedFrom } : {}),
+                }, `rf-${p.path}`)
               )}
               {edits.pendingNotes.map((n) =>
                 renderEditRow({ kind: 'note', path: n.title, created: n.previous === null, noteId: n.noteId }, `rn-${n.noteId}`)
@@ -1013,7 +1467,29 @@ const ChatPanel: React.FC = () => {
             </div>
           </div>
         )}
-        {slashMatches.length > 0 && (
+        {mentionMatches.length > 0 && (
+          <div className="vx-ai__slash" role="listbox" aria-label="Файлды атап өту">
+            {mentionMatches.map((c, i) => (
+              <button
+                key={`${c.folder ? 'd' : 'f'}-${c.path}`}
+                type="button"
+                role="option"
+                aria-selected={i === mentionIndex}
+                className={`vx-ai__slash-item ${i === mentionIndex ? 'is-active' : ''}`}
+                onMouseEnter={() => setMentionIndex(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pickMention(c)}
+              >
+                <span className="vx-ai__chip-icon">
+                  {c.folder ? <FolderIcon size={14} /> : <FileTypeIcon name={c.path} size={14} />}
+                </span>
+                <b>{c.path.split('/').pop()}{c.folder ? '/' : ''}</b>
+                <span>{c.path}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {mentionMatches.length === 0 && slashMatches.length > 0 && (
           <div className="vx-ai__slash" role="listbox">
             {slashMatches.map((cmd, i) => (
               <button
@@ -1038,46 +1514,56 @@ const ChatPanel: React.FC = () => {
           className={`vx-ai__box ${isLoading ? 'is-busy' : ''}`}
           // Картаның кез келген жерін басса — мәтін жолына фокус
           onMouseDown={(e) => {
-            if (!(e.target as HTMLElement).closest('textarea, button')) {
+            if (!(e.target as HTMLElement).closest('textarea, button, input')) {
               e.preventDefault();
               inputRef.current?.focus();
             }
           }}
+          onDragOver={(e) => e.dataTransfer.types.includes('Files') && e.preventDefault()}
+          onDrop={(e) => {
+            if (e.dataTransfer.files.length === 0) return;
+            e.preventDefault();
+            void attach.add(Array.from(e.dataTransfer.files));
+          }}
         >
+          {(attach.attached.length > 0 || attach.busy || attach.error) && (
+            <div className="vx-ai__atts vx-ai__atts--draft">
+              {attach.attached.map((a) => (
+                <BurkitAttachmentChip key={a.id} cls="vx-ai" item={a} onRemove={() => attach.remove(a.id)} />
+              ))}
+              {attach.busy && <span className="vx-ai__att is-loading">Оқылып жатыр…</span>}
+              {attach.error && <span className="vx-ai__att-error">{attach.error}</span>}
+            </div>
+          )}
           <textarea
             ref={inputRef}
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setCaret(e.target.selectionStart ?? e.target.value.length);
+            }}
+            onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
+            onBlur={() => setCaret(-1)}
             onKeyDown={handleKeyDown}
-            placeholder="Бүркіттен сұраңыз немесе / жазыңыз"
+            onPaste={(e) => {
+              // Көшірілген суретті (скриншот) тікелей қоюға болады
+              if (e.clipboardData.files.length === 0) return;
+              e.preventDefault();
+              void attach.add(Array.from(e.clipboardData.files));
+            }}
+            placeholder="Жазу"
             rows={1}
             className="vx-ai__input"
             aria-label="Бүркіт"
           />
           <div className="vx-ai__box-foot">
             <div className="vx-ai__foot-left">
-            <div className="vx-ai__mode" role="radiogroup" aria-label="Бүркіт режимі">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === 'agent'}
-                className={mode === 'agent' ? 'is-on' : ''}
-                onClick={() => setMode('agent')}
-                title="Agent — файлдар мен Notes жазбаларына өзі жазады"
-              >
-                Agent
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === 'ask'}
-                className={mode === 'ask' ? 'is-on' : ''}
-                onClick={() => setMode('ask')}
-                title="Ask — тек жауап береді, ештеңені өзгертпейді"
-              >
-                Ask
-              </button>
-            </div>
+            <BurkitAttachButton
+              cls="vx-ai"
+              iconSize={15}
+              disabled={attach.busy}
+              onFiles={(files, folder) => void attach.add(files, folder)}
+            />
             {activeFile ? (
               <button
                 type="button"
@@ -1100,8 +1586,8 @@ const ChatPanel: React.FC = () => {
             ) : (
               <button
                 type="button"
-                onClick={() => sendMessage(inputValue)}
-                disabled={!inputValue.trim()}
+                onClick={submit}
+                disabled={(!inputValue.trim() && attach.attached.length === 0) || attach.busy}
                 className="vx-ai__send"
                 title={t('vibecoding.chat.send')}
               >
@@ -1110,9 +1596,6 @@ const ChatPanel: React.FC = () => {
             )}
           </div>
         </div>
-        <p className="vx-ai__hint">
-          <kbd>Enter</kbd> жіберу · <kbd>Shift+Enter</kbd> жаңа жол · <kbd>/</kbd> командалар
-        </p>
       </div>
     </div>
   );

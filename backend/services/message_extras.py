@@ -72,6 +72,16 @@ def validate_edit(message: Dict[str, Any], user_id: str, content: str) -> str:
     return content
 
 
+def build_sticker_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Стикер хабарламасы: тек Codo қасқыр стикерлері (frontend/public/stickers/wolf)"""
+    from services.story_service import WOLF_STICKERS
+
+    sticker_id = str((metadata or {}).get("stickerId") or "")
+    if sticker_id not in WOLF_STICKERS:
+        raise HTTPException(status_code=400, detail="Unknown sticker")
+    return {"stickerId": sticker_id}
+
+
 def build_poll_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Сауалнаманы тексеріп тазалау: сұрақ + 2..10 бірегей жауап, бірнеше жауапқа рұқсат"""
     metadata = metadata or {}

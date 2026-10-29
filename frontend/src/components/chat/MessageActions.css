@@ -12,9 +12,9 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #161616;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: #bdbdbd;
+  background: var(--mono-161616);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
+  color: var(--mono-bdbdbd);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
@@ -33,8 +33,8 @@
 }
 
 .cht-ma-more:hover {
-  background: #222;
-  color: #fff;
+  background: var(--mono-222222);
+  color: var(--mono-ffffff);
 }
 
 /* Сенсорлы экранда ⋯ жоқ — ұзақ басу жеткілікті; мәтін белгіленіп кетпейді */
@@ -54,8 +54,8 @@
 }
 
 @keyframes chtFlash {
-  0%, 35% { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55), 0 0 30px rgba(255, 255, 255, 0.25); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  0%, 35% { box-shadow: 0 0 0 3px rgba(var(--mono-ink), 0.55), 0 0 30px rgba(var(--mono-ink), 0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--mono-ink), 0); }
 }
 
 .chat-message.other.is-flash {
@@ -63,8 +63,8 @@
 }
 
 @keyframes chtFlashOther {
-  0%, 35% { box-shadow: inset 0 0 0 1px #262626, 0 0 0 3px rgba(255, 255, 255, 0.5), 0 0 30px rgba(255, 255, 255, 0.2); }
-  100% { box-shadow: inset 0 0 0 1px #262626, 0 0 0 0 rgba(255, 255, 255, 0); }
+  0%, 35% { box-shadow: inset 0 0 0 1px var(--mono-262626), 0 0 0 3px rgba(var(--mono-ink), 0.5), 0 0 30px rgba(var(--mono-ink), 0.2); }
+  100% { box-shadow: inset 0 0 0 1px var(--mono-262626), 0 0 0 0 rgba(var(--mono-ink), 0); }
 }
 
 /* «Бағытталды: …» */
@@ -86,9 +86,9 @@
   margin: 2px 0;
   padding: 5px 10px 6px;
   border: 0;
-  border-left: 3px solid #e5e5e5;
+  border-left: 3px solid var(--mono-e5e5e5);
   border-radius: 6px 10px 10px 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--mono-ink), 0.06);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -96,7 +96,7 @@
   transition: background-color 0.15s ease;
 }
 
-.cht-ma-quote:hover { background: rgba(255, 255, 255, 0.1); }
+.cht-ma-quote:hover { background: rgba(var(--mono-ink), 0.1); }
 
 .chat-message.own .cht-ma-quote {
   background: rgba(0, 0, 0, 0.07);
@@ -134,7 +134,7 @@
   padding: 0 8px 0 6px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--mono-ink), 0.08);
   color: inherit;
   font: inherit;
   font-size: 0.75rem;
@@ -149,8 +149,8 @@
 
 .chat-message.own .cht-ma-reaction { background: rgba(0, 0, 0, 0.08); }
 .chat-message.own .cht-ma-reaction:hover { background: rgba(0, 0, 0, 0.14); }
-.chat-message.own .cht-ma-reaction.is-mine { background: #0a0a0a; color: #fafafa; }
-.chat-message.other .cht-ma-reaction:hover { background: rgba(255, 255, 255, 0.13); }
+.chat-message.own .cht-ma-reaction.is-mine { background: var(--mono-0a0a0a); color: var(--mono-fafafa); }
+.chat-message.other .cht-ma-reaction:hover { background: rgba(var(--mono-ink), 0.13); }
 .chat-message.other .cht-ma-reaction.is-mine { background: var(--home-accent); color: var(--home-on-accent); }
 
 /* Көпіршіктің төменгі жолы: бекітілген / өңделді */
@@ -163,8 +163,8 @@
   margin-bottom: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: inset 0 0 0 1px #232323;
+  background: rgba(var(--mono-ink), 0.04);
+  box-shadow: inset 0 0 0 1px var(--mono-232323);
 }
 
 .cht-ma-menu__emoji {
@@ -192,13 +192,13 @@
 .cht-ma-menu__emoji:hover,
 .cht-ma-menu__emoji:focus-visible {
   outline: none;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--mono-ink), 0.08);
   transform: scale(1.22);
 }
 
 .cht-ma-menu__emoji.is-active {
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  background: rgba(var(--mono-ink), 0.14);
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.3);
 }
 
 .cht-ma-menu__item {
@@ -224,7 +224,7 @@
 .cht-ma-menu__item:hover,
 .cht-ma-menu__item:focus-visible {
   outline: none;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--mono-ink), 0.07);
 }
 
 .cht-ma-menu__item.is-danger { color: var(--cht-danger); }
@@ -237,7 +237,7 @@
 .cht-ma-menu__sep {
   height: 1px;
   margin: 4px 8px;
-  background: #262626;
+  background: var(--mono-262626);
 }
 
 /* ── Жазу өрісінің үстіндегі жауап / өңдеу жолағы ── */
@@ -248,8 +248,8 @@
   margin: 2px 2px 4px;
   padding: 6px 6px 6px 10px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: inset 0 0 0 1px #262626;
+  background: rgba(var(--mono-ink), 0.04);
+  box-shadow: inset 0 0 0 1px var(--mono-262626);
   animation: chtBannerIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -264,8 +264,8 @@
   width: 30px;
   height: 30px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fafafa;
+  background: rgba(var(--mono-ink), 0.08);
+  color: var(--mono-fafafa);
 }
 
 .cht-ma-banner.is-edit .cht-ma-banner__icon {
@@ -281,7 +281,7 @@
   gap: 1px;
   padding: 0 0 0 10px;
   border: 0;
-  border-left: 2px solid #fafafa;
+  border-left: 2px solid var(--mono-fafafa);
   background: none;
   color: inherit;
   font: inherit;
@@ -294,14 +294,14 @@
 .cht-ma-banner__title {
   font-size: 0.76rem;
   font-weight: 700;
-  color: #fafafa;
+  color: var(--mono-fafafa);
 }
 
 .cht-ma-banner.is-edit .cht-ma-banner__title { color: #facc15; }
 
 .cht-ma-banner__text {
   overflow: hidden;
-  color: #a3a3a3;
+  color: var(--mono-a3a3a3);
   font-size: 0.8rem;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -317,14 +317,14 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #8f8f8f;
+  color: var(--mono-8f8f8f);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .cht-ma-banner__close:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: rgba(var(--mono-ink), 0.08);
+  color: var(--mono-ffffff);
 }
 
 /* ── Бекітілген хабарлама жолағы (чат тақырыбының астында) ── */
@@ -337,7 +337,7 @@
   gap: 10px;
   padding: 7px max(12px, calc((100% - 820px) / 2));
   border-bottom: 1px solid var(--cht-line);
-  background: rgba(12, 12, 12, 0.92);
+  background: rgba(var(--mono-rgb-12), 0.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   animation: chtBannerIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -355,11 +355,11 @@
   flex: 1;
   width: 2px;
   border-radius: 2px;
-  background: #333;
+  background: var(--mono-333333);
   transition: background-color 0.2s ease;
 }
 
-.cht-ma-pinned__track span.is-active { background: #fafafa; }
+.cht-ma-pinned__track span.is-active { background: var(--mono-fafafa); }
 
 .cht-ma-pinned__body {
   flex: 1;
@@ -382,7 +382,7 @@
   gap: 5px;
   font-size: 0.74rem;
   font-weight: 700;
-  color: #fafafa;
+  color: var(--mono-fafafa);
 }
 
 .cht-ma-pinned__text {
@@ -407,7 +407,7 @@
   overflow-y: auto;
   padding: 6px 8px 10px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cht-ma-fwdmodal__item {
@@ -433,7 +433,7 @@
   box-shadow: inset 0 0 0 1.5px var(--home-accent);
 }
 
-.cht-ma-fwdmodal__item.is-on { background: #1a1a1a; }
+.cht-ma-fwdmodal__item.is-on { background: var(--mono-1a1a1a); }
 
 .cht-ma-check {
   flex-shrink: 0;
@@ -442,7 +442,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px #3a3a3a;
+  box-shadow: inset 0 0 0 1.5px var(--mono-3a3a3a);
   color: var(--home-on-accent);
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }

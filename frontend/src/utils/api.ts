@@ -1,4 +1,5 @@
 import type { WorkspaceSnapshot } from './vibeActivity';
+import type { BurkitSiteContext } from './burkitProjectTools';
 import { API_BASE_URL } from './constants';
 import i18n from '../i18n/config';
 
@@ -14,6 +15,15 @@ export interface Comment {
   replies?: Comment[]; // Replies to this comment
   likes?: string[]; // Array of user IDs who liked
   parentId?: string; // ID of parent comment if this is a reply
+}
+
+export interface RunInfo {
+  kind: 'web' | 'terminal' | 'none';
+  /** web: жобаның ішіндегі кіру файлы (index.html немесе JS үшін __run__.html?file=…) */
+  entry: string | null;
+  /** Жоба файлдарының жолдары (түбірлік папкасыз) */
+  paths: string[];
+  packageJson: string | null;
 }
 
 export interface CodeFile {
@@ -55,6 +65,20 @@ export interface VibecodingProjectDTO {
   /** Notes-тағы байланысқан папка (сервер өзі береді) */
   notesFolder?: string | null;
   createdAt: string;
+  updatedAt: string;
+  /** Бөлісу сілтемесінің токені; null — сілтеме жоқ */
+  shareToken?: string | null;
+}
+
+/** Сілтеме бойынша ашылған жоба (тек оқу) */
+export interface SharedProjectDTO {
+  name: string;
+  owner: string | null;
+  isOwner: boolean;
+  /** Өз жобам болса ғана — оның id-і */
+  projectId: string | null;
+  files: VibecodingProjectFile[];
+  folders: string[];
   updatedAt: string;
 }
 
@@ -146,6 +170,34 @@ export interface Message {
   pinned?: boolean;
   /** Сауалнама дауыстары: optionId → дауыс бергендердің id-лері */
   votes?: Record<string, string[]>;
+  /** Бейтаныстан келген, әлі қабылданбаған хабарлама («Сұраулар») */
+  request?: boolean;
+}
+
+/** Сторисқа жауап хабарламасының metadata.storyReply үзіндісі (сервер толтырады) */
+export interface StoryReplyRef {
+  storyId: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video' | 'text';
+  caption: string;
+  expiresAt: string;
+}
+
+/** Жіберілген сторис картасы: metadata.storyShare (сервер толтырады) */
+export interface StoryShareRef extends StoryReplyRef {
+  authorId: string;
+  author: string;
+}
+
+/** Маған кім жаза алады: open — бәрі тікелей, closed — бейтаныстар сұрауға, friends — тек достар */
+export type DmPrivacy = 'open' | 'closed' | 'friends';
+
+/** Хабарлама сұрауы: бір жіберушінің қабылданбаған хабарламалары */
+export interface MessageRequest {
+  user: { id: string; username: string; avatar?: string | null };
+  count: number;
+  lastMessage: Message;
+  lastMessageTime: string;
 }
 
 /** type='poll' хабарламасының metadata-сы */
@@ -160,6 +212,100 @@ export interface UploadOptions {
   onProgress?: (ratio: number) => void;
   /** Жүктеуді тоқтату */
   signal?: AbortSignal;
+}
+
+/** Сторисқа белгіленген адам туралы пікір түрі */
+export type StoryMentionKind = 'praise' | 'complaint';
+
+/** Белгіленетін адам: мақтауға бола ма (лайк шарты) және оның жобалары (шағымға дәлел ретінде) */
+export interface MentionInfo {
+  praiseMinLikes: number;
+  bestLikes: number;
+  canPraise: boolean;
+  projects: { id: string; title: string; language: string; isFolder: boolean; likes: number }[];
+}
+
+/** Модератор беті: бір шағым (дәлелі, Бүркіттің пікірі, шешімі) */
+export type ModerationAction = 'approve' | 'reject' | 'remove';
+export interface ModerationCase {
+  id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'removed';
+  text: string;
+  evidence: string;
+  evidenceProject: { id: string; title: string; language: string; isFolder: boolean } | null;
+  verdict: string | null;
+  note: string | null;
+  moderator: { id: string; username: string; avatar?: string | null } | null;
+  moderatedAt: string | null;
+  createdAt: string;
+  author: { id: string; username: string; avatar?: string | null } | null;
+  target: { id: string; username: string; avatar?: string | null } | null;
+  story: { id: string; mediaUrl: string; mediaType: 'image' | 'video' | 'text'; caption: string; status: string } | null;
+}
+
+/** Бүркіттің шағымды тексеру нәтижесі; қабылданса — жариялауға токен */
+export interface OpinionReview {
+  accepted: boolean;
+  reason: string;
+  token?: string;
+}
+
+/** Профильдегі пікір: стористе адамды белгілеп қалдырған мақтау/шағым */
+export interface OpinionItem {
+  id: string;
+  kind: StoryMentionKind;
+  text: string;
+  /** Шағымды Бүркіт неге қабылдады */
+  verdict?: string | null;
+  /** Модератор қолмен бекітсе — себебі */
+  moderatorNote?: string | null;
+  createdAt: string;
+  author: { id: string; username: string; avatar?: string | null } | null;
+  storyId: string | null; // сторис әлі тірі болса
+}
+
+export interface OpinionsPage {
+  praise: number;
+  complaint: number;
+  total: number;
+  items: OpinionItem[];
+}
+
+/** Басты беттегі сторис: фото/видео + Codo Hub жобасына сілтеме (24 сағат) */
+export interface StoryItem {
+  id: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video' | 'text';
+  caption: string;
+  project: { id: string; title: string; language: string; isFolder: boolean; description: string } | null;
+  createdAt: string;
+  expiresAt: string;
+  views?: number; // тек авторына
+  recentViewers?: { id: string; username: string; avatar?: string | null }[]; // тек авторына: соңғы көрген 3 адам
+  clicks?: number; // тек авторына: «Жобаға өту» басылған саны
+  reactions?: Record<string, number>; // тек авторына: {эмодзи: саны}
+  seen?: boolean; // кірген қолданушы бұрын көрген бе (сервер бойынша)
+  myReaction?: string | null; // кірген қолданушының реакциясы
+  mention?: { id: string; username: string; avatar?: string | null; kind: StoryMentionKind; text?: string } | null;
+  /** pending — модератор тексеруде, басқаларға әлі көрінбейді (тек авторға келеді) */
+  status?: 'published' | 'pending';
+  /** Жауап қайда барады (тек басқаларға): direct — чатқа, request — сұрауға, blocked — тек достар жаза алады */
+  replyMode?: 'direct' | 'request' | 'blocked' | null;
+}
+
+export interface StoryViewer {
+  id: string;
+  username: string;
+  avatar?: string | null;
+  viewedAt: string | null;
+  reaction?: string | null;
+}
+
+export interface StoryGroup {
+  authorId: string;
+  author: string;
+  avatar?: string | null;
+  items: StoryItem[];
 }
 
 /** Қолданушы жүктеуді өзі тоқтатты */
@@ -343,8 +489,16 @@ export interface BurkitStatus {
   keyHint: string | null;
 }
 
+/** Хабарға тіркелген файл: сурет/PDF — base64 (data), мәтін файлы — мазмұны (text) */
+export interface BurkitAttachment {
+  name: string;
+  mimeType: string;
+  data?: string;
+  text?: string;
+}
+
 export interface BurkitChatPayload {
-  messages: { role: 'user' | 'assistant'; content: string }[];
+  messages: { role: 'user' | 'assistant'; content: string; files?: BurkitAttachment[] }[];
   /** Ашық файлдың жобадағы жолы және мазмұны */
   fileName?: string;
   fileContent?: string;
@@ -354,10 +508,26 @@ export interface BurkitChatPayload {
   /** Серверге сақталған жоба — оның Notes папкасындағы жазбалар да Бүркітке барады */
   projectId?: string;
   /** agent — Бүркіт файлдар мен жазбаларға жазады; ask — тек жауап береді */
-  mode?: 'agent' | 'ask';
+  mode?: 'agent' | 'ask' | 'site';
   /** Vibecoding бетінің ағымдағы күйі: оқиғалар, терминал, консоль, редактор, қателер */
   workspace?: WorkspaceSnapshot & { openFiles: string[] };
   /** Сайт интерфейсінің тілі — Бүркіт осы тілде жауап береді */
+  uiLanguage?: 'kk' | 'ru' | 'en';
+  /** @ арқылы атап өтілген файлдар/папкалар */
+  mentions?: string[];
+  /** Сайттағы жобалармен жұмыс (```project блоктары) үшін контекст */
+  site?: BurkitSiteContext & { catalog?: { id: string; title: string; author?: string; language?: string }[] };
+  /** home — басты беттегі Бүркіт (жобамен жұмыс істесе де терминалсыз) */
+  surface?: 'vibecoding' | 'home';
+}
+
+/** Ctrl+K: ашық файлдың startLine..endLine жолдарын нұсқау бойынша қайта жазу (endLine < startLine — кірістіру) */
+export interface BurkitInlinePayload {
+  path: string;
+  content: string;
+  startLine: number;
+  endLine: number;
+  instruction: string;
   uiLanguage?: 'kk' | 'ru' | 'en';
 }
 
@@ -606,6 +776,18 @@ class ApiService {
   }
 
   // lite=true — папка болса, ауыр content/folderStructure жіберілмейді
+  /** Кодты көру бетінде іске қосу: web — браузерде (кіру файлы), terminal — терминалда */
+  async getRunInfo(id: string): Promise<RunInfo> {
+    return this.request<RunInfo>(`/codes/${id}/run-info`);
+  }
+
+  /** Іске қосылған жобаның файлы — sandbox iframe осыдан ашылады */
+  runUrl(id: string, entry: string): string {
+    const [path, query] = entry.split('?');
+    const encoded = path.split('/').map(encodeURIComponent).join('/');
+    return `${this.baseUrl}/run/${encodeURIComponent(id)}/${encoded}${query ? `?${query}` : ''}`;
+  }
+
   async getCodeFile(id: string, lite = false): Promise<CodeFile> {
     return this.request<CodeFile>(`/codes/${id}${lite ? '?lite=true' : ''}`);
   }
@@ -656,6 +838,38 @@ class ApiService {
   async deleteVibecodingProject(id: string): Promise<void> {
     return this.request<void>(`/vibecoding/projects/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+    });
+  }
+
+  /** Бөлісу сілтемесінің токені (бар болса — сол): сайт/vibecoding/shared/<token> */
+  async createProjectShareLink(id: string): Promise<{ token: string }> {
+    return this.request<{ token: string }>(`/vibecoding/projects/${encodeURIComponent(id)}/share`, { method: 'POST' });
+  }
+
+  async revokeProjectShareLink(id: string): Promise<void> {
+    return this.request<void>(`/vibecoding/projects/${encodeURIComponent(id)}/share`, { method: 'DELETE' });
+  }
+
+  async getSharedProject(token: string): Promise<SharedProjectDTO> {
+    return this.request<SharedProjectDTO>(`/vibecoding/shared/${encodeURIComponent(token)}`);
+  }
+
+  /** Сілтеме бойынша бөлісілген жобаның көшірмесін өзіме алу */
+  async forkProjectByLink(token: string, name?: string): Promise<VibecodingProjectDTO> {
+    return this.request<VibecodingProjectDTO>(`/vibecoding/shared/${encodeURIComponent(token)}/fork`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  /** Vibecoding жобасын Жобалар бетіне (кодтар) папка ретінде жариялау */
+  async publishVibecodingProject(
+    id: string,
+    data: { title?: string; description?: string; tags?: string[] }
+  ): Promise<{ codeId: string; title: string; created: number; failed: number; failedFiles: string[]; skipped?: string[] }> {
+    return this.request(`/vibecoding/projects/${encodeURIComponent(id)}/publish`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 
@@ -755,6 +969,12 @@ class ApiService {
     return this.request<User>(`/users/by-username/${username}`);
   }
 
+  // Бірнеше қолданушының аватары бір сұраумен: { username: avatar }
+  async getAvatars(usernames: string[]): Promise<Record<string, string>> {
+    const params = new URLSearchParams({ usernames: usernames.join(',') });
+    return this.request<Record<string, string>>(`/users/avatars?${params.toString()}`);
+  }
+
   async updateUserProfile(updates: Partial<User>): Promise<User> {
     return this.request<User>('/user', {
       method: 'PUT',
@@ -763,10 +983,32 @@ class ApiService {
   }
 
   // Authentication
-  async register(username: string, email: string, password: string, captchaToken?: string | null): Promise<{ user: User; access_token: string; token_type: string; message: string }> {
+  // Аккаунт бірден ашылмайды: email-ге 6 таңбалы код жіберіледі
+  async register(username: string, email: string, password: string, captchaToken?: string | null): Promise<{ verification_required: boolean; email: string }> {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, email, password, captcha_token: captchaToken || undefined }),
+    });
+  }
+
+  async verifyRegistration(email: string, code: string): Promise<{
+    message: string;
+    email: string;
+    username: string;
+    user: any;
+    access_token: string;
+    token_type: string;
+  }> {
+    return this.request('/auth/register/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  }
+
+  async resendRegistrationCode(email: string): Promise<{ message: string }> {
+    return this.request('/auth/register/resend', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   }
 
@@ -780,6 +1022,13 @@ class ApiService {
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify(body),
+    });
+  }
+
+  async firebaseLogin(idToken: string): Promise<any> {
+    return this.request('/auth/firebase', {
+      method: 'POST',
+      body: JSON.stringify({ id_token: idToken }),
     });
   }
 
@@ -1043,6 +1292,130 @@ class ApiService {
     });
   }
 
+  // Сторис
+  async getStories(): Promise<StoryGroup[]> {
+    return this.request<StoryGroup[]>('/stories');
+  }
+
+  async markStoryViewed(id: string): Promise<void> {
+    await this.request(`/stories/${encodeURIComponent(id)}/view`, { method: 'POST' });
+  }
+
+  /** Реакция қою; null — алып тастау */
+  async reactStory(id: string, emoji: string | null): Promise<{ reaction: string | null }> {
+    return this.request(`/stories/${encodeURIComponent(id)}/react`, { method: 'POST', body: JSON.stringify({ emoji }) });
+  }
+
+  /** «Жобаға өту» басылды (авторға статистика) */
+  async storyClick(id: string): Promise<void> {
+    await this.request(`/stories/${encodeURIComponent(id)}/click`, { method: 'POST' });
+  }
+
+  /** Сторисқа жауап — авторға чат арқылы; request=true болса «Сұраулар»-ға түсті */
+  async replyStory(id: string, text: string): Promise<{ message: Message; request: boolean }> {
+    return this.request(`/stories/${encodeURIComponent(id)}/reply`, { method: 'POST', body: JSON.stringify({ text }) });
+  }
+
+  /** Стористі достарға чат арқылы жіберу; әр алушының нәтижесі бөлек */
+  async shareStory(
+    id: string, targets: string[], text = ''
+  ): Promise<{ results: { id: string; ok: boolean; request?: boolean; error?: string }[] }> {
+    return this.request(`/stories/${encodeURIComponent(id)}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ targets, text }),
+    });
+  }
+
+  /** Адам туралы пікірлер (профиль) */
+  async getOpinions(
+    username: string,
+    params: { kind?: StoryMentionKind; limit?: number; offset?: number } = {}
+  ): Promise<OpinionsPage> {
+    const q = new URLSearchParams();
+    if (params.kind) q.set('kind', params.kind);
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.offset) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return this.request<OpinionsPage>(`/opinions/${encodeURIComponent(username)}${qs ? `?${qs}` : ''}`);
+  }
+
+  async deleteOpinion(id: string): Promise<void> {
+    await this.request(`/opinions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  /** Кім көрді — тек авторына */
+  async getStoryViewers(id: string): Promise<StoryViewer[]> {
+    return this.request<StoryViewer[]>(`/stories/${encodeURIComponent(id)}/viewers`);
+  }
+
+  async deleteStory(id: string): Promise<void> {
+    await this.request(`/stories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  async createStory(
+    data: {
+      file: File | null; background?: string; caption: string; projectId: string | null;
+      mentionId?: string; mentionKind?: StoryMentionKind;
+      /** Пікірдің өзі; шағымда тағы дәлел және Бүркіттің токені */
+      mentionText?: string; evidence?: string; evidenceProjectId?: string | null; reviewToken?: string;
+      /** Бүркіт қабылдамаса — модераторға қолмен тексеруге */
+      manualReview?: boolean;
+    },
+    options?: UploadOptions
+  ): Promise<StoryItem> {
+    const formData = new FormData();
+    // Фото/видео болмаса — түсті фонды мәтіндік сторис
+    if (data.file) formData.append('file', data.file);
+    else if (data.background) formData.append('background', data.background);
+    formData.append('caption', data.caption);
+    if (data.projectId) formData.append('projectId', data.projectId);
+    if (data.mentionId && data.mentionKind) {
+      formData.append('mentionId', data.mentionId);
+      formData.append('mentionKind', data.mentionKind);
+      if (data.mentionText) formData.append('mentionText', data.mentionText);
+      if (data.evidence) formData.append('evidence', data.evidence);
+      if (data.evidenceProjectId) formData.append('evidenceProjectId', data.evidenceProjectId);
+      if (data.reviewToken) formData.append('reviewToken', data.reviewToken);
+      if (data.manualReview) formData.append('manualReview', 'true');
+    }
+
+    // Жүктелу барысы үшін XHR (uploadFile сияқты)
+    return new Promise<StoryItem>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}/stories`);
+      xhr.withCredentials = true;
+      xhr.timeout = 120000;
+      const token = this._getToken && this._getToken();
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) options?.onProgress?.(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        let body: any = null;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          body = null;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(body as StoryItem);
+        else reject(new Error(typeof body?.detail === 'string' ? body.detail : tApi('apiErrors.uploadFailed')));
+      };
+      xhr.onerror = () => reject(new Error(tApi('apiErrors.uploadConnectionFailed')));
+      xhr.ontimeout = () => reject(new Error(tApi('apiErrors.uploadTimeout')));
+      xhr.onabort = () => reject(new UploadAbortedError());
+
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          reject(new UploadAbortedError());
+          return;
+        }
+        options.signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      }
+      xhr.send(formData);
+    });
+  }
+
   /** Дауыстық хабарламаны тыңдадым — жіберушіге «тыңдалды» белгісі */
   async markListened(messageId: string, groupId?: string): Promise<Message> {
     return this.request<Message>(`${this.messagePath(messageId, groupId)}/listened`, { method: 'POST' });
@@ -1070,6 +1443,26 @@ class ApiService {
 
   async getChats(userId: string): Promise<Chat[]> {
     return this.request<Chat[]>(`/chats/${userId}`);
+  }
+
+  async getChatSettings(): Promise<{ dmPrivacy: DmPrivacy }> {
+    return this.request('/chat-settings');
+  }
+
+  async updateChatSettings(dmPrivacy: DmPrivacy): Promise<{ dmPrivacy: DmPrivacy }> {
+    return this.request('/chat-settings', { method: 'PUT', body: JSON.stringify({ dmPrivacy }) });
+  }
+
+  async getMessageRequests(): Promise<MessageRequest[]> {
+    return this.request<MessageRequest[]>('/message-requests');
+  }
+
+  async acceptMessageRequest(userId: string): Promise<void> {
+    await this.request(`/message-requests/${encodeURIComponent(userId)}/accept`, { method: 'POST' });
+  }
+
+  async declineMessageRequest(userId: string): Promise<void> {
+    await this.request(`/message-requests/${encodeURIComponent(userId)}/decline`, { method: 'POST' });
   }
 
   async getIncomingFriendRequestCount(userId: string): Promise<{ incomingRequestCount: number }> {
@@ -1322,6 +1715,29 @@ class ApiService {
   }
 
   // User Search - Using Backend API (Firebase fallback removed for reliability)
+  async getModerationMe(): Promise<{ isModerator: boolean }> {
+    return this.request<{ isModerator: boolean }>('/moderation/me');
+  }
+
+  async getComplaintCases(status: 'pending' | 'approved' | 'closed'): Promise<ModerationCase[]> {
+    return this.request<ModerationCase[]>(`/moderation/complaints?status=${status}`);
+  }
+
+  async decideComplaint(id: string, action: ModerationAction, note: string): Promise<{ ok: boolean; status: string }> {
+    return this.request(`/moderation/complaints/${encodeURIComponent(id)}/decide`, {
+      method: 'POST',
+      body: JSON.stringify({ action, note }),
+    });
+  }
+
+  async getMentionInfo(userId: string): Promise<MentionInfo> {
+    return this.request<MentionInfo>(`/stories/mention-info/${encodeURIComponent(userId)}`);
+  }
+
+  async reviewOpinion(body: { mentionId: string; text: string; evidence: string; projectId?: string | null }): Promise<OpinionReview> {
+    return this.request<OpinionReview>('/stories/opinion-review', { method: 'POST', body: JSON.stringify(body) });
+  }
+
   async searchUsers(searchQuery: string): Promise<User[]> {
     const searchTerm = searchQuery.trim();
     if (!searchTerm || searchTerm.length < 1) {
@@ -1362,6 +1778,13 @@ class ApiService {
     return this.request<ProjectNoteWriteResult>(`/burkit/project-notes/${encodeURIComponent(projectId)}`, {
       method: 'PUT',
       body: JSON.stringify({ title, content }),
+    });
+  }
+
+  async burkitInline(payload: BurkitInlinePayload): Promise<{ code: string }> {
+    return this.request<{ code: string }>('/burkit/inline', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 

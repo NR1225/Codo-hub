@@ -13,16 +13,16 @@
   box-sizing: border-box;
   border-radius: 18px;
   background:
-    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
-    rgba(18, 18, 18, 0.94);
+    radial-gradient(120% 80% at 50% 0%, rgba(var(--mono-ink), 0.06) 0%, transparent 60%),
+    rgba(var(--mono-rgb-18), 0.94);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 2px 6px rgba(0, 0, 0, 0.5),
-    0 28px 64px -16px rgba(0, 0, 0, 0.95);
+    inset 0 0 0 1px rgba(var(--mono-ink), 0.09),
+    inset 0 1px 0 rgba(var(--mono-ink), 0.07),
+    0 2px 6px rgba(0, 0, 0, calc(0.5 * var(--mono-shadow))),
+    0 28px 64px -16px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
-  color: #f5f5f5;
+  color: var(--mono-f5f5f5);
   animation: chtPopIn 0.36s cubic-bezier(0.2, 1.15, 0.3, 1) both;
   will-change: transform, opacity;
 }
@@ -95,7 +95,7 @@
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: #e8e8e8;
+  color: var(--mono-e8e8e8);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
@@ -108,7 +108,7 @@
 .cht-pop .cht-menu__item > svg,
 .cht-pop .cht-ma-menu__item > svg {
   flex-shrink: 0;
-  color: #9a9a9a;
+  color: var(--mono-9a9a9a);
   opacity: 1;
   transition: color 0.14s ease, transform 0.25s var(--cht-spring, ease);
 }
@@ -118,26 +118,26 @@
 .cht-pop .cht-ma-menu__item:hover,
 .cht-pop .cht-ma-menu__item:focus-visible {
   outline: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: rgba(var(--mono-ink), 0.08);
+  color: var(--mono-ffffff);
 }
 
 .cht-pop .cht-menu__item:hover > svg,
 .cht-pop .cht-menu__item:focus-visible > svg,
 .cht-pop .cht-ma-menu__item:hover > svg,
 .cht-pop .cht-ma-menu__item:focus-visible > svg {
-  color: #fff;
+  color: var(--mono-ffffff);
   transform: scale(1.1);
 }
 
 .cht-pop .cht-menu__item:focus-visible,
 .cht-pop .cht-ma-menu__item:focus-visible {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.22);
 }
 
 .cht-pop .cht-menu__item:active,
 .cht-pop .cht-ma-menu__item:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--mono-ink), 0.12);
 }
 
 .cht-pop .cht-menu__item.is-danger,
@@ -158,7 +158,7 @@
 .cht-pop .cht-ma-menu__sep {
   height: 1px;
   margin: 5px 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--mono-ink), 0.08);
 }
 
 /* ── Эмодзи панелі ── */
@@ -168,7 +168,7 @@
   overflow-y: auto;
   padding: 8px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
 }
 
 .cht-pop--emoji .emoji-picker-grid {
@@ -176,6 +176,55 @@
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;
 }
+
+/* Эмодзи / Codo стикерлері бөлімдері */
+.cht-pop--emoji .emoji-picker-tabs {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  margin: -8px -8px 6px;
+  padding: 8px 8px 6px;
+  background: inherit;
+}
+
+.cht-pop--emoji .emoji-picker-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cht-pop--emoji .emoji-picker-tab img { width: 20px; height: 20px; }
+.cht-pop--emoji .emoji-picker-tab:hover { color: var(--text-primary); }
+.cht-pop--emoji .emoji-picker-tab.is-on { background: var(--mono-222222); color: var(--text-primary); }
+
+.cht-pop--emoji .sticker-picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+.cht-pop--emoji .sticker-item {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cht-pop--emoji .sticker-item img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.cht-pop--emoji .sticker-item:hover { background: var(--mono-222222); transform: scale(1.08); }
 
 @media (prefers-reduced-motion: reduce) {
   /* animation: none емес — onAnimationEnd жабылуды аяқтауы үшін */

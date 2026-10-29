@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Todo тізімі</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <h1>Todo тізімі</h1>
+    <form id="form" class="add">
+      <input id="text" type="text" placeholder="Не істеу керек?" maxlength="120" autocomplete="off" required>
+      <button type="submit">Қосу</button>
+    </form>
+    <ul id="list" class="list"></ul>
+    <p id="empty" class="empty">Тізім бос — бірінші тапсырманы қосыңыз.</p>
+    <footer class="bar">
+      <span id="count">0 тапсырма қалды</span>
+      <div class="filters">
+        <button type="button" data-filter="all" class="is-active">Барлығы</button>
+        <button type="button" data-filter="active">Белсенді</button>
+        <button type="button" data-filter="done">Орындалған</button>
+      </div>
+      <button type="button" id="clear">Орындалғанды өшіру</button>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

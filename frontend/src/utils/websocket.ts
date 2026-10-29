@@ -16,6 +16,8 @@ type WebSocketMessageType =
   | 'group_updated'
   | 'group_removed'
   | 'chat_pref'
+  | 'message_request'
+  | 'message_request_accepted'
   | 'pong';
 
 export interface WebSocketMessage {

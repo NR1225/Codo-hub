@@ -49,7 +49,7 @@ def _pepper() -> bytes:
         from config import JWT_SECRET_KEY
         return (JWT_SECRET_KEY or "").encode("utf-8")
     except Exception:
-        return b"kazakh-hub-refresh-pepper"
+        return b"codo-hub-refresh-pepper"
 
 
 def hash_refresh_token(token: str) -> str:

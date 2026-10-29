@@ -9,7 +9,7 @@ from config import (
     SMTP_PASSWORD, SMTP_FROM_NAME, RESET_PASSWORD_URL,
 )
 
-logger = logging.getLogger("kazakh_hub")
+logger = logging.getLogger("codo_hub")
 
 
 def send_password_reset_email(to_email: str, token: str, username: str = "") -> bool:
@@ -31,6 +31,84 @@ def send_password_reset_email(to_email: str, token: str, username: str = "") -> 
     text_body = _build_reset_email_text(reset_link, username)
 
     return _send_email(to_email, subject, html_body, text_body)
+
+
+def send_verification_code_email(to_email: str, code: str, username: str = "") -> bool:
+    """Send a registration verification code.
+
+    Returns True if the email was sent successfully, False otherwise.
+    """
+    if not SMTP_ENABLED:
+        logger.warning("SMTP is disabled. Registration code for %s: %s", to_email, code)
+        return False
+
+    subject = f"{code} — Codo Hub тіркелу коды / Код подтверждения / Verification code"
+    html_body = _build_code_email_html(code, username)
+    text_body = _build_code_email_text(code, username)
+
+    return _send_email(to_email, subject, html_body, text_body)
+
+
+def _build_code_email_html(code: str, username: str) -> str:
+    """Build HTML email body for the registration code."""
+    greeting = f"Сәлем, {username}!" if username else "Сәлем!"
+    return f"""\
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }}
+  .container {{ max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }}
+  .header {{ background: #0a0a0a; padding: 30px 20px; text-align: center; }}
+  .header h1 {{ color: #ffffff; margin: 0; font-size: 22px; }}
+  .body {{ padding: 30px 20px; }}
+  .body p {{ color: #333; font-size: 15px; line-height: 1.6; }}
+  .code {{ font-family: 'Consolas', 'Courier New', monospace; font-size: 34px; font-weight: 700; letter-spacing: 10px; text-align: center; color: #0a0a0a; background: #f3f3f3; border-radius: 10px; padding: 18px 0; margin: 20px 0; }}
+  .footer {{ padding: 20px; text-align: center; color: #999; font-size: 13px; border-top: 1px solid #eee; }}
+  .warning {{ background: #fff3e0; border-left: 4px solid #ff9800; padding: 12px 16px; margin: 16px 0; border-radius: 4px; font-size: 13px; color: #e65100; }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Codo Hub</h1>
+  </div>
+  <div class="body">
+    <p>{greeting}</p>
+    <p>Тіркелуді аяқтау үшін осы кодты енгізіңіз:<br>
+       Введите этот код, чтобы завершить регистрацию:<br>
+       Enter this code to finish signing up:</p>
+    <div class="code">{code}</div>
+    <p>Егер тіркелмеген болсаңыз, бұл хатты елемеуіңізге болады. /
+       Если вы не регистрировались, проигнорируйте это письмо. /
+       If you did not sign up, you can safely ignore this email.</p>
+    <div class="warning">
+      ⏰ Код 10 минут ішінде жарамды. / Код действителен 10 минут. / The code expires in 10 minutes.
+    </div>
+  </div>
+  <div class="footer">
+    <p>© Codo Hub — kazakhhub.com</p>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+def _build_code_email_text(code: str, username: str) -> str:
+    """Build plain text email body for the registration code."""
+    greeting = f"Сәлем, {username}!" if username else "Сәлем!"
+    return f"""\
+{greeting}
+
+Тіркелу коды / Код подтверждения / Verification code:
+
+    {code}
+
+Код 10 минут ішінде жарамды. / Код действителен 10 минут. / The code expires in 10 minutes.
+
+— Codo Hub
+"""
 
 
 def _build_reset_email_html(reset_link: str, username: str) -> str:
@@ -144,7 +222,7 @@ def _send_email(
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(SMTP_USER, to_email, msg.as_string())
 
-        logger.info("Password reset email sent to %s", to_email)
+        logger.info("Email sent to %s", to_email)
         return True
 
     except smtplib.SMTPAuthenticationError:
@@ -154,5 +232,5 @@ def _send_email(
         logger.error("Could not connect to SMTP server %s:%s", SMTP_HOST, SMTP_PORT)
         return False
     except Exception:
-        logger.exception("Failed to send password reset email to %s", to_email)
+        logger.exception("Failed to send email to %s", to_email)
         return False

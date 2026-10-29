@@ -72,25 +72,25 @@ const Footer: React.FC = () => {
             </h4>
             <ul className="footer-links">
               <li>
-                <Link to="/about">
+                <Link to="/settings/info/about">
                   <span className="link-icon"><FontAwesomeIcon icon={faBook} /></span>
                   {t('footer.about')}
                 </Link>
               </li>
               <li>
-                <Link to="/terms">
+                <Link to="/settings/info/terms">
                   <span className="link-icon"><FontAwesomeIcon icon={faList} /></span>
                   {t('footer.terms')}
                 </Link>
               </li>
               <li>
-                <Link to="/privacy">
+                <Link to="/settings/info/privacy">
                   <span className="link-icon"><FontAwesomeIcon icon={faLock} /></span>
                   {t('footer.privacy')}
                 </Link>
               </li>
               <li>
-                <Link to="/contact">
+                <Link to="/settings/info/contact">
                   <span className="link-icon"><FontAwesomeIcon icon={faEnvelope} /></span>
                   {t('footer.contact')}
                 </Link>

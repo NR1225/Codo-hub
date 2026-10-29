@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useConfirm, LOGOUT_ICON } from '../../contexts/ToastContext';
@@ -9,8 +9,10 @@ import {
   faMoon,
   faCloudSun,
   faUser,
-  faBook
+  faBook,
+  faShieldHalved
 } from '@fortawesome/free-solid-svg-icons';
+import { apiService } from '../../utils/api';
 import { useTheme } from '../../contexts/ThemeContext';
 import './ProfileModal.css';
 
@@ -27,6 +29,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Модераторға — «Шағымдар» беті (бір рет сұраймыз)
+  const [isModerator, setIsModerator] = useState(false);
+  useEffect(() => {
+    if (!isOpen || !localStorage.getItem('user')) return;
+    let alive = true;
+    apiService.getModerationMe().then((r) => alive && setIsModerator(r.isModerator)).catch(() => {});
+    return () => { alive = false; };
+  }, [isOpen]);
 
   // Handle click outside - must be before any early returns
   useEffect(() => {
@@ -103,6 +113,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
   const menuItems = [
     { path: '/notes', label: t('notes.title'), icon: <FontAwesomeIcon icon={faBook} /> },
     { path: '/settings', label: t('sidebar.settings'), icon: <FontAwesomeIcon icon={faCog} /> },
+    ...(isModerator ? [{ path: '/moderation', label: t('moderation.title'), icon: <FontAwesomeIcon icon={faShieldHalved} /> }] : []),
   ];
 
   const isLoggedIn = !!localStorage.getItem('user');

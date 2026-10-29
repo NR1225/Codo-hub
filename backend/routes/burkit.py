@@ -22,9 +22,24 @@ class BurkitKeyUpdate(BaseModel):
     apiKey: str = Field(min_length=20, max_length=200, pattern=r"^[A-Za-z0-9._\-]+$")
 
 
+class BurkitAttachment(BaseModel):
+    """Хабарға тіркелген файл: сурет/PDF — base64 (Gemini өзі көреді), мәтін файлы — мазмұнымен"""
+    name: str = Field(min_length=1, max_length=512)
+    mimeType: str = Field(max_length=100, pattern=r"^[\w.+\-]+/[\w.+\-]+$")
+    data: Optional[str] = Field(default=None, max_length=6_000_000, pattern=r"^[A-Za-z0-9+/=]*$")
+    text: Optional[str] = Field(default=None, max_length=100_000)
+
+
 class BurkitChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=20_000)
+    files: list[BurkitAttachment] = Field(default_factory=list, max_length=100)
+
+
+# Gemini тікелей қабылдайтын түрлер және бір сұраудағы тіркемелердің жалпы көлемі
+INLINE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp", "image/heic", "image/heif", "application/pdf"}
+MAX_INLINE_CHARS = 14_000_000
+MAX_ATTACHED_TEXT = 300_000
 
 
 class BurkitProjectFile(BaseModel):
@@ -56,6 +71,28 @@ class BurkitWorkspace(BaseModel):
 MAX_PROJECT_CHARS = 200_000
 
 
+class BurkitSiteProject(BaseModel):
+    name: str = Field(max_length=200)
+    current: Optional[bool] = None
+    shared: Optional[bool] = None
+
+
+class BurkitCatalogItem(BaseModel):
+    id: str = Field(max_length=64)
+    title: str = Field(max_length=200)
+    author: Optional[str] = Field(default=None, max_length=60)
+    language: Optional[str] = Field(default=None, max_length=30)
+
+
+class BurkitSite(BaseModel):
+    """Сайттағы жобалармен жұмыс үшін: менің жобаларым, жарияланғандар, достар, топтар, соңғы жобалар"""
+    projects: list[BurkitSiteProject] = Field(default_factory=list, max_length=100)
+    published: list[str] = Field(default_factory=list, max_length=100)
+    friends: list[str] = Field(default_factory=list, max_length=200)
+    groups: list[str] = Field(default_factory=list, max_length=100)
+    catalog: list[BurkitCatalogItem] = Field(default_factory=list, max_length=50)
+
+
 class BurkitChatRequest(BaseModel):
     messages: list[BurkitChatMessage] = Field(min_length=1, max_length=40)
     fileName: Optional[str] = Field(default=None, max_length=512)
@@ -65,9 +102,25 @@ class BurkitChatRequest(BaseModel):
     projectId: Optional[str] = Field(default=None, max_length=64)
     projectFiles: list[BurkitProjectFile] = Field(default_factory=list, max_length=500)
     # agent — Бүркіт path= блоктарымен жоба файлдарына жазады; ask — тек жауап береді
-    mode: Literal["agent", "ask"] = "ask"
+    # site — басты беттегі Бүркіт (сайт бойынша көмекші, жобасыз)
+    mode: Literal["agent", "ask", "site"] = "ask"
     workspace: Optional[BurkitWorkspace] = None
     # Сайт интерфейсінің тілі — Бүркіт осы тілде жауап береді
+    uiLanguage: Optional[Literal["kk", "ru", "en"]] = None
+    # @ арқылы атап өтілген файлдар/папкалар
+    mentions: list[str] = Field(default_factory=list, max_length=50)
+    site: Optional[BurkitSite] = None
+    # home — басты беттегі Бүркіт (жобамен жұмыс істесе де — терминалсыз)
+    surface: Literal["vibecoding", "home"] = "vibecoding"
+
+
+class BurkitInlineRequest(BaseModel):
+    """Ctrl+K: ашық файлдың startLine..endLine жолдарын нұсқау бойынша қайта жазу"""
+    path: str = Field(min_length=1, max_length=512)
+    content: str = Field(max_length=100_000)
+    startLine: int = Field(ge=1, le=1_000_000)
+    endLine: int = Field(ge=0, le=1_000_000)
+    instruction: str = Field(min_length=1, max_length=4_000)
     uiLanguage: Optional[Literal["kk", "ru", "en"]] = None
 
 
@@ -164,6 +217,11 @@ async def chat(
         raise HTTPException(status_code=400, detail="Соңғы хабар қолданушыдан болуы керек.")
     if sum(len(f.content or "") for f in body.projectFiles) > MAX_PROJECT_CHARS:
         raise HTTPException(status_code=413, detail="Жоба файлдары тым үлкен.")
+    files = [f for m in body.messages for f in m.files]
+    if any(f.data is not None and f.mimeType not in INLINE_MIME_TYPES for f in files):
+        raise HTTPException(status_code=400, detail="Бұл файл түрін Бүркітке жіберу мүмкін емес.")
+    if sum(len(f.data or "") for f in files) > MAX_INLINE_CHARS or sum(len(f.text or "") for f in files) > MAX_ATTACHED_TEXT:
+        raise HTTPException(status_code=413, detail="Тіркелген файлдар тым үлкен.")
 
     notes_folder, notes = None, None
     project = project_notes.get_project(db, user.id, body.projectId)
@@ -185,6 +243,10 @@ async def chat(
         notes=notes,
         workspace=body.workspace.model_dump() if body.workspace else None,
         ui_language=body.uiLanguage,
+        mentions=[m[:512] for m in body.mentions],
+        site=body.site.model_dump() if body.site else None,
+        site_mode=body.mode == "site" or body.surface == "home",
+        home=body.surface == "home",
     )
     chunks = await burkit_service.open_stream(key, payload)
     return StreamingResponse(
@@ -193,3 +255,21 @@ async def chat(
         # Прокси (nginx) жауапты буферлемей, бірден жіберсін
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/burkit/inline")
+@limiter.limit("30/minute")
+async def inline_edit(request: Request, body: BurkitInlineRequest, user: User = Depends(get_current_user)):
+    """Ctrl+K: белгіленген жолдардың орнына келетін код (толық жауап, streaming-сіз)"""
+    key, _ = burkit_service.resolve_key(user)
+    if not key:
+        raise HTTPException(status_code=403, detail="Бүркітті қолдану үшін Gemini API кілтіңізді енгізіңіз.")
+    lines = body.content.count("\n") + 1
+    if body.startLine > lines + 1 or body.endLine > lines:
+        raise HTTPException(status_code=400, detail="Жолдар файлдан тыс.")
+    payload = burkit_service.build_inline_payload(
+        body.path, body.content, body.startLine, body.endLine, body.instruction, body.uiLanguage
+    )
+    chunks = await burkit_service.open_stream(key, payload)
+    text = "".join([part async for part in chunks])
+    return {"code": burkit_service.strip_fences(text)}

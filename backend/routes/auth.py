@@ -1,17 +1,19 @@
 """Authentication routes"""
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from models import (
-    UserRegister, UserLogin, ChangePassword,
-    ForgotPasswordRequest, ResetPasswordRequest,
+    UserRegister, UserLogin, FirebaseLogin, ChangePassword,
+    ForgotPasswordRequest, ResetPasswordRequest, RegisterVerify, RegisterResend,
     TwoFASetupVerify, TwoFADisable, TwoFALoginVerify,
 )
-from db import get_db, User, PasswordReset
+from db import get_db, User, PasswordReset, PendingRegistration
 from utils.password import hash_password, verify_password, hash_refresh_token, verify_refresh_token
 from utils.auth import (
     create_access_token, create_refresh_token, create_temp_2fa_token,
@@ -131,6 +133,28 @@ def _create_tokens(user: User, db: Session) -> dict:
     }
 
 
+REGISTRATION_CODE_TTL_MINUTES = 10
+REGISTRATION_CODE_MAX_ATTEMPTS = 5
+REGISTRATION_CODE_RESEND_SECONDS = 60
+
+
+def _utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _new_registration_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _send_registration_code(email: str, code: str, username: str) -> None:
+    from utils.email import send_verification_code_email
+    if not send_verification_code_email(to_email=email, code=code, username=username):
+        import logging
+        logging.getLogger("codo_hub").warning(
+            "Registration code email could not be sent to %s (SMTP may not be configured)", email,
+        )
+
+
 @router.post("/auth/register")
 @limiter.limit("3/minute")
 async def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
@@ -159,40 +183,118 @@ async def register(request: Request, user_data: UserRegister, db: Session = Depe
         if existing_user:
             raise HTTPException(status_code=409, detail="User already exists")
 
-        user_id = generate_user_id()
-        while db.query(User).filter(User.id == user_id).first():
-            user_id = generate_user_id()
-
-        password_hash = hash_password(user_data.password)
-        new_user = User(
-            id=user_id,
-            username=username,
-            email=email,
-            password_hash=password_hash,
-            avatar=None,
-        )
-        db.add(new_user)
+        # Аккаунт әзірге ашылмайды: деректер email кодымен расталғанша күтеді
+        now = _utcnow()
+        code = _new_registration_code()
+        pending = db.query(PendingRegistration).filter(PendingRegistration.email == email).first()
+        if not pending:
+            pending = PendingRegistration(email=email)
+            db.add(pending)
+        pending.username = username
+        pending.password_hash = hash_password(user_data.password)
+        pending.code_hash = hash_refresh_token(code)
+        pending.attempts = 0
+        pending.last_sent_at = now
+        pending.expires_at = now + timedelta(minutes=REGISTRATION_CODE_TTL_MINUTES)
         db.commit()
-        db.refresh(new_user)
 
-        tokens = _create_tokens(new_user, db)
-        response = JSONResponse(content={
-            "user": _user_dict(new_user),
-            "access_token": tokens["access_token"],
-            "token_type": "bearer",
-            "message": "User registered successfully",
-        })
-        _set_refresh_token_cookie(response, tokens["refresh_token"])
-        return response
+        _send_registration_code(email, code, username)
+        return {"verification_required": True, "email": email}
     except HTTPException:
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import logging
-        logging.getLogger("kazakh_hub").error(f"Registration error: {e}")
+        logging.getLogger("codo_hub").error(f"Registration error: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
+
+
+@router.post("/auth/register/verify")
+@limiter.limit("10/minute")
+async def verify_registration(request: Request, body: RegisterVerify, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    pending = db.query(PendingRegistration).filter(PendingRegistration.email == email).first()
+    if not pending:
+        raise HTTPException(status_code=400, detail="Verification code expired")
+    if _utcnow() > _naive_utc(pending.expires_at):
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Verification code expired")
+    if (pending.attempts or 0) >= REGISTRATION_CODE_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Too many attempts")
+    if not verify_refresh_token(body.code, pending.code_hash):
+        pending.attempts = (pending.attempts or 0) + 1
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+
+    # Код күтіп тұрғанда басқа біреу осы email/атпен тіркеліп үлгеруі мүмкін
+    existing_user = db.query(User).filter(
+        (User.email == email) | (User.username == pending.username)
+    ).first()
+    if existing_user:
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(status_code=409, detail="User already exists")
+
+    try:
+        user_id = generate_user_id()
+        while db.query(User).filter(User.id == user_id).first():
+            user_id = generate_user_id()
+
+        new_user = User(
+            id=user_id,
+            username=pending.username,
+            email=email,
+            password_hash=pending.password_hash,
+            avatar=None,
+        )
+        db.add(new_user)
+        db.delete(pending)
+        db.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger("codo_hub").error(f"Registration error: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Registration failed")
+
+    # Email расталды, аккаунт ашылды — құпия сөзді қайта сұрамай бірден кіргіземіз
+    tokens = _create_tokens(new_user, db)
+    response = JSONResponse(content={
+        "message": "User registered successfully",
+        "email": email,
+        "username": new_user.username,
+        "user": _user_dict(new_user),
+        "access_token": tokens["access_token"],
+        "token_type": "bearer",
+    })
+    _set_refresh_token_cookie(response, tokens["refresh_token"])
+    return response
+
+
+@router.post("/auth/register/resend")
+@limiter.limit("3/minute")
+async def resend_registration_code(request: Request, body: RegisterResend, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    pending = db.query(PendingRegistration).filter(PendingRegistration.email == email).first()
+    if not pending:
+        raise HTTPException(status_code=400, detail="Verification code expired")
+
+    now = _utcnow()
+    wait = REGISTRATION_CODE_RESEND_SECONDS - int((now - _naive_utc(pending.last_sent_at)).total_seconds())
+    if wait > 0:
+        raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds")
+
+    code = _new_registration_code()
+    pending.code_hash = hash_refresh_token(code)
+    pending.attempts = 0
+    pending.last_sent_at = now
+    pending.expires_at = now + timedelta(minutes=REGISTRATION_CODE_TTL_MINUTES)
+    db.commit()
+
+    _send_registration_code(email, code, pending.username)
+    return {"message": "Verification code sent"}
 
 
 @router.post("/auth/login")
@@ -242,6 +344,89 @@ async def login(request: Request, login_data: UserLogin, db: Session = Depends(g
     db.commit()
 
     # If 2FA is enabled, return a temp token instead of real tokens
+    if user.totp_enabled:
+        temp_token = create_temp_2fa_token(data={"sub": user.id})
+        return {
+            "requires_2fa": True,
+            "temp_token": temp_token,
+            "user_id": user.id,
+        }
+
+    tokens = _create_tokens(user, db)
+    response = JSONResponse(content={
+        "user": _user_dict(user),
+        "access_token": tokens["access_token"],
+        "token_type": "bearer",
+    })
+    _set_refresh_token_cookie(response, tokens["refresh_token"])
+    return response
+
+
+def _verify_firebase_id_token(token: str) -> dict:
+    """Firebase ID token-ін Google-дың ашық кілттерімен тексеру (service account керек емес)."""
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "")
+    if not project_id:
+        raise HTTPException(status_code=503, detail="Firebase sign-in is not configured")
+    try:
+        claims = google_id_token.verify_firebase_token(token, google_requests.Request(), audience=project_id)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    if not claims or claims.get("iss") != f"https://securetoken.google.com/{project_id}":
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    return claims
+
+
+def _unique_username(db: Session, *candidates: str) -> str:
+    """Google атынан/email-ден UserRegister үлгісіне сай бос username құрастыру."""
+    base = ""
+    for raw in candidates:
+        cleaned = re.sub(r"[^a-zA-Z0-9_Ѐ-ӿ]", "", (raw or "").replace(" ", "_"))[:40]
+        if len(cleaned) >= 2:
+            base = cleaned
+            break
+    if not base:
+        base = "user"
+    username = base
+    while db.query(User).filter(User.username == username).first():
+        username = f"{base}_{secrets.randbelow(10_000):04d}"
+    return username
+
+
+@router.post("/auth/firebase")
+@limiter.limit("10/minute")
+async def firebase_login(request: Request, body: FirebaseLogin, db: Session = Depends(get_db)):
+    """Firebase (Google) арқылы кіру/тіркелу: аккаунт email бойынша табылады немесе жаңадан ашылады."""
+    claims = await run_in_threadpool(_verify_firebase_id_token, body.id_token)
+
+    email = (claims.get("email") or "").strip().lower()
+    # Расталмаған email-мен бөтен аккаунтқа кіріп кетпес үшін
+    if not email or not claims.get("email_verified"):
+        raise HTTPException(status_code=400, detail="Email is not verified")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        try:
+            user_id = generate_user_id()
+            while db.query(User).filter(User.id == user_id).first():
+                user_id = generate_user_id()
+            user = User(
+                id=user_id,
+                username=_unique_username(db, claims.get("name", ""), email.split("@")[0]),
+                email=email,
+                password_hash=None,  # құпия сөзді кейін "Құпия сөзді ұмыттыңыз ба?" арқылы қоюға болады
+                avatar=None,
+            )
+            db.add(user)
+            db.commit()
+        except Exception as e:
+            import logging
+            logging.getLogger("codo_hub").error(f"Firebase registration error: {e}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Registration failed")
+
     if user.totp_enabled:
         temp_token = create_temp_2fa_token(data={"sub": user.id})
         return {
@@ -398,7 +583,7 @@ async def forgot_password(request: Request, forgot_request: ForgotPasswordReques
 
     if not email_sent:
         import logging
-        logging.getLogger("kazakh_hub").warning(
+        logging.getLogger("codo_hub").warning(
             "Password reset email could not be sent to %s. "
             "SMTP may not be configured. Reset token: %s",
             user.email, token,

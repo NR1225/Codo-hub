@@ -237,7 +237,12 @@ class CodeService:
 
         for f in files_data:
             try:
-                validation = validate_file_on_server(f['title'], f['content'])
+                # Жол түбірлік папка атымен басталады — оны алып, жобаның ішкі жолымен тексереміз
+                # (әйтпесе «build» деп аталған жоба қоқыс болып танылады)
+                inner = (f.get('folderPath') or '').split('/', 1)
+                validation = validate_file_on_server(
+                    f['title'], f['content'], inner[1] if len(inner) == 2 else None
+                )
                 if not validation['valid']:
                     failed += 1
                     failed_files.append(f.get('folderPath') or f['title'])
@@ -384,9 +389,9 @@ class CodeService:
             if user_id:
                 viewed_by.append(user_id)
             code['views'] = (code.get('views', 0) or 0) + 1
-            code['updatedAt'] = datetime.now().isoformat()
-            # save_codes өзгерген кодты Firestore-ға да синхрондайды
-            save_codes([code_id])
+            # updatedAt өзгертілмейді: қаралу — мазмұнның өзгерісі емес.
+            # Firestore-ға жазылмайды: views келесі нақты өзгерісте (лайк, пікір) бірге кетеді
+            save_codes([code_id], sync_firestore=False)
 
         return CodeService.to_lite(code)
 

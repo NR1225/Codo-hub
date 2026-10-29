@@ -7,14 +7,14 @@ import { apiService } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
 import Turnstile, { TURNSTILE_ENABLED } from '../components/ui/Turnstile';
+import GoogleSignInButton from '../components/ui/GoogleSignInButton';
 import Parallax from 'parallax-js';
-import { imageStorage } from '../utils/imageStorage';
 import './Auth.css';
 
 const Register: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login: authLogin, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const heroRef = useRef<HTMLDivElement>(null);
 
   // Already logged in? Skip the register page and go home.
@@ -37,6 +37,17 @@ const Register: React.FC = () => {
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // Email кодымен растау қадамы
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [info, setInfo] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   // Set up auth page layout on mount
   useEffect(() => {
@@ -146,43 +157,17 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      // Register user with backend API
+      // Аккаунт әлі ашылмайды — backend email-ге код жібереді
       const response = await apiService.register(
         formData.username,
         formData.email,
         formData.password,
         captchaToken,
       );
-
-      // Save user to localStorage
-      const userData = response.user;
-
-      // Save avatar separately using imageStorage if present
-      if (userData.avatar && userData.avatar.trim() !== '') {
-        try {
-          await imageStorage.saveImage(`avatar-${userData.id}`, userData.avatar);
-        } catch (err: any) {
-          console.error('Error saving avatar to imageStorage:', err);
-        }
-      }
-
-      const { avatar, ...userWithoutAvatar } = userData;
-      const userForStorage = {
-        ...userWithoutAvatar,
-        avatar: avatar ? 'stored' : undefined,
-      };
-
-      // Save via AuthContext
-      authLogin(
-        { access_token: response.access_token, token_type: response.token_type },
-        userForStorage,
-      );
-
-      // Dispatch custom event to notify other components of registration
-      window.dispatchEvent(new Event('userProfileUpdated'));
-
-      // Redirect to home
-      navigate('/');
+      setPendingEmail(response.email);
+      setCode('');
+      setInfo(null);
+      setResendIn(60);
     } catch (err: any) {
       console.error('Registration error:', err);
       // Turnstile токені бір рет қана жарамды — келесі әрекетке жаңасын аламыз
@@ -199,8 +184,6 @@ const Register: React.FC = () => {
           errorMessage = t('register.passwordMinLength');
         } else if (err.message.includes('required')) {
           errorMessage = t('register.allFieldsRequired');
-        } else if (err.message.includes('QuotaExceededError') || err.message.includes('quota')) {
-          errorMessage = t('register.quotaExceeded');
         } else {
           errorMessage = err.message;
         }
@@ -210,6 +193,81 @@ const Register: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingEmail) return;
+    setError(null);
+    setInfo(null);
+
+    if (!/^\d{6}$/.test(code)) {
+      setError(t('register.codeInvalid'));
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await apiService.verifyRegistration(pendingEmail, code);
+
+      // Email расталды — аккаунт ашылды, логин/құпия сөзді қайта сұрамай бірден кіргіземіз
+      // (жаңа аккаунттың аватары жоқ, сондықтан imageStorage керек емес)
+      login(
+        { access_token: response.access_token, token_type: response.token_type },
+        { ...response.user, avatar: undefined },
+      );
+      window.dispatchEvent(new Event('userProfileUpdated'));
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      console.error('Registration verify error:', err);
+      const msg: string = err.message || '';
+      if (msg.includes('Invalid verification code')) {
+        setError(t('register.codeInvalid'));
+      } else if (msg.includes('expired')) {
+        setError(t('register.codeExpired'));
+      } else if (msg.includes('Too many attempts')) {
+        setError(t('register.codeTooManyAttempts'));
+      } else if (msg.includes('already exists')) {
+        setError(t('register.accountExists'));
+      } else if (msg.includes('QuotaExceededError') || msg.includes('quota')) {
+        setError(t('register.quotaExceeded'));
+      } else {
+        setError(msg || t('register.error'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!pendingEmail || resendIn > 0) return;
+    setError(null);
+    setInfo(null);
+    try {
+      await apiService.resendRegistrationCode(pendingEmail);
+      setCode('');
+      setInfo(t('register.codeResent'));
+      setResendIn(60);
+    } catch (err: any) {
+      const msg: string = err.message || '';
+      const wait = msg.match(/wait (\d+) seconds/);
+      if (wait) {
+        setResendIn(Number(wait[1]));
+      } else if (msg.includes('expired')) {
+        setError(t('register.codeExpired'));
+      } else {
+        setError(msg || t('register.error'));
+      }
+    }
+  };
+
+  const handleChangeEmail = () => {
+    setPendingEmail(null);
+    setCode('');
+    setError(null);
+    setInfo(null);
+    setCaptchaResetKey((k) => k + 1);
   };
 
   return (
@@ -273,8 +331,51 @@ const Register: React.FC = () => {
 
       <div className="landing-auth">
         <div className="auth-card">
-          <h2 className="auth-title">{t('register.title')}</h2>
+          <h2 className="auth-title">{pendingEmail ? t('register.verifyTitle') : t('register.title')}</h2>
 
+          {pendingEmail ? (
+          <form onSubmit={handleVerify} className="auth-form">
+            <p className="auth-code-hint">
+              {t('register.codeSentTo')} <strong>{pendingEmail}</strong>
+            </p>
+
+            <div className="form-group">
+              <input
+                id="code"
+                className="auth-code-input"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                autoFocus
+                required
+              />
+            </div>
+
+            {error && (
+              <div className="form-error">
+                {error}
+              </div>
+            )}
+            {info && !error && <div className="auth-code-info">{info}</div>}
+
+            <Button type="submit" variant="primary" fullWidth disabled={loading || code.length !== 6}>
+              {loading ? t('register.verifying') : t('register.verify')}
+            </Button>
+
+            <div className="auth-code-actions">
+              <button type="button" className="auth-code-link" onClick={handleResend} disabled={resendIn > 0}>
+                {resendIn > 0 ? t('register.resendIn', { seconds: resendIn }) : t('register.resendCode')}
+              </button>
+              <button type="button" className="auth-code-link" onClick={handleChangeEmail}>
+                {t('register.changeEmail')}
+              </button>
+            </div>
+          </form>
+          ) : (
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <input
@@ -353,6 +454,14 @@ const Register: React.FC = () => {
               {loading ? t('register.submitting') : t('register.title')}
             </Button>
           </form>
+          )}
+
+          {!pendingEmail && (
+            <GoogleSignInButton
+              onRequires2FA={(token) => navigate('/login', { state: { googleTempToken: token } })}
+              onError={setError}
+            />
+          )}
 
           <p className="auth-footer">
             <Link to="/login" className="auth-footer-link-black">{t('register.login')}</Link>

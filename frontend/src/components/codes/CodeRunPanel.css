@@ -1,0 +1,188 @@
+/* Кодты көру бетіндегі іске қосу панелі — .vc-page айнымалыларын қолданады */
+
+.vc-run-panel {
+  flex: 1;
+  min-height: 360px;
+  overflow: hidden;
+}
+
+.vc-run-panel__title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vc-muted);
+}
+
+.vc-run-panel__title > span:first-of-type {
+  flex-shrink: 0;
+}
+
+.vc-run-panel__path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--vc-surface);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.vc-run-panel__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vc-run-panel__actions .vc-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.vc-run-panel__select {
+  height: 34px;
+  max-width: 220px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--mono-2e2e2e);
+  background: var(--mono-1c1c1c);
+  color: var(--vc-text);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.vc-run-panel__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Жоба өз фонын қоймаса — браузердегідей ақ бет */
+.vc-run__frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+}
+
+.vc-run__terminal {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 0 6px 12px;
+  background: #0a0a0a;
+  border-radius: 0 0 var(--vc-radius) var(--vc-radius);
+}
+
+.vc-run__terminal .xterm {
+  height: 100%;
+}
+
+.vc-run-panel__login {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  text-align: center;
+}
+
+/* ---------- Консоль ---------- */
+
+.vc-run-console {
+  flex-shrink: 0;
+  border-top: 1px solid var(--vc-line);
+}
+
+.vc-run-console__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 4px 10px;
+}
+
+.vc-run-console__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--vc-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vc-run-console__toggle:hover {
+  color: var(--vc-text);
+}
+
+.vc-run-console__chevron {
+  display: inline-block;
+  transform: rotate(-90deg);
+  transition: transform 0.2s var(--vc-ease);
+}
+
+.vc-run-console.is-open .vc-run-console__chevron {
+  transform: none;
+}
+
+.vc-run-console .vc-count.is-error {
+  background: rgba(248, 113, 113, 0.16);
+  color: var(--vc-danger);
+}
+
+.vc-run-console__logs {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0 0 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.76rem;
+}
+
+.vc-run-console__log {
+  padding: 3px 14px;
+  border-bottom: 1px solid var(--vc-line);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--vc-text);
+}
+
+.vc-run-console__log.is-empty,
+.vc-run-console__log.is-debug {
+  color: var(--vc-muted);
+}
+
+.vc-run-console__log.is-warn {
+  color: #fcc419;
+}
+
+.vc-run-console__log.is-error {
+  color: var(--vc-danger);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+@media (max-width: 960px) {
+  .vc-run-panel {
+    min-height: 70vh;
+  }
+
+  .vc-run-panel__select {
+    max-width: 140px;
+  }
+}

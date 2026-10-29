@@ -97,6 +97,130 @@
     "storyPrev": "Previous",
     "storyNext": "Next",
     "storyClose": "Close",
+    "story": {
+      "create": "Add story",
+      "createSub": "Show your project",
+      "newTitle": "New story",
+      "pickMedia": "Choose a photo or video",
+      "mediaHint": "Drag & drop or click · JPG, PNG, WEBP, GIF (10MB) · MP4, WEBM, MOV ({{sec}}s, 50MB)",
+      "replace": "Replace",
+      "caption": "Caption",
+      "captionPlaceholder": "Write your thoughts...",
+      "project": "“Go to project” link",
+      "projectHint": "Pick one of your projects on Codo Hub — viewers jump straight to it from the story",
+      "noProjects": "You have no projects yet. Upload one first.",
+      "searchProjects": "Search projects...",
+      "chooseProject": "Choose your project",
+      "noLink": "No link",
+      "ttl": "Stories last 24 hours",
+      "publish": "Publish",
+      "cancel": "Cancel",
+      "uploading": "Uploading",
+      "published": "Story published",
+      "deleted": "Story deleted",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this story?",
+      "errType": "Only images (JPG, PNG, WEBP, GIF) or videos (MP4, WEBM, MOV)",
+      "errSize": "File is too large (max {{mb}}MB)",
+      "errDuration": "Video must be at most {{sec}} seconds",
+      "errUpload": "Upload failed",
+      "errDelete": "Could not delete",
+      "goToProject": "Go to project",
+      "projectOnHub": "Project on Codo Hub",
+      "whoViewed": "Who viewed",
+      "noViewers": "No views yet",
+      "share": "Send",
+      "linkCopied": "Link copied",
+      "react": "React",
+      "clicks": "Project opens: {{count}}",
+      "clicksHint": "How many times “Go to project” was clicked",
+      "notFound": "Story not found or already expired",
+      "stepMedia": "Photo/video",
+      "stepCaption": "Caption",
+      "stepProject": "Project",
+      "required": "Required fields",
+      "fillAll": "Fill in everything to publish",
+      "mention": "Tag a person",
+      "optional": "(optional)",
+      "mentionHint": "Tag someone to praise or complain",
+      "mentionSearch": "Type a username...",
+      "mentionNone": "No one found",
+      "mentionRemove": "Remove tag",
+      "mentionKind": "Opinion type",
+      "kindPraise": "Praise",
+      "kindComplaint": "Complaint",
+      "chooseKind": "Choose praise or complaint",
+      "mentionPraise": "Praise for @{{name}}",
+      "mentionComplaint": "Complaint about @{{name}}",
+      "views": "Views: {{count}}",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "pause": "Pause",
+      "play": "Play",
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m",
+      "hoursAgo": "{{count}}h",
+      "stickers": "Stickers",
+      "send": "Send",
+      "replyPlaceholder": "Write…",
+      "replyBlocked": "Only friends can message",
+      "replyRequestHint": "Private profile — your message will arrive as a request",
+      "replySent": "Message sent to chat",
+      "replyRequestSent": "Request sent — the chat continues once accepted",
+      "replyFailed": "Message not sent",
+      "like": "Like",
+      "unreact": "Remove reaction",
+      "shareTitle": "Send",
+      "shareSearch": "Search…",
+      "shareText": "Add a message (optional)",
+      "shareSend": "Send",
+      "shareEmpty": "No chats yet",
+      "shareNotFound": "Nobody found",
+      "shareDone": "Sent to {{count}}",
+      "shareRequests": "{{count}} as requests",
+      "shareFailed": "Not sent",
+      "shareLoginHint": "Sign in to send",
+      "stickerEmoji": "Emoji",
+      "reactionsTitle": "Reactions",
+      "viewedBy": "Seen by {{count}}",
+      "viewersAll": "All",
+      "viewersReacted": "Reacted",
+      "viewerMessage": "Message {{name}}",
+      "seenOpen": "See who viewed",
+      "noProjectsTitle": "You have no projects yet",
+      "onboardStep1": "Upload your project folder or file — takes a minute",
+      "onboardStep2": "It gets selected here right away, your draft stays",
+      "onboardStep3": "Viewers open your project via «Go to project»",
+      "createProject": "Create project",
+      "textHint": "Your text appears here",
+      "background": "Background",
+      "complaintPlaceholder": "What happened? E.g.: I downloaded their «…» code and it contained a virus",
+      "learnTitle": "Want to learn to code?",
+      "learnText": "Build your first project with Burkit AI in Vibecoding — it explains every step",
+      "modeBackground": "Color background",
+      "orBackground": "No photo? Pick «Color background» above",
+      "opinionPraisePh": "Why do you praise them? In your own words...",
+      "opinionComplaintPh": "What happened? In your own words...",
+      "evidence": "Evidence",
+      "evidencePh": "Describe exactly what happened: which file, what it did, when...",
+      "evidenceProject": "Which of their projects? (Burkit reads the code)",
+      "evidenceNoProject": "No project selected",
+      "reviewBtn": "Check with Burkit",
+      "reviewing": "Burkit is checking...",
+      "reviewAccepted": "Burkit accepted",
+      "reviewRejected": "Burkit rejected",
+      "reviewAgain": "You changed it — check again",
+      "praiseLocked": "To praise, @{{name}} needs at least {{min}} likes on a project (now {{likes}})",
+      "stepOpinion": "Opinion",
+      "opinionCount": "{{count}}/{{max}}",
+      "verdictLabel": "Confirmed by Burkit",
+      "toModerator": "Send to a moderator",
+      "manualTitle": "A moderator will review it",
+      "manualText": "The story stays hidden until approved. The decision and reason will be sent to your chat.",
+      "manualCancel": "Don't send to a moderator",
+      "pendingReview": "Under moderator review — not visible to others yet",
+      "moderatorLabel": "Approved by a moderator"
+    },
     "siteAiTitle": "Burkit",
     "siteAiSubtitle": "Helps only within this site's features and projects: finds projects, builds new ones from them, and points you to site sections.",
     "siteAiPlaceholder": "Write...",
@@ -248,14 +372,31 @@
     "replyingTo": "Replying to",
     "addReply": "Send reply",
     "run": "Run",
-    "runTitle": "Open and run the project in Vibecoding",
+    "runTitle": "Run the project right on this page",
     "views": "views",
     "download": "Download",
     "showLess": "Show less",
     "attachImage": "Attach image",
     "folderNamePlaceholder": "Folder name",
     "folderDescriptionPlaceholder": "Folder description",
-    "actionsTitle": "Actions"
+    "actionsTitle": "Actions",
+    "runPanel": {
+      "title": "Run",
+      "terminal": "Terminal",
+      "connecting": "Connecting…",
+      "disconnected": "Disconnected",
+      "command": "Command",
+      "openTab": "Open full page in new tab",
+      "restart": "Restart",
+      "close": "Close",
+      "loadError": "Could not run the project",
+      "loginRequired": "This project runs in a terminal — sign in to run it.",
+      "login": "Sign in",
+      "nothing": "Nothing to run: the project has no index.html, .js, .py or package.json.",
+      "console": "Console",
+      "clearConsole": "Clear console",
+      "consoleEmpty": "No messages yet"
+    }
   },
   "login": {
     "title": "Login",
@@ -293,9 +434,27 @@
     "emailRequired": "Please enter an email",
     "emailInvalid": "Invalid email address",
     "allFieldsRequired": "All fields are required",
-    "quotaExceeded": "Storage quota exceeded. Please clear your browser cache."
+    "quotaExceeded": "Storage quota exceeded. Please clear your browser cache.",
+    "verifyTitle": "Verify your email",
+    "codeSentTo": "We sent a 6-digit code to",
+    "verify": "Verify",
+    "verifying": "Verifying...",
+    "codeInvalid": "Incorrect code. Please check and try again.",
+    "codeExpired": "The code has expired. Request a new code or sign up again.",
+    "codeTooManyAttempts": "Too many attempts. Request a new code.",
+    "codeResent": "A new code has been sent",
+    "resendCode": "Resend code",
+    "resendIn": "Resend in {{seconds}}s",
+    "changeEmail": "Change email",
+    "accountExists": "An account with this email or username already exists",
+    "successLogin": "Email verified, you are signed up! Now log in with your password."
   },
   "auth": {
+    "or": "or",
+    "continueWithGoogle": "Continue with Google",
+    "googleLoading": "Connecting to Google...",
+    "googleFailed": "Google sign-in failed. Please try again.",
+    "googlePopupBlocked": "The browser blocked the popup. Please allow popups.",
     "loginSuccess": "Successfully logged in",
     "logoutSuccess": "Successfully logged out",
     "sessionExpired": "Session expired. Please log in again.",
@@ -331,6 +490,19 @@
     "loading": "Loading profile...",
     "errorTitle": "Error loading profile",
     "userNotFound": "User not found",
+    "opinions": {
+      "title": "Opinions",
+      "all": "All",
+      "praise": "Praise",
+      "complaint": "Complaints",
+      "empty": "No opinions yet",
+      "emptyHint": "When someone tags this person in a story with praise or a complaint, it shows up here",
+      "error": "Could not load opinions",
+      "openStory": "View story",
+      "deleteMine": "Delete my opinion",
+      "deletedUser": "Deleted user",
+      "more": "Show more"
+    },
     "codeFiles": "Code Files",
     "likes": "Likes",
     "comments": "Comments",
@@ -346,7 +518,22 @@
     "copyId": "Copy ID",
     "idCopied": "ID copied",
     "loginRequired": "Login required. Please log in again.",
-    "userNotFoundRelogin": "User not found. Please log in again."
+    "userNotFoundRelogin": "User not found. Please log in again.",
+    "chatSettings": {
+      "tab": "Chat",
+      "title": "Who can message me",
+      "desc": "Choose where messages from people you haven't chatted with go.",
+      "open": "Open",
+      "openDesc": "Anyone can message you directly",
+      "closed": "Private",
+      "closedDesc": "Friends message you directly; others land in Requests",
+      "friends": "Friends only",
+      "friendsDesc": "Only friends can message you; others can't send messages",
+      "note": "Friends and people you've already chatted with can always message you directly.",
+      "openRequests": "Open requests in chat",
+      "saved": "Saved",
+      "error": "Not saved"
+    }
   },
   "changeBackground": {
     "title": "Change background",
@@ -471,13 +658,262 @@
     "myFolders": "My Folders",
     "noFolders": "No folders",
     "noFoldersDescription": "Upload your first folder and share your code!",
-    "infoTab": "Information",
+    "infoTab": "About us",
     "logoutConfirmMessage": "You will need your login and password to sign in again.",
     "generalDesc": "Language, theme and notifications",
     "accountDesc": "Password, two-factor authentication and session",
     "folderDesc": "Manage the folders you uploaded",
     "infoDesc": "About the platform, links and documents",
-    "dangerDesc": "Delete account and log out"
+    "dangerDesc": "Delete account and log out",
+    "info": {
+      "featuresTitle": "Features",
+      "featuresDesc": "The main tools on the site — click one to open it",
+      "open": "Open",
+      "f": {
+        "vibecoding": {
+          "title": "Vibecoding IDE",
+          "desc": "In-browser code editor: projects, files, live preview"
+        },
+        "terminal": {
+          "title": "Terminal",
+          "desc": "Shell in the project folder: tabs, split, search, run menu"
+        },
+        "burkit": {
+          "title": "Burkit AI",
+          "desc": "Assistant that writes code, shows diffs and explains errors"
+        },
+        "notes": {
+          "title": "Notes",
+          "desc": "Obsidian-like notes: [[links]], graph, canvas"
+        },
+        "chat": {
+          "title": "Chat",
+          "desc": "Messages, groups and project cards"
+        },
+        "codes": {
+          "title": "Codes",
+          "desc": "Publish, browse and share projects"
+        }
+      },
+      "shortcutsTitle": "Keyboard shortcuts",
+      "shortcutsDesc": "Do common actions without the mouse",
+      "shortcutsNote": "The browser reserves some combos like Ctrl+Tab, so the terminal uses Alt instead.",
+      "g": {
+        "vibecoding": "Vibecoding",
+        "terminal": "Terminal",
+        "notes": "Notes"
+      },
+      "k": {
+        "quickOpen": "Quick open file",
+        "commands": "Command palette",
+        "run": "Run project",
+        "save": "Save",
+        "format": "Format code",
+        "explorer": "Toggle explorer",
+        "terminal": "Toggle terminal",
+        "burkit": "Toggle Burkit panel",
+        "settings": "Editor settings",
+        "newTerminal": "New terminal",
+        "split": "Split terminal",
+        "nextTab": "Next / previous terminal",
+        "jumpTab": "Go to terminal N",
+        "find": "Find in terminal",
+        "copyPaste": "Copy / paste",
+        "zoom": "Increase / decrease font",
+        "zoomReset": "Reset font size",
+        "rename": "Rename tab",
+        "restore": "Restore maximized terminal",
+        "switchNote": "Find a note",
+        "editPreview": "Edit / preview",
+        "searchNotes": "Search all notes",
+        "sidebar": "Toggle sidebar",
+        "graph": "Graph view",
+        "newNote": "New note",
+        "daily": "Daily note",
+        "history": "Back / forward"
+      },
+      "back": "Back"
+    },
+    "docs": {
+      "updated": "Last updated: October 28, 2026",
+      "toContact": "Go to the Contact page",
+      "about": {
+        "title": "About us",
+        "lead": "Codo Hub is a platform for Kazakh-speaking developers: write code, share projects and learn together in one place.",
+        "sections": [
+          {
+            "title": "What is Codo Hub?",
+            "text": "Codo Hub is a developer workspace that runs in the browser. Write your project, run it and share it with others — no extra software to install."
+          },
+          {
+            "title": "Our mission",
+            "text": "Make programming accessible in Kazakh: the interface, the assistant and the community all speak our language. We build a place where beginners and experienced developers learn from each other."
+          },
+          {
+            "title": "What you can do",
+            "items": [
+              "Vibecoding IDE — in-browser editor, files and live preview",
+              "Terminal — a shell in the project folder: tabs, split, run menu",
+              "Burkit AI — an assistant that writes code, shows diffs and explains errors",
+              "Notes — notes with links, a graph and a canvas",
+              "Chat and groups — talk and share project cards",
+              "Codes — publish, browse and share projects"
+            ]
+          },
+          {
+            "title": "Our values",
+            "items": [
+              "Native language — the interface and assistant speak Kazakh (Russian and English too)",
+              "Openness — we encourage sharing knowledge and code",
+              "Security — passwords are hashed, API keys are stored encrypted",
+              "Community — every project can inspire someone"
+            ]
+          },
+          {
+            "title": "Get in touch",
+            "text": "Have an idea, a question or found a bug? Write to us on the Contact page. We read every message.",
+            "link": "contact"
+          }
+        ]
+      },
+      "terms": {
+        "title": "Terms of use",
+        "lead": "By using Codo Hub you agree to the terms below. We tried to keep them short and clear.",
+        "sections": [
+          {
+            "title": "Acceptance",
+            "text": "Signing up or using the site means you accept these terms and the Privacy policy. If you have questions or suggestions about the terms, write to us on the Contact page.",
+            "link": "contact"
+          },
+          {
+            "title": "Your account",
+            "text": "You are responsible for keeping your account secure.",
+            "items": [
+              "Use a real email address",
+              "Never share your password; turn on two-factor authentication if you can",
+              "Do not impersonate anyone",
+              "You can delete your account at any time in Settings"
+            ]
+          },
+          {
+            "title": "Acceptable use",
+            "text": "Use the service to learn, build and share.",
+            "items": [
+              "Publish code you own or are allowed to distribute",
+              "Respect other users"
+            ]
+          },
+          {
+            "title": "Other people’s code",
+            "text": "You can use another user’s code only to improve (edit) it.",
+            "items": [
+              "Your edited version is saved only for you — you cannot upload or publish it under your name",
+              "You can send your changes to the code owner — the owner decides whether to accept them",
+              "To use the code in your own project, ask the owner for authorship rights (permission)"
+            ]
+          },
+          {
+            "title": "Prohibited",
+            "items": [
+              "Spreading malware, viruses, phishing or scams",
+              "Uploading or publishing someone else’s code under your name",
+              "Using the terminal or servers for attacks, mining or bypassing limits",
+              "Spam, insults, harassment and illegal content",
+              "Trying to access other people’s accounts or data without permission"
+            ]
+          },
+          {
+            "title": "Terminal and Burkit AI",
+            "text": "The terminal runs in your private workspace with resource limits. Burkit’s answers are AI-generated and may be wrong — review code before using it. If you add your own API key, its costs and terms are between you and the key provider."
+          },
+          {
+            "title": "Intellectual property",
+            "text": "Code and notes you publish remain yours; by publishing you allow us to display them on the site. The Codo Hub name, logo and interface belong to the platform."
+          },
+          {
+            "title": "Limitation of liability",
+            "text": "The service is provided “as is”. We aim for reliable operation but cannot guarantee uptime or that data is never lost — keep backups of important projects."
+          },
+          {
+            "title": "Suspension",
+            "text": "If the terms are violated, we may remove content or suspend the account temporarily or permanently."
+          },
+          {
+            "title": "Changes",
+            "text": "These terms may be updated. We will announce important changes on the site; continuing to use the service after an update means you accept the new version."
+          }
+        ]
+      },
+      "privacy": {
+        "title": "Privacy policy",
+        "lead": "We collect only the data the service needs to work, and we never sell it.",
+        "sections": [
+          {
+            "title": "What we collect",
+            "items": [
+              "Account: username, email and a password hash (the password itself is never stored)",
+              "Content: codes, Vibecoding projects, Notes, chat messages",
+              "Burkit: chat history and, if you add one, your API key (encrypted)",
+              "Technical: sign-in times, IP address and error logs — for security"
+            ]
+          },
+          {
+            "title": "How we use it",
+            "items": [
+              "Signing you in and protecting your account",
+              "Storing your projects and syncing them across devices",
+              "Sending emails: password reset and important notices",
+              "Improving the service and preventing abuse"
+            ]
+          },
+          {
+            "title": "Third-party services",
+            "text": "Some features rely on external services:",
+            "items": [
+              "Google Gemini — your Burkit prompts and attached code are sent to get an answer",
+              "Google Firebase — data storage and sync",
+              "Sign in with Google — only if you choose it"
+            ]
+          },
+          {
+            "title": "Cookies and local storage",
+            "text": "We use a protected (HttpOnly) cookie to keep you signed in. Preferences such as language, theme and open tabs are stored in your browser’s localStorage. We do not use advertising or tracking cookies."
+          },
+          {
+            "title": "Security",
+            "text": "Passwords are hashed with bcrypt, API keys are stored encrypted, and traffic goes over HTTPS. The terminal runs in each user’s private folder with limits."
+          },
+          {
+            "title": "Your rights",
+            "items": [
+              "View your data and edit it in your profile",
+              "Delete codes and notes at any time",
+              "Delete your account completely in Settings",
+              "Contact us with questions about your data"
+            ]
+          },
+          {
+            "title": "Contact",
+            "text": "If you have privacy questions, write to us on the Contact page.",
+            "link": "contact"
+          }
+        ]
+      },
+      "contact": {
+        "title": "Contact",
+        "lead": "Questions, ideas or bug reports — we are happy to hear them all.",
+        "methods": "Ways to reach us",
+        "topic": "Topic",
+        "topics": {
+          "question": "Question",
+          "idea": "Idea",
+          "bug": "Bug report",
+          "other": "Other"
+        },
+        "replyHint": "We usually reply within 1–2 business days",
+        "sendAnother": "Write again"
+      }
+    }
   },
   "about": {
     "title": "About Us",
@@ -935,6 +1371,22 @@
         "voice": "No voice messages yet",
         "links": "No links yet"
       }
+    },
+    "messageRequest": {
+      "title": "Message requests",
+      "accept": "Accept — opens the chat",
+      "decline": "Decline — deletes the messages",
+      "pending": "Your message was sent as a request. {{name}} won't see it in chats until they accept."
+    },
+    "storyReply": {
+      "sent": "You replied to a story",
+      "received": "Replied to your story",
+      "expired": "Story is no longer available",
+      "short": "Story reply"
+    },
+    "storyShare": {
+      "label": "{{name}}'s story",
+      "preview": "📷 {{name}}'s story"
     }
   },
   "messageInput": {
@@ -951,7 +1403,9 @@
     "locationError": "Error getting location",
     "microphonePermissionRequired": "Microphone access permission required",
     "myLocation": "📍 My location",
-    "attach": "Attach"
+    "attach": "Attach",
+    "emojiTab": "Emoji",
+    "stickersTab": "Codo"
   },
   "codeEditor": {
     "copy": "Copy",
@@ -1136,7 +1590,8 @@
     "someFilesFailed": "{{failed}} files failed to upload (after {{maxRetries}} retries): {{names}}",
     "someFilesSucceeded": "{{successful}} files uploaded successfully",
     "folderError": "Folder upload error:",
-    "errorMessage": "Error message:"
+    "errorMessage": "Error message:",
+    "notCodeFile": "\"{{name}}\" is not source code (package, cache, archive, secret or binary file) and was not uploaded"
   },
   "dateFormatter": {
     "months.0.short": "Jan",
@@ -1195,6 +1650,8 @@
       "title": "Preview",
       "auto": "Auto",
       "autoHint": "Reload when files change",
+      "serverClose": "Show project files",
+      "starting": "Starting the project… You can follow progress in the terminal.",
       "reload": "Reload",
       "close": "Close",
       "console": "Console",
@@ -1214,6 +1671,27 @@
       "sync": "Sync files with the editor",
       "home": "Home folder",
       "project": "Project",
+      "split": "Split terminal",
+      "rename": "Rename",
+      "run": "Run",
+      "runProject": "Project commands",
+      "recent": "Recent commands",
+      "noCommands": "No commands found",
+      "askBurkit": "Ask Burkit",
+      "explainError": "Explain error with Burkit",
+      "find": "Find",
+      "findPlaceholder": "Search terminal",
+      "noResults": "No results",
+      "prevMatch": "Previous match",
+      "nextMatch": "Next match",
+      "copy": "Copy",
+      "paste": "Paste",
+      "selectAll": "Select all",
+      "zoomIn": "Increase font size",
+      "zoomOut": "Decrease font size",
+      "zoomReset": "Reset font size",
+      "promptError": "An error appeared in the terminal. Explain the cause and how to fix it:",
+      "promptOutput": "Explain this terminal output:",
       "msg": {
         "loginRequired": "Log in again to use the terminal",
         "socketError": "WebSocket connection error",
@@ -1389,5 +1867,82 @@
       "newDaily": "new note / today's daily note",
       "templates": "notes in this folder are used as templates ({{date}}, {{title}})"
     }
+  },
+  "moderation": {
+    "title": "Complaints",
+    "subtitle": "Review each complaint with its evidence and write the reason for your decision. The reason is sent to the author.",
+    "tab": {
+      "pending": "Pending",
+      "approved": "Published",
+      "closed": "Closed"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Published",
+      "rejected": "Rejected",
+      "removed": "Removed"
+    },
+    "empty": {
+      "pending": "Nothing to review",
+      "approved": "No published complaints",
+      "closed": "No closed complaints"
+    },
+    "complaint": "Complaint",
+    "evidence": "Evidence",
+    "burkit": "Burkit",
+    "burkitNone": "Burkit rejected or didn't check it — your call",
+    "decision": "Decision",
+    "note": "Reason",
+    "notePlaceholder": "Write the reason for your decision — it is sent to the author",
+    "noteRequired": "Write a reason (at least {{min}} characters)",
+    "action": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "remove": "Remove"
+    },
+    "forbidden": "This page is for moderators only"
+  },
+  "projectUpload": {
+    "title": "Upload project",
+    "subtitle": "Only code is uploaded — packages, caches and build output are removed automatically",
+    "dropTitle": "Drop your project folder here",
+    "dropHint": "Drag a folder or a ZIP archive, or choose one below. You'll see exactly what gets uploaded first.",
+    "pickFolder": "Choose folder",
+    "pickZip": "Choose ZIP",
+    "ruleCode": "Code, config, images",
+    "ruleJunk": "node_modules, caches, build, lock files",
+    "ruleSecret": ".env, keys, binaries",
+    "scanning": "Checking files…",
+    "filesCount": "{{count}} files",
+    "replace": "Replace",
+    "languages": "Languages",
+    "removedTitle": "Removed",
+    "removedSummary": "{{count}} junk files · {{size}}",
+    "removedFolders": "Junk folders were skipped without opening",
+    "removedNone": "No junk found — the project is clean",
+    "skippedTitle": "Secret or binary files are not uploaded",
+    "structure": "Structure",
+    "name": "Name",
+    "namePlaceholder": "Project name",
+    "language": "Main language",
+    "auto": "auto",
+    "category": "Category",
+    "description": "Description",
+    "descriptionPlaceholder": "What does the project do? (optional)",
+    "emptyProject": "No code files to upload were found.",
+    "tooLarge": "The project is too large: {{size}}. The limit is {{max}}. Remove large media or data files.",
+    "tooManyFiles": "Too many files: {{count}}. The limit is {{max}}. Add unneeded folders to .gitignore.",
+    "submit": "Upload project · {{count}} files",
+    "uploading": "Uploading…",
+    "processing": "The server is saving the files…",
+    "doneTitle": "Project uploaded",
+    "doneSummary": "{{count}} files added to the site",
+    "doneTiming": "Time: {{total}} s (server: {{server}} s)",
+    "failedTitle": "{{count}} files were not saved",
+    "openProject": "Open project",
+    "uploadAnother": "Upload another",
+    "zipError": "Could not open the ZIP archive.",
+    "dropError": "Could not read the folder. Use the “Choose folder” button.",
+    "dropReplace": "Drop to replace the project"
   }
 }

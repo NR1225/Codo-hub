@@ -10,6 +10,7 @@ substitutions.json
 # Backend data files (contain user data and secrets)
 backend/data/*.json
 backend/data/*.db
+backend/data/backups/
 backend/data/*.migrated
 # Vibecoding терминалының қолданушы папкалары
 backend/data/terminal_workspaces/

@@ -24,7 +24,7 @@ steps:
       - '--build-arg'
       - 'VITE_FIREBASE_MEASUREMENT_ID=${_FIREBASE_MEASUREMENT_ID}'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:latest'
       - './frontend'
     id: 'build-frontend'
 
@@ -32,7 +32,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:latest'
     id: 'push-frontend'
     waitFor: ['build-frontend']
 
@@ -42,9 +42,9 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'kazakh-hub-frontend'
+      - 'codo-hub-frontend'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:latest'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -64,7 +64,7 @@ steps:
     waitFor: ['push-frontend']
 
 images:
-  - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:latest'
+  - 'gcr.io/$PROJECT_ID/codo-hub-frontend:latest'
 
 options:
   machineType: 'E2_HIGHCPU_8'

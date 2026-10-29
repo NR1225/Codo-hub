@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -25,15 +25,13 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
-const AboutPage = lazy(() => import('./pages/AboutPage'));
 const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
-const TermsPage = lazy(() => import('./pages/TermsPage'));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
-const ContactPage = lazy(() => import('./pages/ContactPage'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VibecodingPage = lazy(() => import('./pages/VibecodingPage'));
 const NotesPage = lazy(() => import('./pages/NotesPage'));
+const ModerationPage = lazy(() => import('./pages/ModerationPage'));
+const SharedProjectPage = lazy(() => import('./pages/SharedProjectPage'));
 
 // Bridge: connect AuthContext token to apiService
 const AuthBridge: React.FC = () => {
@@ -63,7 +61,7 @@ const PageLoader: React.FC = () => {
   // Басты бет қара фонда — жүктелу кезінде де қара болсын, әйтпесе сұр қаңқа
   // түсті body фонында жыпылықтап, содан кейін қара бетке ауысады
   // Кодтар, Чат, Vibecoding, Баптаулар және Профиль беттері де басты беттің қара дизайнында
-  const isDarkPage = pathname === '/' || pathname === '/chat' || pathname.startsWith('/chat/') || pathname.startsWith('/codes') || pathname === '/vibecoding' || pathname.startsWith('/settings') || pathname.startsWith('/profile');
+  const isDarkPage = pathname === '/' || pathname === '/chat' || pathname.startsWith('/chat/') || pathname.startsWith('/codes') || pathname === '/vibecoding' || pathname.startsWith('/vibecoding/shared/') || pathname.startsWith('/settings') || pathname.startsWith('/profile');
   if (isDarkPage) return <div className="page-skeleton--home" aria-hidden="true" />;
   return (
     <div className="page-skeleton" aria-hidden="true">
@@ -99,14 +97,18 @@ const AppContent: React.FC = () => {
               <Route path="/view/:id" element={<ProtectedRoute><ViewCode /></ProtectedRoute>} />
               <Route path="/profile/:username?" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/settings/:tab?" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/settings/:tab/:doc" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/chat/*" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-              <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
+              {/* Ақпарат беттері «Баптаулар → Біз жайлы» ішіне көшті */}
+              <Route path="/about" element={<Navigate to="/settings/info/about" replace />} />
               <Route path="/features" element={<ProtectedRoute><FeaturesPage /></ProtectedRoute>} />
-              <Route path="/terms" element={<ProtectedRoute><TermsPage /></ProtectedRoute>} />
-              <Route path="/privacy" element={<ProtectedRoute><PrivacyPage /></ProtectedRoute>} />
-              <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
+              <Route path="/terms" element={<Navigate to="/settings/info/terms" replace />} />
+              <Route path="/privacy" element={<Navigate to="/settings/info/privacy" replace />} />
+              <Route path="/contact" element={<Navigate to="/settings/info/contact" replace />} />
               <Route path="/vibecoding" element={<ProtectedRoute><VibecodingPage /></ProtectedRoute>} />
+              <Route path="/vibecoding/shared/:token" element={<ProtectedRoute><SharedProjectPage /></ProtectedRoute>} />
               <Route path="/notes" element={<ProtectedRoute><NotesPage /></ProtectedRoute>} />
+              <Route path="/moderation" element={<ProtectedRoute><ModerationPage /></ProtectedRoute>} />
               <Route path="*" element={
                 <ProtectedRoute>
                   <div style={{ padding: '2rem', textAlign: 'center' }}>

@@ -5,15 +5,15 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:$SHORT_SHA'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:latest'
       - './backend'
     id: 'build-backend'
 
   # Build frontend Docker image
   # Note: For first deployment, set substitution variables:
-  # gcloud builds submit --config cloudbuild.yaml --substitutions=_BACKEND_URL=https://kazakh-hub-backend-xxxxx.run.app/api
+  # gcloud builds submit --config cloudbuild.yaml --substitutions=_BACKEND_URL=https://codo-hub-backend-xxxxx.run.app/api
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -36,9 +36,9 @@ steps:
       - '--build-arg'
       - 'VITE_FIREBASE_MEASUREMENT_ID=${_FIREBASE_MEASUREMENT_ID}'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:$SHORT_SHA'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:latest'
       - './frontend'
     id: 'build-frontend'
 
@@ -46,7 +46,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:$SHORT_SHA'
     id: 'push-backend'
     waitFor: ['build-backend']
 
@@ -54,7 +54,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:$SHORT_SHA'
     id: 'push-frontend'
     waitFor: ['build-frontend']
 
@@ -64,9 +64,9 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'kazakh-hub-backend'
+      - 'codo-hub-backend'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:$SHORT_SHA'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -91,9 +91,9 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'kazakh-hub-frontend'
+      - 'codo-hub-frontend'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/codo-hub-frontend:$SHORT_SHA'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -113,10 +113,10 @@ steps:
     waitFor: ['push-frontend']
 
 images:
-  - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:$SHORT_SHA'
-  - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:latest'
-  - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:$SHORT_SHA'
-  - 'gcr.io/$PROJECT_ID/kazakh-hub-frontend:latest'
+  - 'gcr.io/$PROJECT_ID/codo-hub-backend:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/codo-hub-backend:latest'
+  - 'gcr.io/$PROJECT_ID/codo-hub-frontend:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/codo-hub-frontend:latest'
 
 options:
   machineType: 'E2_HIGHCPU_8'

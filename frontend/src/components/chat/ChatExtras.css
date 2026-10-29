@@ -9,8 +9,8 @@
   min-height: 44px;
   padding: 4px 4px 4px 6px;
   border-radius: 14px;
-  background: #121212;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
+  background: var(--mono-121212);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
   animation: chtRecIn 0.25s var(--cht-ease, ease);
 }
 
@@ -34,7 +34,7 @@
 
 .cht-rec__cancel {
   background: transparent;
-  color: #a3a3a3;
+  color: var(--mono-a3a3a3);
 }
 
 .cht-rec__cancel:hover {
@@ -43,8 +43,8 @@
 }
 
 .cht-rec__send {
-  background: #fafafa;
-  color: #0a0a0a;
+  background: var(--mono-fafafa);
+  color: var(--mono-0a0a0a);
 }
 
 .cht-rec__send:hover {
@@ -69,7 +69,7 @@
   font-size: 0.85rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: #f5f5f5;
+  color: var(--mono-f5f5f5);
 }
 
 .cht-rec__wave {
@@ -87,7 +87,7 @@
   flex: 0 0 3px;
   height: 100%;
   border-radius: 2px;
-  background: #d4d4d4;
+  background: var(--mono-d4d4d4);
   transform-origin: center;
   transition: transform 0.1s linear;
 }
@@ -95,7 +95,7 @@
 .cht-rec__hint {
   flex-shrink: 0;
   font-size: 0.72rem;
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 @media (max-width: 520px) {
@@ -130,13 +130,13 @@
 
 .cht-voice__play svg {
   /* Түймедегі белгіше — көпіршіктің фон түсінде */
-  color: #fafafa;
+  color: var(--mono-fafafa);
 }
 
-.chat-message.own .cht-voice__play svg { color: #fafafa; }
-.chat-message.own .cht-voice__play { background: #0a0a0a; }
-.chat-message.other .cht-voice__play { background: #fafafa; }
-.chat-message.other .cht-voice__play svg { color: #0a0a0a; }
+.chat-message.own .cht-voice__play svg { color: var(--mono-fafafa); }
+.chat-message.own .cht-voice__play { background: var(--mono-0a0a0a); }
+.chat-message.other .cht-voice__play { background: var(--mono-fafafa); }
+.chat-message.other .cht-voice__play svg { color: var(--mono-0a0a0a); }
 
 .cht-voice__play:hover { transform: scale(1.07); }
 .cht-voice__play:active { transform: scale(0.95); }
@@ -289,9 +289,9 @@
   background: currentColor;
 }
 
-.cht-poll__option.is-on .cht-poll__mark svg { color: #888; }
-.chat-message.own .cht-poll__option.is-on .cht-poll__mark svg { color: #fafafa; }
-.chat-message.other .cht-poll__option.is-on .cht-poll__mark svg { color: #0a0a0a; }
+.cht-poll__option.is-on .cht-poll__mark svg { color: var(--mono-888888); }
+.chat-message.own .cht-poll__option.is-on .cht-poll__mark svg { color: var(--mono-fafafa); }
+.chat-message.other .cht-poll__option.is-on .cht-poll__mark svg { color: var(--mono-0a0a0a); }
 
 .cht-poll__text {
   position: relative;
@@ -415,7 +415,7 @@
   height: 20px;
   flex-shrink: 0;
   border-radius: 999px;
-  background: #2a2a2a;
+  background: var(--mono-2a2a2a);
   transition: background-color 0.2s ease;
 }
 
@@ -427,19 +427,19 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #a3a3a3;
+  background: var(--mono-a3a3a3);
   transition: transform 0.22s var(--cht-spring, ease), background-color 0.2s ease;
 }
 
-.cht-pollmodal__switch input:checked + .cht-pollmodal__track { background: #fafafa; }
+.cht-pollmodal__switch input:checked + .cht-pollmodal__track { background: var(--mono-fafafa); }
 
 .cht-pollmodal__switch input:checked + .cht-pollmodal__track::after {
   transform: translateX(16px);
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
 }
 
 .cht-pollmodal__switch input:focus-visible + .cht-pollmodal__track {
-  outline: 2px solid #fafafa;
+  outline: 2px solid var(--mono-fafafa);
   outline-offset: 2px;
 }
 
@@ -454,7 +454,7 @@
   margin-bottom: 10px;
   padding: 3px;
   border-radius: 12px;
-  background: #101010;
+  background: var(--mono-101010);
   box-shadow: inset 0 0 0 1px var(--cht-line);
 }
 
@@ -486,9 +486,9 @@
 .cht-shared__tab:hover { color: var(--text-primary); }
 
 .cht-shared__tab.is-active {
-  background: #1f1f1f;
+  background: var(--mono-1f1f1f);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px #2e2e2e;
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
 }
 
 .cht-media__item--video {
@@ -512,7 +512,7 @@
   height: 24px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.65);
-  color: #fff;
+  color: var(--mono-ffffff);
 }
 
 .cht-shared__list {
@@ -547,9 +547,9 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: #1a1a1a;
-  box-shadow: inset 0 0 0 1px #2a2a2a;
-  color: #d4d4d4;
+  background: var(--mono-1a1a1a);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
+  color: var(--mono-d4d4d4);
 }
 
 .cht-shared__info {
@@ -599,12 +599,12 @@
 }
 
 .cht-unread.is-muted {
-  background: #3a3a3a;
-  color: #d4d4d4;
+  background: var(--mono-3a3a3a);
+  color: var(--mono-d4d4d4);
 }
 
 .cht-item.is-pinned {
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(var(--mono-ink), 0.025);
 }
 
 .cht-bar__name .cht-item__flags {

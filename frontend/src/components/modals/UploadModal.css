@@ -968,3 +968,20 @@
   }
 }
 
+
+/* Жүктелмейтін файлдар туралы ескерту (кэш, .env, бинарлы) */
+.upload-skip-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.06);
+  color: var(--text-secondary, #a3a3a3);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.upload-skip-note p { margin: 0; }
+.upload-skip-note p + p { margin-top: 4px; }
+.upload-skip-note code { word-break: break-all; }

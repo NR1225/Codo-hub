@@ -1,7 +1,10 @@
 """Chat routes"""
 from fastapi import APIRouter, Depends, Path, Query, Request
+from pydantic import BaseModel, Field
 from models import ChatPrefUpdate
 from services.chat_service import ChatService
+from services.friend_service import FriendService
+from services.message_service import MessageService
 from services import chat_prefs_service, presence_service
 from utils.auth import get_current_user, verify_user_access
 from db import User
@@ -17,6 +20,42 @@ limiter = Limiter(key_func=get_remote_address)
 async def get_chats(request: Request, user_id: str, current_user: User = Depends(verify_user_access)):
     """Get list of all chats (conversations) for a user (only own chats)"""
     return ChatService.get_chats(user_id)
+
+
+class ChatSettingsBody(BaseModel):
+    dmPrivacy: str = Field(pattern=r"^(open|closed|friends)$")
+
+
+@router.get("/chat-settings")
+@limiter.limit("60/minute")
+async def get_chat_settings(request: Request, user: User = Depends(get_current_user)):
+    """Кім жаза алады: open | closed | friends"""
+    return {"dmPrivacy": FriendService.get_dm_privacy(user.id)}
+
+
+@router.put("/chat-settings")
+@limiter.limit("30/minute")
+async def update_chat_settings(request: Request, body: ChatSettingsBody, user: User = Depends(get_current_user)):
+    return {"dmPrivacy": FriendService.set_dm_privacy(user.id, body.dmPrivacy)}
+
+
+@router.get("/message-requests")
+@limiter.limit("60/minute")
+async def list_message_requests(request: Request, user: User = Depends(get_current_user)):
+    """Бейтаныстардан келген, әлі қабылданбаған хабарламалар"""
+    return MessageService.list_requests(user.id)
+
+
+@router.post("/message-requests/{peer_id}/accept")
+@limiter.limit("30/minute")
+async def accept_message_request(request: Request, peer_id: str = Path(max_length=64), user: User = Depends(get_current_user)):
+    return {"accepted": await MessageService.accept_request(user.id, peer_id)}
+
+
+@router.post("/message-requests/{peer_id}/decline")
+@limiter.limit("30/minute")
+async def decline_message_request(request: Request, peer_id: str = Path(max_length=64), user: User = Depends(get_current_user)):
+    return {"declined": MessageService.decline_request(user.id, peer_id)}
 
 
 @router.get("/presence")

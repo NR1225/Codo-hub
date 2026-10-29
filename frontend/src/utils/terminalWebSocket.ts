@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './constants';
 import i18n from '../i18n/config';
 import type { WorkspaceChanges } from '../contexts/VibecodingContext';
+import { DevServerDetector } from './devServer';
 
 type MessageType =
   | 'auth' | 'input' | 'resize' | 'ping' | 'sync' | 'output' | 'connected' | 'disconnected'
@@ -33,6 +34,8 @@ export type TerminalConnState = 'connecting' | 'open' | 'closed';
 
 export interface TerminalConnectOptions {
   projectId?: string | null;
+  /** Жүктелген жоба (кодты көру беті) — оның көшірмесінде ашылады */
+  codeId?: string | null;
   cols?: number;
   rows?: number;
 }
@@ -53,6 +56,9 @@ class TerminalWebSocketService {
   private onExit: ((code: number) => void) | null = null;
   private onFsChanges: ((projectId: string, changes: WorkspaceChanges) => void) | null = null;
   private shouldReconnect = true;
+  private projectId: string | null = null;
+  // `npm run dev` сияқты командалар басып шығарған адресті preview панеліне береді
+  private devServer = new DevServerDetector(() => this.projectId);
 
   /**
    * Әр қосылу (қайта қосылу да) алдында жаңа токен сұраймыз — access-токен 30 минутта ескіреді,
@@ -77,6 +83,7 @@ class TerminalWebSocketService {
     // Токен URL-де емес, бірінші хабарда жіберіледі — сервер/прокси логтарына түспейді
     const params = new URLSearchParams();
     if (options.projectId) params.set('projectId', options.projectId);
+    if (options.codeId) params.set('codeId', options.codeId);
     if (options.cols) params.set('cols', String(options.cols));
     if (options.rows) params.set('rows', String(options.rows));
     // Сайт тілі — сервер shell-дің хабар тілін (locale) соған қояды
@@ -109,6 +116,7 @@ class TerminalWebSocketService {
         // Шектеу/рұқсат қателерінде (4001, 4003, 4004, 4008) қайта қосылудың мәні жоқ
         const fatal = event.code >= 4000 && event.code < 4100;
         const willRetry = !fatal && this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts;
+        this.devServer.stop(); // сессия жабылды — оның процестері де (dev-сервер) тоқтады
         if (this.onDisconnect) this.onDisconnect(willRetry);
         this.onState?.(willRetry ? 'connecting' : 'closed');
         if (event.code === 4001 && this.onError) this.onError(i18n.t('vibecoding.terminal.msg.loginRequired'));
@@ -136,6 +144,8 @@ class TerminalWebSocketService {
     switch (msg.type) {
       case 'connected':
         this.sessionId = msg.sessionId || null;
+        this.projectId = msg.projectId ?? null;
+        this.devServer.reset();
         this.onState?.('open');
         if (this.onConnect && msg.sessionId) {
           this.onConnect({
@@ -147,8 +157,9 @@ class TerminalWebSocketService {
         }
         break;
       case 'output':
-        if (this.onOutput && msg.data) {
-          this.onOutput(msg.data);
+        if (msg.data) {
+          this.devServer.feed(msg.data);
+          this.onOutput?.(msg.data);
         }
         break;
       case 'fs-changes':
@@ -219,6 +230,7 @@ class TerminalWebSocketService {
   disconnect(): void {
     this.shouldReconnect = false;
     this.stopPing();
+    this.devServer.stop();
     if (this.ws) {
       // Ескі сокеттің кеш келетін onclose-ы жаңа сессияның күйін бұзбасын
       this.ws.onopen = null;

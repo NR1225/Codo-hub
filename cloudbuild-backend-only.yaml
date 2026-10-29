@@ -6,7 +6,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:latest'
       - '-f'
       - './backend/Dockerfile'
       - './backend'
@@ -16,7 +16,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:latest'
     id: 'push-backend'
     waitFor: ['build-backend']
 
@@ -26,9 +26,9 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'kazakh-hub-backend'
+      - 'codo-hub-backend'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:latest'
+      - 'gcr.io/$PROJECT_ID/codo-hub-backend:latest'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -50,7 +50,7 @@ steps:
     waitFor: ['push-backend']
 
 images:
-  - 'gcr.io/$PROJECT_ID/kazakh-hub-backend:latest'
+  - 'gcr.io/$PROJECT_ID/codo-hub-backend:latest'
 
 options:
   machineType: 'E2_HIGHCPU_8'

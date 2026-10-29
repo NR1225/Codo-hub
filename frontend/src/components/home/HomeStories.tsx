@@ -1,45 +1,18 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faXmark, faChevronLeft, faChevronRight, faFolder, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
-import { CodeFile } from '../../utils/api';
-import { formatDate } from '../../utils/dateFormatter';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
+import { apiService, CodeFile, StoryGroup, StoryItem } from '../../utils/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
+import StoryViewer from './stories/StoryViewer';
+import StoryComposer from './stories/StoryComposer';
+import { avatarSrc, firstUnseenIndex, isGroupSeen, readSeen, sortGroups, writeSeen } from './stories/storyUtils';
+import './stories/Stories.css';
 
-const STORY_DURATION_MS = 5000;
-const MAX_STORY_AUTHORS = 20;
-const MAX_ITEMS_PER_AUTHOR = 10;
-const SEEN_STORAGE_KEY = 'kh-seen-stories';
-
-interface AuthorStory {
-  author: string;
-  items: CodeFile[];
-  latest: number;
-}
-
-function readSeen(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(SEEN_STORAGE_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
-function writeSeen(seen: Record<string, number>) {
-  try {
-    localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(seen));
-  } catch {
-    // localStorage қолжетімсіз болса — елемеу
-  }
-}
-
-// Папка құрылымы (JSON) болса, үзіндіні көрсетпейміз
-function previewSnippet(code: CodeFile): string {
-  if (code.isFolder || !code.content) return '';
-  const trimmed = code.content.trim();
-  if (trimmed.startsWith('{') && trimmed.includes('"structure"')) return '';
-  return trimmed.slice(0, 420);
-}
+/* Басты беттегі сторис — қолданушылар өздері жариялайтын жарнама:
+   фото/видео + жазу + Codo Hub-тағы жобасына «Жобаға өту» сілтемесі. 24 сағат тұрады. */
 
 interface HomeStoriesProps {
   codes: CodeFile[];
@@ -47,188 +20,200 @@ interface HomeStoriesProps {
 
 const HomeStories: React.FC<HomeStoriesProps> = ({ codes }) => {
   const { t } = useTranslation();
-  const [seen, setSeen] = useState<Record<string, number>>(readSeen);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const [itemIndex, setItemIndex] = useState(0);
+  const { user } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [groups, setGroups] = useState<StoryGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [seen, setSeen] = useState<Set<string>>(() => new Set(readSeen()));
+  const [open, setOpen] = useState<{ group: number; item: number } | null>(null);
+  const [composing, setComposing] = useState(false);
+  const viewed = useRef(new Set<string>());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkId = searchParams.get('story');
 
-  // Авторлар бойынша топтау — ең соңғы жарияланғаны бірінші
-  const stories = useMemo<AuthorStory[]>(() => {
-    const byAuthor = new Map<string, CodeFile[]>();
-    codes.forEach((code) => {
-      if (!code.author || code.folderId) return;
-      const list = byAuthor.get(code.author);
-      if (list) list.push(code);
-      else byAuthor.set(code.author, [code]);
-    });
-    return Array.from(byAuthor.entries())
-      .map(([author, items]) => {
-        const sorted = [...items].sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        return {
-          author,
-          items: sorted.slice(0, MAX_ITEMS_PER_AUTHOR),
-          latest: new Date(sorted[0].createdAt).getTime(),
-        };
-      })
-      .sort((a, b) => b.latest - a.latest)
-      .slice(0, MAX_STORY_AUTHORS);
-  }, [codes]);
+  const load = useCallback(async () => {
+    try {
+      const data = await apiService.getStories();
+      // Серверде «көрдім» деп белгіленгендер (басқа құрылғыда көрсем де) + осы браузердегілер
+      const merged = new Set(readSeen());
+      data.forEach((g) => g.items.forEach((it) => it.seen && merged.add(it.id)));
+      writeSeen([...merged]);
+      setSeen(merged);
+      setGroups(sortGroups(data, merged, user?.id));
+    } catch {
+      // Сторис жүктелмесе — жолақ бос қалады, бетке кедергі емес
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
 
-  const isSeen = (story: AuthorStory) => (seen[story.author] ?? 0) >= story.latest;
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const markSeen = useCallback((story: AuthorStory) => {
-    setSeen((prev) => {
-      if ((prev[story.author] ?? 0) >= story.latest) return prev;
-      const next = { ...prev, [story.author]: story.latest };
-      writeSeen(next);
-      return next;
-    });
+  // Сілтеме (/?story=<id>) арқылы келсе — сол стористі бірден ашу
+  useEffect(() => {
+    if (!deepLinkId || loading) return;
+    const group = groups.findIndex((g) => g.items.some((it) => it.id === deepLinkId));
+    if (group >= 0) setOpen({ group, item: groups[group].items.findIndex((it) => it.id === deepLinkId) });
+    else toast.info(t('home.story.notFound'));
+    const next = new URLSearchParams(searchParams);
+    next.delete('story');
+    setSearchParams(next, { replace: true });
+  }, [deepLinkId, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Реакция сияқты өзгерістер — бір сторисін жаңарту
+  const patchItem = useCallback((storyId: string, patch: Partial<StoryItem>) => {
+    setGroups((prev) => prev.map((g) => ({
+      ...g,
+      items: g.items.map((it) => (it.id === storyId ? { ...it, ...patch } : it)),
+    })));
   }, []);
 
-  const close = useCallback(() => setOpenIndex(null), []);
-
-  const goNext = useCallback(() => {
-    if (openIndex === null) return;
-    const story = stories[openIndex];
-    if (itemIndex < story.items.length - 1) {
-      setItemIndex(itemIndex + 1);
-    } else if (openIndex < stories.length - 1) {
-      setOpenIndex(openIndex + 1);
-      setItemIndex(0);
-    } else {
-      close();
-    }
-  }, [openIndex, itemIndex, stories, close]);
-
-  const goPrev = useCallback(() => {
-    if (openIndex === null) return;
-    if (itemIndex > 0) {
-      setItemIndex(itemIndex - 1);
-    } else if (openIndex > 0) {
-      setOpenIndex(openIndex - 1);
-      setItemIndex(stories[openIndex - 1].items.length - 1);
-    }
-  }, [openIndex, itemIndex, stories]);
-
-  const activeStory = openIndex !== null ? stories[openIndex] : null;
-  const activeItem = activeStory?.items[itemIndex];
-
-  useEffect(() => {
-    if (activeStory) markSeen(activeStory);
-  }, [activeStory, markSeen]);
-
-  // Авто-ауысу
-  useEffect(() => {
-    if (!activeItem) return;
-    const timer = setTimeout(goNext, STORY_DURATION_MS);
-    return () => clearTimeout(timer);
-  }, [activeItem, goNext]);
-
-  useEffect(() => {
-    if (openIndex === null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-      else if (e.key === 'ArrowRight') goNext();
-      else if (e.key === 'ArrowLeft') goPrev();
-    };
-    window.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [openIndex, close, goNext, goPrev]);
-
-  const openStory = (index: number) => {
-    setOpenIndex(index);
-    setItemIndex(0);
+  // Жабылғанда — толық көрілгендер соңына жылжиды (көріп жатқанда реті өзгермейді)
+  const closeViewer = () => {
+    setOpen(null);
+    setGroups((prev) => sortGroups(prev, seen, user?.id));
   };
 
-  const snippet = activeItem ? previewSnippet(activeItem) : '';
+  // «Жобаға өту» үшін тек өз жобаларым (папка ішіндегі файлдар емес)
+  const myProjects = useMemo(
+    () => (user ? codes.filter((c) => c.author === user.username && !c.folderId) : []),
+    [codes, user]
+  );
+
+  const ownGroupIndex = user ? groups.findIndex((g) => g.authorId === user.id) : -1;
+  const ownGroup = ownGroupIndex >= 0 ? groups[ownGroupIndex] : null;
+
+  const onShown = useCallback((storyId: string) => {
+    setSeen((prev) => {
+      if (prev.has(storyId)) return prev;
+      const next = new Set(prev).add(storyId);
+      writeSeen([...next]);
+      return next;
+    });
+    if (!viewed.current.has(storyId)) {
+      viewed.current.add(storyId);
+      apiService.markStoryViewed(storyId).catch(() => {});
+    }
+  }, []);
+
+  const openGroup = (index: number) => setOpen({ group: index, item: firstUnseenIndex(groups[index], seen) });
+
+  const startCompose = () => (user ? setComposing(true) : navigate('/login'));
+
+  const onCreated = (story: StoryItem) => {
+    setComposing(false);
+    if (!user) return;
+    setGroups((prev) => {
+      const rest = prev.filter((g) => g.authorId !== user.id);
+      const own = prev.find((g) => g.authorId === user.id);
+      const updated: StoryGroup = own
+        ? { ...own, items: [...own.items, story] }
+        : { authorId: user.id, author: user.username, avatar: user.avatar, items: [story] };
+      return [updated, ...rest];
+    });
+  };
+
+  const onDelete = async (storyId: string) => {
+    try {
+      await apiService.deleteStory(storyId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('home.story.errDelete'));
+      return;
+    }
+    const current = open;
+    const nextGroups = groups
+      .map((g) => ({ ...g, items: g.items.filter((it) => it.id !== storyId) }))
+      .filter((g) => g.items.length > 0);
+    setGroups(nextGroups);
+    // Өшірілген соң — сол топтың келесісіне, топ бос қалса жабу
+    if (current) {
+      const group = nextGroups.findIndex((g) => g.authorId === groups[current.group].authorId);
+      if (group < 0) closeViewer();
+      else setOpen({ group, item: Math.min(current.item, nextGroups[group].items.length - 1) });
+    }
+  };
+
+  // Дөңгелекте — тек профиль суреті (жоқ болса — аттың бірінші әрпі)
+  const renderAvatar = (avatar: string | null | undefined, name: string) => {
+    const src = avatarSrc(avatar);
+    return src ? <img src={src} alt="" /> : name.charAt(0).toUpperCase();
+  };
+
+  const others = groups.map((g, i) => ({ g, i })).filter(({ i }) => i !== ownGroupIndex);
 
   return (
-    <section className="home-stories" aria-label={t('home.stories')}>
-      <ul className="home-stories__list">
+    <section className="hs" aria-label={t('home.stories')}>
+      <ul className="hs__list">
+        {/* Өз дөңгелегім — профиль суретім + «+»; сторис бар болса басқанда ашылады */}
         <li>
-          <Link to="/upload" className="home-story home-story--add">
-            <span className="home-story__ring">
-              <span className="home-story__avatar">
+          {ownGroup ? (
+            <div className={`hs-item ${isGroupSeen(ownGroup, seen) ? 'is-seen' : ''}`}>
+              <button type="button" className="hs-item__hit" onClick={() => openGroup(ownGroupIndex)} aria-label={t('home.yourStory')}>
+                <span className="hs-ring">
+                  <span className="hs-bubble hs-bubble--avatar">{renderAvatar(ownGroup.avatar ?? user?.avatar, ownGroup.author)}</span>
+                </span>
+                <span className="hs-item__name">{t('home.yourStory')}</span>
+              </button>
+              <button type="button" className="hs-item__add" onClick={startCompose} aria-label={t('home.story.newTitle')}>
                 <FontAwesomeIcon icon={faPlus} />
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="hs-item hs-item--new" onClick={startCompose}>
+              <span className="hs-ring">
+                {user ? (
+                  <span className="hs-bubble hs-bubble--avatar">{renderAvatar(user.avatar, user.username)}</span>
+                ) : (
+                  <span className="hs-bubble"><FontAwesomeIcon icon={faPlus} /></span>
+                )}
               </span>
-            </span>
-            <span className="home-story__name">{t('home.yourStory')}</span>
-          </Link>
-        </li>
-        {stories.map((story, index) => (
-          <li key={story.author}>
-            <button
-              type="button"
-              className={`home-story ${isSeen(story) ? 'is-seen' : ''}`}
-              onClick={() => openStory(index)}
-            >
-              <span className="home-story__ring">
-                <span className="home-story__avatar">{story.author.charAt(0).toUpperCase()}</span>
-              </span>
-              <span className="home-story__name">{story.author}</span>
+              {user && <span className="hs-item__add" aria-hidden><FontAwesomeIcon icon={faPlus} /></span>}
+              <span className="hs-item__name">{t('home.story.create')}</span>
             </button>
+          )}
+        </li>
+
+        {others.map(({ g, i }) => (
+          <li key={g.authorId}>
+            <button type="button" className={`hs-item ${isGroupSeen(g, seen) ? 'is-seen' : ''}`} onClick={() => openGroup(i)}>
+              {/* Басқа адамдікі — тек профиль суреті (жоқ болса — аты бірінші әрпі) */}
+              <span className="hs-ring">
+                <span className="hs-bubble hs-bubble--avatar">{renderAvatar(g.avatar, g.author)}</span>
+              </span>
+              <span className="hs-item__name">{g.author}</span>
+            </button>
+          </li>
+        ))}
+
+        {loading && groups.length === 0 && [0, 1, 2].map((k) => (
+          <li key={`sk-${k}`} aria-hidden>
+            <span className="hs-item hs-item--skeleton"><span className="hs-ring"><span className="hs-bubble" /></span></span>
           </li>
         ))}
       </ul>
 
-      {activeStory && activeItem && (
-        <div className="story-viewer" role="dialog" aria-modal="true" aria-label={activeStory.author} onClick={close}>
-          <div className="story-viewer__card" onClick={(e) => e.stopPropagation()}>
-            <div className="story-viewer__progress">
-              {activeStory.items.map((item, i) => (
-                <span key={item.id} className="story-viewer__bar">
-                  <span
-                    key={i === itemIndex ? `${item.id}-active` : item.id}
-                    className={`story-viewer__fill ${i < itemIndex ? 'is-done' : ''} ${i === itemIndex ? 'is-active' : ''}`}
-                    style={{ animationDuration: `${STORY_DURATION_MS}ms` }}
-                  />
-                </span>
-              ))}
-            </div>
-
-            <header className="story-viewer__head">
-              <span className="story-viewer__avatar">{activeStory.author.charAt(0).toUpperCase()}</span>
-              <div className="story-viewer__meta">
-                <Link to={`/profile/${activeStory.author}`} className="story-viewer__author">
-                  {activeStory.author}
-                </Link>
-                <span className="story-viewer__date">{formatDate(activeItem.createdAt)}</span>
-              </div>
-              <button type="button" className="story-viewer__close" onClick={close} aria-label={t('home.storyClose')}>
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
-            </header>
-
-            <div className="story-viewer__body">
-              <span className="story-viewer__lang">
-                {activeItem.isFolder && <FontAwesomeIcon icon={faFolder} />}
-                {activeItem.language}
-              </span>
-              <h3 className="story-viewer__title">{activeItem.title}</h3>
-              {activeItem.description && <p className="story-viewer__desc">{activeItem.description}</p>}
-              {snippet && <pre className="story-viewer__code">{snippet}</pre>}
-            </div>
-
-            <Link to={`/view/${activeItem.id}`} className="home-btn home-btn--primary story-viewer__open">
-              <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
-              {t('home.storyOpen')}
-            </Link>
-
-            <button type="button" className="story-viewer__nav story-viewer__nav--prev" onClick={goPrev} aria-label={t('home.storyPrev')}>
-              <FontAwesomeIcon icon={faChevronLeft} />
-            </button>
-            <button type="button" className="story-viewer__nav story-viewer__nav--next" onClick={goNext} aria-label={t('home.storyNext')}>
-              <FontAwesomeIcon icon={faChevronRight} />
-            </button>
-          </div>
-        </div>
+      {open && groups[open.group] && (
+        <StoryViewer
+          groups={groups}
+          groupIndex={open.group}
+          itemIndex={open.item}
+          currentUserId={user?.id}
+          onChange={(group, item) => {
+            // Келесі адамға өткенде — оның алғашқы көрілмеген сторисінен (5-тің 2-еуі көрілсе, 3-шісінен)
+            const forwardToNewGroup = open && group > open.group && item === 0;
+            setOpen({ group, item: forwardToNewGroup ? firstUnseenIndex(groups[group], seen) : item });
+          }}
+          onShown={onShown}
+          onDelete={onDelete}
+          onPatch={patchItem}
+          onClose={closeViewer}
+        />
       )}
+
+      {composing && <StoryComposer projects={myProjects} onClose={() => setComposing(false)} onCreated={onCreated} />}
     </section>
   );
 };

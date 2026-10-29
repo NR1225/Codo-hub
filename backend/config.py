@@ -73,6 +73,10 @@ GEMINI_FALLBACK_MODELS = [
 BURKIT_SHARED_KEY_USER_IDS = {
     uid.strip() for uid in os.getenv("BURKIT_SHARED_KEY_USER_IDS", "").split(",") if uid.strip()
 }
+# Шағымдарды қолмен тексеретін модераторлар (user id, үтірмен) — /moderation беті
+MODERATOR_USER_IDS = {
+    uid.strip() for uid in os.getenv("MODERATOR_USER_IDS", "").split(",") if uid.strip()
+}
 # Қолданушы кілттерін шифрлайтын құпия. Бос болса — JWT_SECRET-тен алынады
 # (онда JWT_SECRET ауысса, сақталған кілттерді қайта енгізу керек болады).
 BURKIT_ENCRYPTION_KEY = os.getenv("BURKIT_ENCRYPTION_KEY", "") or JWT_SECRET_KEY
@@ -92,6 +96,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # File validation constants
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
+# Жобаны бір сұраумен жүктеу (/codes/folder): файл саны мен manifest JSON өлшемінің шегі.
+# Starlette әдепкіде 1000 файл мен 1 МБ өріске ғана рұқсат береді — үлкен жоба сол жерде құлайды.
+# frontend/src/utils/projectSource.ts MAX_PROJECT_FILES-пен бірдей
+MAX_PROJECT_FILES = 5000
+MAX_MANIFEST_BYTES = 10 * 1024 * 1024
 DANGEROUS_EXTENSIONS = [
     '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.jar',
     '.app', '.deb', '.pkg', '.rpm', '.msi', '.dmg', '.sh', '.ps1',

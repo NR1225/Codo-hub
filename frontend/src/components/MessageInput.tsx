@@ -13,6 +13,7 @@ import { FormatKind, formatFromShortcut, toggleFormat } from './chat/formatText'
 import { loadDraft, saveDraft } from './chat/ChatComfort';
 import { CreatePollModal, useVoiceRecorder, VoiceRecorderBar } from './chat/ChatExtras';
 import Popover from './chat/Popover';
+import { WOLF_STICKERS, stickerSrc } from './home/stories/storyUtils';
 import './MessageInput.css';
 
 interface MessageInputProps {
@@ -58,6 +59,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // Өңдеу кезінде черновик уақытша осында тұрады, өңдеу біткенде қайтарылады
   const stashRef = useRef<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // Панель бөлімі: эмодзи (мәтінге қосылады) не Codo стикері (бірден жіберіледі)
+  const [pickerTab, setPickerTab] = useState<'emoji' | 'codo'>('emoji');
   const [showPoll, setShowPoll] = useState(false);
   const [previewFiles, setPreviewFiles] = useState<Array<{ file: File; type: string; preview?: string }>>([]);
   const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null);
@@ -315,6 +318,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setPreviewFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleStickerClick = (stickerId: string) => {
+    onSendMessage('', 'sticker', undefined, { stickerId });
+    setShowEmojiPicker(false);
+  };
+
   const handleEmojiClick = (emoji: string) => {
     setMessage(prev => prev + emoji);
     setShowEmojiPicker(false);
@@ -459,13 +467,33 @@ const MessageInput: React.FC<MessageInputProps> = ({
         focusFirst={false}
         closeOnSelect={false}
       >
-        <div className="emoji-picker-grid">
-          {commonEmojis.map((emoji, index) => (
-            <button key={index} className="emoji-item" onClick={() => handleEmojiClick(emoji)} type="button">
-              {emoji}
-            </button>
-          ))}
+        <div className="emoji-picker-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={pickerTab === 'emoji'}
+            className={`emoji-picker-tab ${pickerTab === 'emoji' ? 'is-on' : ''}`} onClick={() => setPickerTab('emoji')}>
+            😊 {t('messageInput.emojiTab')}
+          </button>
+          <button type="button" role="tab" aria-selected={pickerTab === 'codo'}
+            className={`emoji-picker-tab ${pickerTab === 'codo' ? 'is-on' : ''}`} onClick={() => setPickerTab('codo')}>
+            <img src={stickerSrc('wolf:smile') ?? ''} alt="" /> {t('messageInput.stickersTab')}
+          </button>
         </div>
+        {pickerTab === 'codo' ? (
+          <div className="sticker-picker-grid">
+            {WOLF_STICKERS.map((id) => (
+              <button key={id} className="sticker-item" onClick={() => handleStickerClick(id)} type="button">
+                <img src={stickerSrc(id) ?? ''} alt="" draggable={false} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="emoji-picker-grid">
+            {commonEmojis.map((emoji, index) => (
+              <button key={index} className="emoji-item" onClick={() => handleEmojiClick(emoji)} type="button">
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
       </Popover>
 
       <form className="message-input-form" onSubmit={handleSend}>

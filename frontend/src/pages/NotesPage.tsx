@@ -265,7 +265,7 @@ const NotesPage: React.FC = () => {
       const blob = await zip.generateAsync({ type: 'blob' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `kazakh-hub-notes-${dailyTitle()}.zip`;
+      a.download = `codo-hub-notes-${dailyTitle()}.zip`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch (e) {

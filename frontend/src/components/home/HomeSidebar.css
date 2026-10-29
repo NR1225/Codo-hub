@@ -7,9 +7,9 @@
   --hsb-radius: 12px;
   --hsb-dur: 0.34s;
   --hsb-ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --hsb-line: #1f1f1f;
-  --hsb-hover: #1a1a1a;
-  --hsb-muted: #8f8f8f;
+  --hsb-line: var(--mono-1f1f1f);
+  --hsb-hover: var(--mono-1a1a1a);
+  --hsb-muted: var(--mono-8f8f8f);
   /* Серіппе: жолдар «секіріп» орнына түседі */
   --hsb-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   /* Әр жолдың кешігуі — реттік нөміріне қарай (толқын әсері) */
@@ -26,10 +26,10 @@
   overflow: hidden;
   border: 1px solid var(--hsb-line);
   border-radius: 18px;
-  background: linear-gradient(180deg, #141414 0%, #0c0c0c 100%);
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0c0c0c) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   /* Атаулары әртүрлі — класс ауысқанда анимация қайта басталады */
   animation: hsbGlowOpen 0.9s ease-out;
 }
@@ -46,7 +46,7 @@
   z-index: 2;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%) no-repeat;
+  background: linear-gradient(105deg, transparent 35%, rgba(var(--mono-ink), 0.1) 50%, transparent 65%) no-repeat;
   background-size: 300% 100%;
   background-position: 150% 0;
   opacity: 0;
@@ -62,12 +62,12 @@
     border-color: var(--hsb-line);
   }
   30% {
-    border-color: #3d3d3d;
+    border-color: var(--mono-3d3d3d);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 48px -6px rgba(255, 255, 255, 0.14),
-      0 16px 40px -16px rgba(0, 0, 0, 0.9);
+      inset 0 1px 0 rgba(var(--mono-ink), 0.08),
+      0 0 0 1px rgba(var(--mono-ink), 0.06),
+      0 0 48px -6px rgba(var(--mono-ink), 0.14),
+      0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   }
 }
 
@@ -76,12 +76,12 @@
     border-color: var(--hsb-line);
   }
   30% {
-    border-color: #3d3d3d;
+    border-color: var(--mono-3d3d3d);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 32px -6px rgba(255, 255, 255, 0.12),
-      0 16px 40px -16px rgba(0, 0, 0, 0.9);
+      inset 0 1px 0 rgba(var(--mono-ink), 0.08),
+      0 0 0 1px rgba(var(--mono-ink), 0.06),
+      0 0 32px -6px rgba(var(--mono-ink), 0.12),
+      0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   }
 }
 
@@ -284,7 +284,7 @@
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: #1e1e1e;
+  background: var(--mono-1e1e1e);
   color: var(--hsb-muted);
   font-size: 0.72rem;
   font-weight: 700;
@@ -320,13 +320,13 @@
 
 .hsb__search {
   cursor: text;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   box-shadow: inset 0 0 0 1px var(--hsb-line);
 }
 
 .hsb__search:hover {
-  background: #0a0a0a;
-  box-shadow: inset 0 0 0 1px #333;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--mono-333333);
 }
 
 .hsb__search:focus-within {
@@ -349,7 +349,7 @@
 }
 
 .hsb__input::placeholder {
-  color: #6b6b6b;
+  color: var(--mono-6b6b6b);
 }
 
 .hsb__divider {
@@ -373,13 +373,13 @@
   margin: 0 calc(-1 * var(--hsb-pad));
   padding: 0 var(--hsb-pad) 4px;
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--mono-2a2a2a) transparent;
   transition: gap var(--hsb-dur) var(--hsb-ease);
 }
 
 .hsb__item .hsb__label {
   font-weight: 500;
-  color: #d9d9d9;
+  color: var(--mono-d9d9d9);
 }
 
 .hsb__item:hover .hsb__label {
@@ -393,9 +393,9 @@
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: linear-gradient(145deg, #2c2c2c, #191919);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  color: #ededed;
+  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-191919));
+  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.07);
+  color: var(--mono-ededed);
   font-size: 0.8rem;
   font-weight: 800;
   line-height: 1;
@@ -418,8 +418,8 @@
 .hsb__skeleton span {
   border-radius: 8px;
   background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%) 0 0 / 200% 100%,
-    #181818;
+    linear-gradient(90deg, transparent 0%, rgba(var(--mono-ink), 0.06) 50%, transparent 100%) 0 0 / 200% 100%,
+    var(--mono-181818);
   animation: hsbShimmer 1.4s ease-in-out infinite;
 }
 
@@ -466,7 +466,7 @@
   border: 0;
   border-radius: 8px;
   background: var(--error-color, #ef4444);
-  color: #fff;
+  color: var(--mono-ffffff);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -496,22 +496,22 @@
   /* Барлық белгіше бір стильде: ашу/жабу, қосу, іздеу және жобалар —
      бірдей шаршы, бірдей фон мен жиек, бірдей түс */
   .hsb.is-collapsed .hsb__row {
-    background: #161616;
-    box-shadow: inset 0 0 0 1px #262626;
-    color: #d4d4d4;
+    background: var(--mono-161616);
+    box-shadow: inset 0 0 0 1px var(--mono-262626);
+    color: var(--mono-d4d4d4);
   }
 
   .hsb.is-collapsed .hsb__slot {
-    color: #d4d4d4;
+    color: var(--mono-d4d4d4);
   }
 
   .hsb.is-collapsed .hsb__row:hover {
-    background: #222;
-    box-shadow: inset 0 0 0 1px #3a3a3a;
+    background: var(--mono-222222);
+    box-shadow: inset 0 0 0 1px var(--mono-3a3a3a);
   }
 
   .hsb.is-collapsed .hsb__row:hover .hsb__slot {
-    color: #fff;
+    color: var(--mono-ffffff);
   }
 
   .hsb.is-collapsed .hsb__row:focus-visible {
@@ -558,8 +558,8 @@
   max-width: 260px;
   padding: 6px 10px;
   border-radius: 8px;
-  background: #f5f5f5;
-  color: #0a0a0a;
+  background: var(--mono-f5f5f5);
+  color: var(--mono-0a0a0a);
   font-size: 0.8rem;
   font-weight: 600;
   white-space: nowrap;
@@ -567,7 +567,7 @@
   text-overflow: ellipsis;
   pointer-events: none;
   transform: translateY(-50%);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--mono-shadow)));
   animation: hsbTipIn 0.14s ease-out;
 }
 

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="kk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Кофе үйі</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; color: #2b2118; background: #fffaf3; }
+    a { color: inherit; }
+    .nav {
+      position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 24px; background: rgba(255, 250, 243, 0.95); border-bottom: 1px solid #eadfce;
+    }
+    .nav nav { display: flex; gap: 16px; }
+    .nav a { text-decoration: none; font-size: 15px; }
+    .logo { font-weight: 700; font-size: 18px; }
+    .hero { padding: 72px 24px; text-align: center; background: linear-gradient(#f3e3cc, #fffaf3); }
+    .hero h1 { margin: 0 0 12px; font-size: clamp(28px, 6vw, 44px); }
+    .hero p { margin: 0 auto 24px; max-width: 520px; color: #6b5a48; }
+    .btn {
+      display: inline-block; padding: 12px 22px; border: none; border-radius: 999px;
+      background: #8b5a2b; color: #fff; font-size: 15px; cursor: pointer; text-decoration: none;
+    }
+    .btn:hover { background: #734820; }
+    section { max-width: 880px; margin: 0 auto; padding: 48px 24px; }
+    h2 { margin-top: 0; }
+    .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .card { padding: 18px; border: 1px solid #eadfce; border-radius: 12px; background: #fff; }
+    .card h3 { margin: 0 0 6px; }
+    .card .price { font-weight: 700; color: #8b5a2b; }
+    .card button { margin-top: 10px; padding: 6px 12px; border: 1px solid #8b5a2b; border-radius: 999px; background: #fff; color: #8b5a2b; cursor: pointer; }
+    .cart { margin-top: 16px; font-weight: 600; }
+    form { display: grid; gap: 10px; max-width: 420px; }
+    input, textarea { padding: 10px 12px; border: 1px solid #d8c8b2; border-radius: 8px; font: inherit; }
+    .error { color: #c92a2a; font-size: 14px; min-height: 1em; }
+    .success { color: #2b8a3e; font-weight: 600; }
+    footer { padding: 24px; text-align: center; color: #8c7a66; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <span class="logo">☕ Кофе үйі</span>
+    <nav>
+      <a href="#menu">Мәзір</a>
+      <a href="#contact">Байланыс</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Таңғы кофе — жақсы күннің бастауы</h1>
+    <p>Жаңа қуырылған дәндер, үйде пісірілген тоқаштар және жайлы орын.</p>
+    <a class="btn" href="#menu">Мәзірді көру</a>
+  </div>
+
+  <section id="menu">
+    <h2>Мәзір</h2>
+    <div class="menu" id="menu-list"></div>
+    <p class="cart" id="cart">Себет бос</p>
+  </section>
+
+  <section id="contact">
+    <h2>Үстел брондау</h2>
+    <form id="booking" novalidate>
+      <input id="name" placeholder="Атыңыз">
+      <input id="phone" placeholder="Телефон: +7 700 000 00 00">
+      <textarea id="note" rows="3" placeholder="Тілек (міндетті емес)"></textarea>
+      <p class="error" id="error"></p>
+      <button class="btn" type="submit">Брондау</button>
+    </form>
+  </section>
+
+  <footer>© <span id="year"></span> Кофе үйі</footer>
+
+  <script>
+    const MENU = [
+      { name: 'Эспрессо', price: 900, about: 'Қою, хош иісті' },
+      { name: 'Капучино', price: 1300, about: 'Сүт көбігімен' },
+      { name: 'Латте', price: 1400, about: 'Жұмсақ, сүтті' },
+      { name: 'Круассан', price: 800, about: 'Майлы, жаңа піскен' },
+    ];
+    const cart = [];
+
+    const menuList = document.getElementById('menu-list');
+    MENU.forEach((item, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<h3>${item.name}</h3><div>${item.about}</div>` +
+        `<div class="price">${item.price} ₸</div><button type="button" data-i="${i}">Себетке қосу</button>`;
+      menuList.append(card);
+    });
+
+    menuList.addEventListener('click', (e) => {
+      const i = e.target.dataset.i;
+      if (i === undefined) return;
+      cart.push(MENU[i]);
+      const total = cart.reduce((sum, item) => sum + item.price, 0);
+      document.getElementById('cart').textContent = `Себетте: ${cart.length} зат, жалпы ${total} ₸`;
+    });
+
+    document.getElementById('booking').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.replace(/[\s()-]/g, '');
+      const error = document.getElementById('error');
+      if (name.length < 2) {
+        error.textContent = 'Атыңызды жазыңыз';
+        return;
+      }
+      if (!/^(\+7|8)\d{10}$/.test(phone)) {
+        error.textContent = 'Телефон нөмірі +7XXXXXXXXXX пішінінде болуы керек';
+        return;
+      }
+      const done = document.createElement('p');
+      done.className = 'success';
+      done.textContent = `Рақмет, ${name}! Сізге жақын арада хабарласамыз.`;
+      e.target.replaceWith(done);
+    });
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

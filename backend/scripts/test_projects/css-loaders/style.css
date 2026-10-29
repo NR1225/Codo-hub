@@ -1,0 +1,88 @@
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 32px 16px;
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 24px;
+  max-width: 720px;
+  margin: 32px auto 0;
+}
+
+figure {
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 24px 0;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+}
+
+figcaption { color: #999; font-size: 14px; }
+
+.pulse {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #51cf66;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(0.8); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.5; }
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 5px solid #333;
+  border-top-color: #339af0;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.dots { display: flex; gap: 8px; height: 56px; align-items: center; }
+.dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fcc419;
+  animation: bounce 0.8s ease-in-out infinite alternate;
+}
+.dots span:nth-child(2) { animation-delay: 0.2s; }
+.dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  from { transform: translateY(10px); opacity: 0.4; }
+  to { transform: translateY(-10px); opacity: 1; }
+}
+
+.bars { display: flex; gap: 5px; height: 56px; align-items: center; }
+.bars span {
+  width: 8px;
+  height: 40px;
+  border-radius: 4px;
+  background: #f06595;
+  animation: stretch 1s ease-in-out infinite;
+}
+.bars span:nth-child(2) { animation-delay: 0.1s; }
+.bars span:nth-child(3) { animation-delay: 0.2s; }
+.bars span:nth-child(4) { animation-delay: 0.3s; }
+
+@keyframes stretch {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}

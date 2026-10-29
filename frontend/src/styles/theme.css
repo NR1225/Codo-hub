@@ -138,44 +138,45 @@
   --info-light: #1f1f1f;
 }
 
+/* Light Theme — қараңғы тақырыптың айнасы: ақ фон, монохром палитра */
 .light-theme {
   --bg-primary: #ffffff;
-  --bg-secondary: #fffbeb;
-  --bg-hover: #fef3c7;
+  --bg-secondary: #f5f5f5;
+  --bg-hover: #ebebeb;
   --bg-code: #1c1c1c;
-  --bg-gradient: linear-gradient(135deg, #fbbf24 0%, #f59e0b 25%, #eab308 50%, #facc15 75%, #fde047 100%);
-  
-  --text-primary: #1c1c1c;
-  --text-secondary: #78350f;
-  --text-muted: #92400e;
-  
-  --border-color: #fde68a;
-  --border-hover: #fcd34d;
-  --border-glow: rgba(251, 191, 36, 0.6);
-  
-  --primary-color: #f59e0b;
-  --primary-hover: #d97706;
-  --primary-light: #fef3c7;
-  --accent-color: #fbbf24;
-  --accent-hover: #f59e0b;
-  --accent-gradient: linear-gradient(135deg, #fbbf24 0%, #f59e0b 25%, #eab308 50%, #facc15 75%, #fde047 100%);
-  
+  --bg-gradient: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+
+  --text-primary: #0a0a0a;
+  --text-secondary: #525252;
+  --text-muted: #737373;
+
+  --border-color: #e0e0e0;
+  --border-hover: #c9c9c9;
+  --border-glow: rgba(0, 0, 0, 0.18);
+
+  --primary-color: #1f1f1f;
+  --primary-hover: #3a3a3a;
+  --primary-light: #ebebeb;
+  --accent-color: #27272a;
+  --accent-hover: #09090b;
+  --accent-gradient: linear-gradient(135deg, #0a0a0a 0%, #3a3a3a 50%, #5c5c5c 100%);
+
   --shadow-sm: 0 0.51px 1.5px 0 rgba(0, 0, 0, 0.05), 0 0.51px 1.0px 0 rgba(0, 0, 0, 0.03);
   --shadow-md: 0 2.1px 3.0px -0.51px rgba(0, 0, 0, 0.1), 0 1.0px 2.1px -0.51px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 5.1px 7.7px -1.5px rgba(0, 0, 0, 0.1), 0 2.1px 3.0px -1.0px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 10.2px 12.8px -2.6px rgba(0, 0, 0, 0.1), 0 5.1px 5.1px -2.6px rgba(0, 0, 0, 0.04);
   --shadow-2xl: 0 12.8px 25.6px -6.2px rgba(0, 0, 0, 0.25);
-  --shadow-glow: 0 0 20.5px rgba(251, 191, 36, 0.4), 0 0 41.0px rgba(245, 158, 11, 0.2);
-  --shadow-glow-hover: 0 0 30.7px rgba(251, 191, 36, 0.6), 0 0 61.4px rgba(245, 158, 11, 0.3);
-  
-  --success-color: #10b981;
+  --shadow-glow: 0 0 20.5px rgba(0, 0, 0, 0.08);
+  --shadow-glow-hover: 0 0 30.7px rgba(0, 0, 0, 0.14);
+
+  --success-color: #059669;
   --success-light: #d1fae5;
-  --error-color: #ef4444;
+  --error-color: #dc2626;
   --error-light: #fee2e2;
-  --warning-color: #f59e0b;
+  --warning-color: #d97706;
   --warning-light: #fef3c7;
-  --info-color: #f59e0b;
-  --info-light: #fef3c7;
+  --info-color: #3a3a3a;
+  --info-light: #f0f0f0;
 }
 
 /* ========================================
@@ -249,4 +250,161 @@
   --ide-scrollbar-thumb: #4a4a4a;
   --ide-status-bar-bg: #d4d4d4;
   --ide-status-bar-text: #ffffff;
+}
+
+/* ========================================
+   Монохром шкала (--mono-*)
+   Беттердегі сұр түстер осы айнымалылар арқылы беріледі: қараңғыда
+   түпнұсқа мәні, жарықта — жарық баламасы (бет ақшыл сұр, панельдер ақ,
+   ақ мәтін -> қара).
+   ======================================== */
+/* Код блоктары (vscDarkPlus) жарық тақырыпта да қараңғы қалады */
+:root,
+.dark-theme,
+.light-theme .vc-code__body {
+  --mono-ink: 255, 255, 255;
+  --mono-shadow: 1;
+  --mono-rgb-10: 10, 10, 10;
+  --mono-rgb-12: 12, 12, 12;
+  --mono-rgb-14: 14, 14, 14;
+  --mono-rgb-18: 18, 18, 18;
+  --mono-rgb-22: 22, 22, 22;
+  --mono-rgb-23: 23, 23, 23;
+  --mono-rgb-30: 30, 30, 30;
+  --mono-rgb-38: 38, 38, 38;
+  --mono-rgb-61: 61, 61, 61;
+  --mono-rgb-127: 127, 127, 127;
+  --mono-rgb-212: 212, 212, 212;
+  --mono-rgb-214: 214, 214, 214;
+  --mono-rgb-250: 250, 250, 250;
+  --mono-000000: #000000;
+  --mono-070707: #070707;
+  --mono-0a0a0a: #0a0a0a;
+  --mono-0b0b0b: #0b0b0b;
+  --mono-0c0c0c: #0c0c0c;
+  --mono-0e0e0e: #0e0e0e;
+  --mono-0f0f0f: #0f0f0f;
+  --mono-101010: #101010;
+  --mono-111111: #111111;
+  --mono-121212: #121212;
+  --mono-141414: #141414;
+  --mono-151515: #151515;
+  --mono-161616: #161616;
+  --mono-171717: #171717;
+  --mono-181818: #181818;
+  --mono-191919: #191919;
+  --mono-1a1a1a: #1a1a1a;
+  --mono-1c1c1c: #1c1c1c;
+  --mono-1e1e1e: #1e1e1e;
+  --mono-1f1f1f: #1f1f1f;
+  --mono-222222: #222222;
+  --mono-232323: #232323;
+  --mono-242424: #242424;
+  --mono-262626: #262626;
+  --mono-2a2a2a: #2a2a2a;
+  --mono-2c2c2c: #2c2c2c;
+  --mono-2e2e2e: #2e2e2e;
+  --mono-333333: #333333;
+  --mono-363636: #363636;
+  --mono-3a3a3a: #3a3a3a;
+  --mono-3d3d3d: #3d3d3d;
+  --mono-4a4a4a: #4a4a4a;
+  --mono-525252: #525252;
+  --mono-555555: #555555;
+  --mono-5c5c5c: #5c5c5c;
+  --mono-6b6b6b: #6b6b6b;
+  --mono-737373: #737373;
+  --mono-888888: #888888;
+  --mono-8f8f8f: #8f8f8f;
+  --mono-9a9a9a: #9a9a9a;
+  --mono-a3a3a3: #a3a3a3;
+  --mono-bdbdbd: #bdbdbd;
+  --mono-c4c4c4: #c4c4c4;
+  --mono-c9c9c9: #c9c9c9;
+  --mono-cfcfcf: #cfcfcf;
+  --mono-d4d4d4: #d4d4d4;
+  --mono-d6d6d6: #d6d6d6;
+  --mono-d9d9d9: #d9d9d9;
+  --mono-e5e5e5: #e5e5e5;
+  --mono-e8e8e8: #e8e8e8;
+  --mono-e9e9e9: #e9e9e9;
+  --mono-ececec: #ececec;
+  --mono-ededed: #ededed;
+  --mono-f5f5f5: #f5f5f5;
+  --mono-fafafa: #fafafa;
+  --mono-ffffff: #ffffff;
+}
+
+.light-theme {
+  --mono-ink: 9, 9, 11;
+  --mono-shadow: 0.16;
+  --mono-rgb-10: 255, 255, 255;
+  --mono-rgb-12: 255, 255, 255;
+  --mono-rgb-14: 250, 250, 250;
+  --mono-rgb-18: 250, 250, 250;
+  --mono-rgb-22: 244, 244, 245;
+  --mono-rgb-23: 244, 244, 245;
+  --mono-rgb-30: 239, 239, 241;
+  --mono-rgb-38: 228, 228, 231;
+  --mono-rgb-61: 161, 161, 170;
+  --mono-rgb-127: 99, 99, 107;
+  --mono-rgb-212: 39, 39, 42;
+  --mono-rgb-214: 39, 39, 42;
+  --mono-rgb-250: 9, 9, 11;
+  --mono-000000: #f4f4f5;
+  --mono-070707: #ffffff;
+  --mono-0a0a0a: #ffffff;
+  --mono-0b0b0b: #ffffff;
+  --mono-0c0c0c: #ffffff;
+  --mono-0e0e0e: #fafafa;
+  --mono-0f0f0f: #fafafa;
+  --mono-101010: #fafafa;
+  --mono-111111: #fafafa;
+  --mono-121212: #fafafa;
+  --mono-141414: #fafafa;
+  --mono-151515: #f4f4f5;
+  --mono-161616: #f4f4f5;
+  --mono-171717: #f4f4f5;
+  --mono-181818: #f4f4f5;
+  --mono-191919: #f4f4f5;
+  --mono-1a1a1a: #f4f4f5;
+  --mono-1c1c1c: #efeff1;
+  --mono-1e1e1e: #efeff1;
+  --mono-1f1f1f: #efeff1;
+  --mono-222222: #efeff1;
+  --mono-232323: #efeff1;
+  --mono-242424: #e4e4e7;
+  --mono-262626: #e4e4e7;
+  --mono-2a2a2a: #e4e4e7;
+  --mono-2c2c2c: #e4e4e7;
+  --mono-2e2e2e: #d4d4d8;
+  --mono-333333: #d4d4d8;
+  --mono-363636: #d4d4d8;
+  --mono-3a3a3a: #d4d4d8;
+  --mono-3d3d3d: #a1a1aa;
+  --mono-4a4a4a: #a1a1aa;
+  --mono-525252: #a1a1aa;
+  --mono-555555: #a1a1aa;
+  --mono-5c5c5c: #71717a;
+  --mono-6b6b6b: #71717a;
+  --mono-737373: #71717a;
+  --mono-888888: #63636b;
+  --mono-8f8f8f: #63636b;
+  --mono-9a9a9a: #63636b;
+  --mono-a3a3a3: #52525b;
+  --mono-bdbdbd: #52525b;
+  --mono-c4c4c4: #52525b;
+  --mono-c9c9c9: #27272a;
+  --mono-cfcfcf: #27272a;
+  --mono-d4d4d4: #27272a;
+  --mono-d6d6d6: #27272a;
+  --mono-d9d9d9: #27272a;
+  --mono-e5e5e5: #27272a;
+  --mono-e8e8e8: #18181b;
+  --mono-e9e9e9: #18181b;
+  --mono-ececec: #18181b;
+  --mono-ededed: #18181b;
+  --mono-f5f5f5: #09090b;
+  --mono-fafafa: #09090b;
+  --mono-ffffff: #09090b;
 }

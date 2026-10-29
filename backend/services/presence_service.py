@@ -20,6 +20,8 @@ def related_user_ids(user_id: str) -> Set[str]:
 
     related: Set[str] = set(friends.get(user_id, []))
     for msg in messages:
+        if msg.get("request"):
+            continue  # қабылданбаған сұрау — әлі «байланыс» емес
         if msg.get("fromUserId") == user_id and msg.get("toUserId"):
             related.add(msg["toUserId"])
         elif msg.get("toUserId") == user_id and msg.get("fromUserId"):

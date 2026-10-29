@@ -10,7 +10,7 @@ import httpx
 
 from config import TURNSTILE_SECRET_KEY
 
-logger = logging.getLogger("kazakh_hub")
+logger = logging.getLogger("codo_hub")
 
 SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 

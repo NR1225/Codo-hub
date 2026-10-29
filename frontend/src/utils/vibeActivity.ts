@@ -53,9 +53,20 @@ export function logEvent(text: string, key?: string) {
 // eslint-disable-next-line no-control-regex
 const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*(\x07|\x1b\\)|\x1b[@-Z\\-_]/g;
 
+type OutputListener = (text: string) => void;
+const outputListeners = new Set<OutputListener>();
+
+/** Терминал шығысын тыңдау (ANSI-сыз мәтін); қайтарғаны — тыңдауды тоқтату */
+export function subscribeTerminalOutput(listener: OutputListener): () => void {
+  outputListeners.add(listener);
+  return () => { outputListeners.delete(listener); };
+}
+
 export function appendTerminalOutput(data: string) {
+  const text = data.replace(ANSI, '');
+  outputListeners.forEach((listener) => listener(text));
   // Жалғыз \r жолды басынан қайта жазады (прогресс-бар т.б.) — тек соңғы нұсқасы қалады
-  terminal = (terminal + data.replace(ANSI, ''))
+  terminal = (terminal + text)
     .replace(/\r\n/g, '\n')
     .replace(/[^\n]*\r(?!\n|$)/g, '');
   if (terminal.length > MAX_TERMINAL_CHARS) terminal = terminal.slice(-MAX_TERMINAL_CHARS);

@@ -56,6 +56,15 @@ export function codeSnippet(code: CodeFile): string {
   return trimmed.split('\n').slice(0, SNIPPET_LINES).join('\n').slice(0, 600);
 }
 
+// Браузерде іске қосылатын код (HTML) — картада үзінді орнына жұмыс істеп тұрған беті көрсетіледі.
+// Папкаларды да тексереміз: веб-жоба болмаса сервер 404 береді де, үзінді/тізім қалады.
+export function isLivePreviewable(code: CodeFile): boolean {
+  if (code.isFolder) return true;
+  const lang = (code.language || '').toLowerCase();
+  if (lang === 'html' || /\.html?$/i.test(code.title || '')) return true;
+  return /^\s*(<!doctype html|<html[\s>])/i.test(code.content || '');
+}
+
 export function folderEntries(code: CodeFile) {
   if (code.isFolder && code.folderStats) return code.folderStats;
   if (!code.isFolder || !code.folderStructure) return { files: 0, folders: 0, names: [] as { name: string; type: string }[] };

@@ -5,20 +5,26 @@ import { useConfirm, LOGOUT_ICON } from '../contexts/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faFolder, faTrash, faEye, faInfoCircle, faFolderOpen, faBook, faList, faLock, faRocket, faLaptop, faEnvelope,
+  faFolder, faTrash, faEye, faInfoCircle, faFolderOpen, faBook, faList, faLock, faEnvelope,
   faSliders, faUserShield, faTriangleExclamation, faRightFromBracket, faChevronRight, faGlobe,
-  faCircleHalfStroke, faBell, faKey, faShieldHalved, faDesktop, faArrowUpRightFromSquare,
+  faCircleHalfStroke, faBell, faKey, faShieldHalved,faArrowUpRightFromSquare,
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { apiService, CodeFile, SiteConfig } from '../utils/api';
 import { formatDate } from '../utils/dateFormatter';
 import { monogram } from '../components/home/monogram';
+import SettingsInfoGuide from '../components/settings/SettingsInfoGuide';
+import SettingsInfoDoc from '../components/settings/SettingsInfoDoc';
+import { isInfoDoc } from '../components/settings/infoDocs';
 import './Settings.css';
 
 // Әр қойындының өз адресі бар: /settings/<tab>; жай /settings — «Жалпы»
-const SETTINGS_TABS = ['general', 'account', 'folders', 'info', 'danger'] as const;
+const SETTINGS_TABS = ['general', 'account', 'folders', 'info'] as const;
 type SettingsTab = typeof SETTINGS_TABS[number];
+
+// «Аккаунт» қойындысының бір карточкадағы бөлімдері (бөлек адресі жоқ)
+type AccountSection = 'password' | '2fa' | 'delete';
 
 const isSettingsTab = (value: string | undefined): value is SettingsTab =>
   SETTINGS_TABS.includes(value as SettingsTab);
@@ -30,8 +36,9 @@ const Settings: React.FC = () => {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const { preference, setThemePreference } = useTheme();
 
-  const { tab: tabParam } = useParams<{ tab?: string }>();
+  const { tab: tabParam, doc: docParam } = useParams<{ tab?: string; doc?: string }>();
   const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : 'general';
+  const [openSection, setOpenSection] = useState<AccountSection | null>(null);
   const [language, setLanguage] = useState(i18n.language || 'kk');
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -241,15 +248,26 @@ const Settings: React.FC = () => {
   };
 
   if (!isAuthenticated) return null;
+  // Бұрынғы «Қауіпті аймақ» қойындысы «Аккаунт» ішіне көшті
+  if (tabParam === 'danger') return <Navigate to="/settings/account" replace />;
   // Белгісіз қойынды адресі — негізгі баптауларға
   if (tabParam !== undefined && !isSettingsTab(tabParam)) return <Navigate to="/settings" replace />;
+  // Ішкі бет тек «Біз жайлы» қойындысында бар: /settings/info/<about|terms|privacy|contact>
+  if (docParam !== undefined && (tabParam !== 'info' || !isInfoDoc(docParam))) {
+    return <Navigate to={tabParam === 'info' ? '/settings/info' : `/settings/${tabParam}`} replace />;
+  }
+  const infoDoc = isInfoDoc(docParam) ? docParam : null;
 
   const tabs: { key: SettingsTab; label: string; desc: string; icon: IconDefinition }[] = [
     { key: 'general', label: t('settings.general'), desc: t('settings.generalDesc'), icon: faSliders },
     { key: 'account', label: t('settings.account'), desc: t('settings.accountDesc'), icon: faUserShield },
     { key: 'folders', label: t('settings.folderTab'), desc: t('settings.folderDesc'), icon: faFolder },
     { key: 'info', label: t('settings.infoTab'), desc: t('settings.infoDesc'), icon: faInfoCircle },
-    { key: 'danger', label: t('settings.dangerZone'), desc: t('settings.dangerDesc'), icon: faTriangleExclamation },
+  ];
+  const accountSections: { key: AccountSection; label: string; icon: IconDefinition }[] = [
+    { key: 'password', label: t('settings.changePassword'), icon: faKey },
+    { key: '2fa', label: t('settings.twoFactorAuth'), icon: faShieldHalved },
+    { key: 'delete', label: t('settings.deleteAccountButton'), icon: faTriangleExclamation },
   ];
   const currentTab = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
 
@@ -306,7 +324,7 @@ const Settings: React.FC = () => {
                 role="tab"
                 aria-selected={activeTab === tab.key}
                 aria-current={activeTab === tab.key ? 'page' : undefined}
-                className={`stg-row ${activeTab === tab.key ? 'is-active' : ''} ${tab.key === 'danger' ? 'stg-row--danger' : ''}`}
+                className={`stg-row ${activeTab === tab.key ? 'is-active' : ''}`}
                 style={{ '--d': i } as React.CSSProperties}
               >
                 <span className="stg-row__slot">
@@ -327,7 +345,7 @@ const Settings: React.FC = () => {
 
         <main className="stg-main">
           <header className="stg-main__head">
-            <span className={`stg-main__badge ${activeTab === 'danger' ? 'is-danger' : ''}`} aria-hidden="true">
+            <span className="stg-main__badge" aria-hidden="true">
               <FontAwesomeIcon icon={currentTab.icon} />
             </span>
             <div>
@@ -337,7 +355,7 @@ const Settings: React.FC = () => {
           </header>
 
           {/* key — қойынды ауысқанда кіру анимациясы қайта ойнайды */}
-          <div className="stg-main__body" key={activeTab} role="tabpanel">
+          <div className="stg-main__body" key={`${activeTab}/${infoDoc ?? ''}`} role="tabpanel">
             {/* General Tab */}
             {activeTab === 'general' && (
               <div className="stg-grid">
@@ -407,146 +425,192 @@ const Settings: React.FC = () => {
               </div>
             )}
 
-            {/* Account Tab */}
+            {/* Account Tab — барлық бөлім бір карточкада, әрқайсысы өз орнында ашылады */}
             {activeTab === 'account' && (
-              <div className="stg-grid stg-grid--even">
-                <section className="stg-card">
-                  <h2 className="stg-card__title">
-                    <FontAwesomeIcon icon={faKey} /> {t('settings.changePassword')}
-                  </h2>
-                  <label className="stg-field">
-                    <span className="stg-field__label">{t('settings.currentPassword')}</span>
-                    <input
-                      type="password"
-                      className="stg-input"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      autoComplete="current-password"
-                    />
-                  </label>
-                  <label className="stg-field">
-                    <span className="stg-field__label">{t('settings.newPassword')}</span>
-                    <input
-                      type="password"
-                      className="stg-input"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      minLength={8}
-                      autoComplete="new-password"
-                    />
-                  </label>
-                  <label className="stg-field">
-                    <span className="stg-field__label">{t('settings.confirmNewPassword')}</span>
-                    <input
-                      type="password"
-                      className="stg-input"
-                      value={confirmNewPassword}
-                      onChange={(e) => setConfirmNewPassword(e.target.value)}
-                      minLength={8}
-                      autoComplete="new-password"
-                    />
-                  </label>
-                  {passwordError && <p className="stg-msg stg-msg--error">{passwordError}</p>}
-                  {passwordSuccess && <p className="stg-msg stg-msg--success">{passwordSuccess}</p>}
-                  <div className="stg-actions">
-                    <button type="button" className="stg-btn stg-btn--primary" onClick={handleChangePassword} disabled={passwordLoading}>
-                      {passwordLoading ? '...' : t('common.save')}
-                    </button>
-                  </div>
-                </section>
+              <section className="stg-card stg-acc">
+                {accountSections.map((section) => {
+                  const isOpen = openSection === section.key;
+                  return (
+                    <div key={section.key} className={`stg-acc__item ${isOpen ? 'is-open' : ''}`}>
+                      <button
+                        type="button"
+                        className={`stg-row stg-acc__head ${section.key === 'delete' ? 'stg-row--danger' : ''}`}
+                        aria-expanded={isOpen}
+                        onClick={() => setOpenSection(isOpen ? null : section.key)}
+                      >
+                        <span className="stg-row__slot">
+                          <FontAwesomeIcon icon={section.icon} />
+                        </span>
+                        <span className="stg-row__label">{section.label}</span>
+                        {section.key === '2fa' && (
+                          <span className={`stg-pill ${totpEnabled ? 'is-on' : ''}`}>{totpEnabled ? 'ON' : 'OFF'}</span>
+                        )}
+                        <span className="stg-row__arrow"><FontAwesomeIcon icon={faChevronRight} /></span>
+                      </button>
 
-                <div className="stg-stack">
-                  <section className="stg-card">
-                    <h2 className="stg-card__title">
-                      <FontAwesomeIcon icon={faShieldHalved} /> {t('settings.twoFactorAuth')}
-                      <span className={`stg-pill ${totpEnabled ? 'is-on' : ''}`}>{totpEnabled ? 'ON' : 'OFF'}</span>
-                    </h2>
-                    {twoFARecoveryCodes.length > 0 && (
-                      <div className="stg-recovery">
-                        <p className="stg-msg stg-msg--success">{t('auth.2fa.recoveryCodes')}:</p>
-                        <div className="stg-recovery__grid">
-                          {twoFARecoveryCodes.map((code, i) => (
-                            <span key={i} className="stg-recovery__code">{code}</span>
-                          ))}
-                        </div>
-                        <p className="stg-msg stg-msg--warning">{t('auth.2fa.recoveryCodesWarning')}</p>
-                      </div>
-                    )}
-                    {totpEnabled ? (
-                      <>
-                        <p className="stg-msg stg-msg--success">{t('auth.2fa.enabled')}</p>
-                        {show2FADisable ? (
-                          <div className="stg-inline">
+                      {isOpen && section.key === 'password' && (
+                        <div className="stg-acc__body">
+                          <label className="stg-field">
+                            <span className="stg-field__label">{t('settings.currentPassword')}</span>
                             <input
                               type="password"
                               className="stg-input"
-                              placeholder={t('settings.currentPassword')}
-                              value={twoFADisablePassword}
-                              onChange={(e) => setTwoFADisablePassword(e.target.value)}
+                              value={currentPassword}
+                              onChange={(e) => setCurrentPassword(e.target.value)}
+                              autoComplete="current-password"
                             />
-                            <button type="button" className="stg-btn stg-btn--primary" onClick={handle2FADisable}>
-                              {t('auth.2fa.disableTitle')}
-                            </button>
-                          </div>
-                        ) : (
+                          </label>
+                          <label className="stg-field">
+                            <span className="stg-field__label">{t('settings.newPassword')}</span>
+                            <input
+                              type="password"
+                              className="stg-input"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              minLength={8}
+                              autoComplete="new-password"
+                            />
+                          </label>
+                          <label className="stg-field">
+                            <span className="stg-field__label">{t('settings.confirmNewPassword')}</span>
+                            <input
+                              type="password"
+                              className="stg-input"
+                              value={confirmNewPassword}
+                              onChange={(e) => setConfirmNewPassword(e.target.value)}
+                              minLength={8}
+                              autoComplete="new-password"
+                            />
+                          </label>
+                          {passwordError && <p className="stg-msg stg-msg--error">{passwordError}</p>}
+                          {passwordSuccess && <p className="stg-msg stg-msg--success">{passwordSuccess}</p>}
                           <div className="stg-actions">
-                            <button type="button" className="stg-btn stg-btn--ghost" onClick={() => setShow2FADisable(true)}>
-                              {t('settings.disable2FA')}
+                            <button type="button" className="stg-btn stg-btn--primary" onClick={handleChangePassword} disabled={passwordLoading}>
+                              {passwordLoading ? '...' : t('common.save')}
                             </button>
                           </div>
-                        )}
-                        {twoFAError && <p className="stg-msg stg-msg--error">{twoFAError}</p>}
-                      </>
-                    ) : show2FASetup ? (
-                      <div className="stg-twofa">
-                        <p className="stg-text">{t('auth.2fa.scanQR')}</p>
-                        {twoFAUri && (
-                          <a href={twoFAUri} target="_blank" rel="noopener noreferrer" className="stg-link">
-                            {t('auth.2fa.scanQR')} <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
-                          </a>
-                        )}
-                        <code className="stg-secret">{twoFASecret}</code>
-                        <div className="stg-inline">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="stg-input stg-input--code"
-                            placeholder="000000"
-                            maxLength={6}
-                            value={twoFACode}
-                            onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          />
-                          <button
-                            type="button"
-                            className="stg-btn stg-btn--primary"
-                            onClick={handle2FAVerifySetup}
-                            disabled={twoFACode.length !== 6}
-                          >
-                            {t('auth.2fa.enterCode')}
-                          </button>
                         </div>
-                        {twoFAError && <p className="stg-msg stg-msg--error">{twoFAError}</p>}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="stg-actions">
-                          <button type="button" className="stg-btn stg-btn--primary" onClick={handle2FASetup}>
-                            {t('settings.enable2FA')}
-                          </button>
-                        </div>
-                        {twoFAError && <p className="stg-msg stg-msg--error">{twoFAError}</p>}
-                      </>
-                    )}
-                  </section>
+                      )}
 
-                  <section className="stg-card">
-                    <h2 className="stg-card__title">
-                      <FontAwesomeIcon icon={faDesktop} /> {t('settings.activeSession')}
-                    </h2>
-                    <p className="stg-text">{t('settings.singleSessionNote')}</p>
-                  </section>
-                </div>
-              </div>
+                      {isOpen && section.key === '2fa' && (
+                        <div className="stg-acc__body">
+                          {twoFARecoveryCodes.length > 0 && (
+                            <div className="stg-recovery">
+                              <p className="stg-msg stg-msg--success">{t('auth.2fa.recoveryCodes')}:</p>
+                              <div className="stg-recovery__grid">
+                                {twoFARecoveryCodes.map((code, i) => (
+                                  <span key={i} className="stg-recovery__code">{code}</span>
+                                ))}
+                              </div>
+                              <p className="stg-msg stg-msg--warning">{t('auth.2fa.recoveryCodesWarning')}</p>
+                            </div>
+                          )}
+                          {totpEnabled ? (
+                            <>
+                              <p className="stg-msg stg-msg--success">{t('auth.2fa.enabled')}</p>
+                              {show2FADisable ? (
+                                <div className="stg-inline">
+                                  <input
+                                    type="password"
+                                    className="stg-input"
+                                    placeholder={t('settings.currentPassword')}
+                                    value={twoFADisablePassword}
+                                    onChange={(e) => setTwoFADisablePassword(e.target.value)}
+                                  />
+                                  <button type="button" className="stg-btn stg-btn--primary" onClick={handle2FADisable}>
+                                    {t('auth.2fa.disableTitle')}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="stg-actions">
+                                  <button type="button" className="stg-btn stg-btn--ghost" onClick={() => setShow2FADisable(true)}>
+                                    {t('settings.disable2FA')}
+                                  </button>
+                                </div>
+                              )}
+                              {twoFAError && <p className="stg-msg stg-msg--error">{twoFAError}</p>}
+                            </>
+                          ) : show2FASetup ? (
+                            <div className="stg-twofa">
+                              <p className="stg-text">{t('auth.2fa.scanQR')}</p>
+                              {twoFAUri && (
+                                <a href={twoFAUri} target="_blank" rel="noopener noreferrer" className="stg-link">
+                                  {t('auth.2fa.scanQR')} <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
+                                </a>
+                              )}
+                              <code className="stg-secret">{twoFASecret}</code>
+                              <div className="stg-inline">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  className="stg-input stg-input--code"
+                                  placeholder="000000"
+                                  maxLength={6}
+                                  value={twoFACode}
+                                  onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                />
+                                <button
+                                  type="button"
+                                  className="stg-btn stg-btn--primary"
+                                  onClick={handle2FAVerifySetup}
+                                  disabled={twoFACode.length !== 6}
+                                >
+                                  {t('auth.2fa.enterCode')}
+                                </button>
+                              </div>
+                              {twoFAError && <p className="stg-msg stg-msg--error">{twoFAError}</p>}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="stg-actions">
+                                <button type="button" className="stg-btn stg-btn--primary" onClick={handle2FASetup}>
+                                  {t('settings.enable2FA')}
+                                </button>
+                              </div>
+                              {twoFAError && <p className="stg-msg stg-msg--error">{twoFAError}</p>}
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {isOpen && section.key === 'delete' && (
+                        <div className="stg-acc__body">
+                          <p className="stg-text">{t('settings.dangerZoneDescription')}</p>
+                          <ul className="stg-warnings">
+                            {[1, 2, 3, 4].map((n) => (
+                              <li key={n}>
+                                <span className="stg-warnings__x" aria-hidden="true">&times;</span>
+                                {t(`settings.deleteAccountWarning${n}`)}
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="stg-actions">
+                            <button
+                              type="button"
+                              className={`stg-btn stg-btn--danger ${deleteConfirmStep > 0 ? 'is-armed' : ''}`}
+                              onClick={handleDeleteAccount}
+                              disabled={deleteLoading}
+                            >
+                              {deleteLoading
+                                ? t('settings.deletingAccount')
+                                : deleteConfirmStep === 0
+                                  ? t('settings.deleteAccountButton')
+                                  : deleteConfirmStep === 1
+                                    ? t('settings.deleteAccountConfirm')
+                                    : t('settings.deleteAccountDoubleConfirm')}
+                            </button>
+                            {deleteConfirmStep > 0 && !deleteLoading && (
+                              <button type="button" className="stg-btn stg-btn--ghost" onClick={() => setDeleteConfirmStep(0)}>
+                                {t('common.cancel')}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </section>
             )}
 
             {/* Folder Tab */}
@@ -615,32 +679,21 @@ const Settings: React.FC = () => {
             )}
 
             {/* Info Tab (футердің орнына баптау бетіне көшірілді) */}
-            {activeTab === 'info' && (
-              <div className="stg-grid stg-grid--even">
-                <section className="stg-card stg-card--wide stg-card--hero">
-                  <div className="stg-hero__text">
-                    <h2 className="stg-card__title stg-card__title--lg">{appName}</h2>
-                    <p className="stg-text">{t('footer.description')}</p>
-                    <div className="stg-badges">
-                      <span className="stg-badge"><FontAwesomeIcon icon={faRocket} /> {t('footer.kazakhstan')}</span>
-                      <span className="stg-badge"><FontAwesomeIcon icon={faLaptop} /> {t('footer.openSource')}</span>
-                    </div>
-                  </div>
-                  <div className="stg-actions">
-                    <button type="button" className="stg-btn stg-btn--ghost" onClick={() => navigate('/features')}>
-                      {t('footer.features')}
-                    </button>
-                  </div>
-                </section>
+            {activeTab === 'info' && infoDoc && <SettingsInfoDoc doc={infoDoc} />}
 
-                <section className="stg-card">
+            {activeTab === 'info' && !infoDoc && (
+              <div className="stg-grid stg-grid--even stg-grid--info">
+                {/* Мүмкіндіктер мен пернетақта тіркесімдері */}
+                <SettingsInfoGuide />
+
+                <section className="stg-card stg-card--compact">
                   <h2 className="stg-card__title">
                     <FontAwesomeIcon icon={faFolderOpen} /> {t('footer.links')}
                   </h2>
                   {externalLinks.length === 0 ? (
                     <p className="stg-text">{t('common.loading')}</p>
                   ) : (
-                    <ul className="stg-links">
+                    <ul className="stg-links stg-links--dense">
                       {externalLinks.map((link) => (
                         <li key={link.url}>
                           <a href={link.url} target="_blank" rel="noopener noreferrer" className="stg-row stg-row--link">
@@ -660,16 +713,16 @@ const Settings: React.FC = () => {
                   )}
                 </section>
 
-                <section className="stg-card">
+                <section className="stg-card stg-card--compact">
                   <h2 className="stg-card__title">
                     <FontAwesomeIcon icon={faInfoCircle} /> {t('footer.info')}
                   </h2>
-                  <ul className="stg-links">
+                  <ul className="stg-links stg-links--dense">
                     {[
-                      { to: '/about', icon: faBook, label: t('footer.about') },
-                      { to: '/terms', icon: faList, label: t('footer.terms') },
-                      { to: '/privacy', icon: faLock, label: t('footer.privacy') },
-                      { to: '/contact', icon: faEnvelope, label: t('footer.contact') },
+                      { to: '/settings/info/about', icon: faBook, label: t('footer.about') },
+                      { to: '/settings/info/terms', icon: faList, label: t('footer.terms') },
+                      { to: '/settings/info/privacy', icon: faLock, label: t('footer.privacy') },
+                      { to: '/settings/info/contact', icon: faEnvelope, label: t('footer.contact') },
                     ].map((item) => (
                       <li key={item.to}>
                         <Link to={item.to} className="stg-row stg-row--link">
@@ -686,58 +739,6 @@ const Settings: React.FC = () => {
               </div>
             )}
 
-            {/* Danger Zone Tab */}
-            {activeTab === 'danger' && (
-              <div className="stg-grid stg-grid--even stg-grid--danger">
-                <section className="stg-card stg-card--danger">
-                  <h2 className="stg-card__title">
-                    <FontAwesomeIcon icon={faTriangleExclamation} /> {t('settings.deleteAccountButton')}
-                  </h2>
-                  <p className="stg-text">{t('settings.dangerZoneDescription')}</p>
-                  <ul className="stg-warnings">
-                    {[1, 2, 3, 4].map((n) => (
-                      <li key={n}>
-                        <span className="stg-warnings__x" aria-hidden="true">&times;</span>
-                        {t(`settings.deleteAccountWarning${n}`)}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="stg-actions">
-                    <button
-                      type="button"
-                      className={`stg-btn stg-btn--danger ${deleteConfirmStep > 0 ? 'is-armed' : ''}`}
-                      onClick={handleDeleteAccount}
-                      disabled={deleteLoading}
-                    >
-                      {deleteLoading
-                        ? t('settings.deletingAccount')
-                        : deleteConfirmStep === 0
-                          ? t('settings.deleteAccountButton')
-                          : deleteConfirmStep === 1
-                            ? t('settings.deleteAccountConfirm')
-                            : t('settings.deleteAccountDoubleConfirm')}
-                    </button>
-                    {deleteConfirmStep > 0 && !deleteLoading && (
-                      <button type="button" className="stg-btn stg-btn--ghost" onClick={() => setDeleteConfirmStep(0)}>
-                        {t('common.cancel')}
-                      </button>
-                    )}
-                  </div>
-                </section>
-
-                <section className="stg-card">
-                  <h2 className="stg-card__title">
-                    <FontAwesomeIcon icon={faRightFromBracket} /> {t('settings.logout')}
-                  </h2>
-                  <p className="stg-text">{t('settings.logoutDescription')}</p>
-                  <div className="stg-actions">
-                    <button type="button" className="stg-btn stg-btn--ghost" onClick={handleLogout}>
-                      {t('settings.logout')}
-                    </button>
-                  </div>
-                </section>
-              </div>
-            )}
           </div>
         </main>
       </div>

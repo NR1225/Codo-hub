@@ -9,6 +9,8 @@ import EditorPanel from './EditorPanel';
 import ChatPanel from './ChatPanel';
 import StatusBar from './StatusBar';
 import EditorSettings from './EditorSettings';
+import { DEV_SERVER_EVENT, DEV_SERVER_STOP_EVENT, devCommand, type DevServerInfo } from '../../utils/devServer';
+import { runInTerminal } from '../../utils/vibeBridge';
 
 // TerminalPanel xterm-ді (~200KB) тартады — тек terminal ашылғанда жүктеу үшін lazy.
 const TerminalPanel = lazy(() => import('./TerminalPanel'));
@@ -51,13 +53,18 @@ function loadPreviewLayout(): { open: boolean; width: number } {
 }
 
 const IDELayout: React.FC = () => {
-  const { state, dispatch, isMobile, isTablet, isDesktop } = useVibecoding();
+  const { state, dispatch, isMobile, isTablet, isDesktop, activeProject, flushProjects } = useVibecoding();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   // Жобаны іске қосу — редактордың оң жағындағы алдын ала көрініс
   const [previewOpen, setPreviewOpen] = useState(() => loadPreviewLayout().open);
   const [runId, setRunId] = useState(0);
+  // Терминалда іске қосылған dev-сервер (npm run dev) — көрініс соны көрсетеді
+  const [devServer, setDevServer] = useState<DevServerInfo | null>(null);
+  const [devStarting, setDevStarting] = useState(false);
+  // Жоба бойынша соңғы сервер: × басылса да процесс терминалда жүріп тұр, қайта іске қоспаймыз
+  const lastServers = useRef(new Map<string, DevServerInfo>());
   const [previewWidth, setPreviewWidth] = useState(() => loadPreviewLayout().width); // % — редактор+көрініс жолағынан
 
   // Бет жаңартылғанда көрініс ашық/жабық күйі мен ені сақталады
@@ -126,15 +133,55 @@ const IDELayout: React.FC = () => {
     dispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: false });
   }, [dispatch]);
 
+  // «Іске қосу»: package.json-да dev-скрипт болса — терминалда іске қосып, сервер адресін
+  // осы көрініс панелінде ашамыз; әйтпесе бұрынғыдай файлдардан жиналған көрініс
+  const runRef = useRef<() => void>(() => {});
+  runRef.current = () => {
+    setPreviewOpen(true);
+    const command = activeProject ? devCommand(activeProject.files) : null;
+    if (!activeProject || !command) {
+      setDevServer(null);
+      setDevStarting(false);
+      setRunId(id => id + 1);
+      return;
+    }
+    const running = lastServers.current.get(activeProject.id);
+    if (running) {
+      setDevServer(running);
+      setRunId(id => id + 1); // көріністі қайта жүктеу
+      return;
+    }
+    if (devStarting) return;
+    setDevStarting(true);
+    dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: true });
+    const projectId = activeProject.id;
+    // Терминал папкасы серверде — соңғы өзгерістер алдымен сонда жетсін
+    flushProjects()
+      .catch(() => {})
+      .then(() => runInTerminal(projectId, command))
+      .catch(() => setDevStarting(false));
+  };
+
   // Listen for settings open/toggle requests from shortcuts & command palette
   useEffect(() => {
     const onOpen = () => setShowSettings(true);
     const onToggle = () => setShowSettings(v => !v);
-    const onRun = () => {
-      setPreviewOpen(true);
-      setRunId(id => id + 1);
-    };
+    const onRun = () => runRef.current();
     const onClosePreview = () => setPreviewOpen(false);
+    const onDevServer = (e: Event) => {
+      const info = (e as CustomEvent<DevServerInfo>).detail;
+      if (info.projectId) lastServers.current.set(info.projectId, info);
+      setDevServer(info);
+      setDevStarting(false);
+      setPreviewOpen(true);
+    };
+    const onDevServerStop = (e: Event) => {
+      const { port, projectId } = (e as CustomEvent<{ port: number; projectId: string | null }>).detail;
+      if (projectId && lastServers.current.get(projectId)?.port === port) lastServers.current.delete(projectId);
+      setDevServer(prev => (prev && prev.port === port && prev.projectId === projectId ? null : prev));
+    };
+    window.addEventListener(DEV_SERVER_EVENT, onDevServer);
+    window.addEventListener(DEV_SERVER_STOP_EVENT, onDevServerStop);
     window.addEventListener('vibecoding:open-settings', onOpen);
     window.addEventListener('vibecoding:toggle-settings', onToggle);
     window.addEventListener('vibecoding:run', onRun);
@@ -144,8 +191,16 @@ const IDELayout: React.FC = () => {
       window.removeEventListener('vibecoding:toggle-settings', onToggle);
       window.removeEventListener('vibecoding:run', onRun);
       window.removeEventListener('vibecoding:close-preview', onClosePreview);
+      window.removeEventListener(DEV_SERVER_EVENT, onDevServer);
+      window.removeEventListener(DEV_SERVER_STOP_EVENT, onDevServerStop);
     };
   }, []);
+
+  // Басқа жобаға ауысқанда алдыңғы жобаның серверін көрсетпейміз
+  useEffect(() => {
+    setDevServer(prev => (prev && prev.projectId && prev.projectId !== activeProject?.id ? null : prev));
+    setDevStarting(false);
+  }, [activeProject?.id]);
 
   return (
     <EditorMetaProvider>
@@ -219,7 +274,13 @@ const IDELayout: React.FC = () => {
                     style={isDesktop ? { width: `${previewWidth}%`, flexShrink: 0, minWidth: 0 } : undefined}
                   >
                     <Suspense fallback={<TerminalFallback />}>
-                      <PreviewPanel runId={runId} onClose={() => setPreviewOpen(false)} />
+                      <PreviewPanel
+                        runId={runId}
+                        serverUrl={devServer?.url ?? null}
+                        serverStarting={devStarting}
+                        onServerClose={() => setDevServer(null)}
+                        onClose={() => setPreviewOpen(false)}
+                      />
                     </Suspense>
                   </div>
                 </>

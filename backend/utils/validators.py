@@ -1,7 +1,8 @@
 """Validation utility functions"""
 import re
 import unicodedata
-from config import MAX_CONTENT_LENGTH, DANGEROUS_EXTENSIONS
+from config import MAX_CONTENT_LENGTH
+from utils.upload_rules import classify_upload_path, SKIP_MESSAGES
 
 
 def validate_email(email: str) -> str:
@@ -16,55 +17,21 @@ def validate_email(email: str) -> str:
     return email
 
 
-def validate_file_on_server(title: str, content: str):
-    """Validate file on server side"""
-    # Check file extension
-    ext = title.lower()[title.rfind('.'):] if '.' in title else ''
-    if ext in DANGEROUS_EXTENSIONS:
-        return {'valid': False, 'error': f'Қауіпті файл түрі блокталды: {ext}'}
-    
+def validate_file_on_server(title: str, content: str, path: str | None = None):
+    """Жобалар бетіне жүктелетін файлды тексеру. Код мәтін ретінде сақталады, сондықтан өтеді;
+    кэш/қоқыс, құпия (.env, кілттер) және бинарлы файлдар өтпейді (utils/upload_rules.py)."""
+    skip =classify_upload_path(path or title)
+    if skip:
+        return {'valid': False, 'error': f'{SKIP_MESSAGES[skip]}: {path or title}', 'skip': skip}
+
     # Check content size
     if content and len(content) > MAX_CONTENT_LENGTH:
         return {'valid': False, 'error': f'Файл өлшемі тым үлкен. Максималды өлшем: {MAX_CONTENT_LENGTH / (1024 * 1024)}MB'}
-    
-    # Determine file type for context-aware validation
-    code_extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.c', '.cpp', '.cs', '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala', '.r', '.m', '.pl', '.sh', '.bash', '.zsh', '.fish']
-    html_extensions = ['.html', '.htm', '.xhtml']
-    web_extensions = ['.css', '.scss', '.sass', '.less']
-    
-    is_code_file = ext in code_extensions
-    is_html_file = ext in html_extensions
-    is_web_file = ext in web_extensions or is_html_file
-    
-    # Check for potentially malicious content patterns
-    # HTML/JS-specific patterns - check in non-web files
-    if not is_web_file:
-        html_js_patterns = [
-            re.compile(r'<script[^>]*>[\s\S]*?</script>', re.IGNORECASE),
-            re.compile(r'javascript:', re.IGNORECASE),
-        ]
-        for pattern in html_js_patterns:
-            if pattern.search(content):
-                return {'valid': False, 'error': 'Файлда қауіпті контент табылды'}
-    
-    # HTML event handlers - check in non-code files (suspicious in code files too, but less critical)
-    # Allow in code files as they might be part of string literals or comments
-    if not is_code_file:
-        event_handler_pattern = re.compile(r'on\w+\s*=', re.IGNORECASE)
-        if event_handler_pattern.search(content):
-            return {'valid': False, 'error': 'Файлда қауіпті контент табылды'}
-    
-    # eval() and exec() are legitimate functions in many programming languages
-    # Only check for them in non-code files where they might be suspicious
-    if not is_code_file:
-        eval_exec_patterns = [
-            re.compile(r'eval\s*\(', re.IGNORECASE),
-            re.compile(r'exec\s*\(', re.IGNORECASE),
-        ]
-        for pattern in eval_exec_patterns:
-            if pattern.search(content):
-                return {'valid': False, 'error': 'Файлда қауіпті контент табылды'}
-    
+
+    # Мазмұн бойынша «қауіпті» үлгілер (javascript:, on…=, eval) тексерілмейді: код мәтін ретінде
+    # сақталып, мәтін ретінде көрсетіледі, ал HTML жобалар sandbox iframe-де ғана іске қосылады.
+    # Бұрынғы тексеріс қалыпты файлдарды үнсіз тастап кететін (CSS-тегі `[data-section=…]`,
+    # кодтағы 'javascript:' жолы), ал <script>-і бар HTML-ді бәрібір өткізетін.
     return {'valid': True}
 
 

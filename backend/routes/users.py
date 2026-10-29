@@ -69,6 +69,17 @@ async def get_current_user_endpoint(
     raise HTTPException(status_code=400, detail="Email or user_id parameter is required")
 
 
+@router.get("/users/avatars")
+@limiter.limit("60/minute")
+async def get_avatars(request: Request, usernames: str = Query(""), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Бірнеше қолданушының аватары бір сұраумен: {username: avatar} (аватары жоқтар кірмейді)"""
+    names = list({n.strip() for n in usernames.split(",") if n.strip()})[:100]
+    if not names:
+        return {}
+    rows = db.query(User.username, User.avatar).filter(User.username.in_(names)).all()
+    return {username: avatar for username, avatar in rows if avatar}
+
+
 @router.get("/users/search")
 @limiter.limit("20/minute")
 async def search_users(request: Request, query: Optional[str] = Query(None), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

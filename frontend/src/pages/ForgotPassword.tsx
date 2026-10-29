@@ -181,9 +181,9 @@ const ForgotPassword: React.FC = () => {
                   type="button"
                   onClick={() => navigate('/login')}
                   style={{
-                    background: 'white',
+                    background: 'var(--auth-switch-bg)',
                     border: 'none',
-                    color: 'black',
+                    color: 'var(--auth-switch-fg)',
                     cursor: 'pointer',
                     fontSize: '0.9rem',
                     fontWeight: '600',
@@ -195,11 +195,11 @@ const ForgotPassword: React.FC = () => {
                     width: 'auto',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)';
+                    e.currentTarget.style.background = 'var(--auth-switch-hover)';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.background = 'var(--auth-switch-bg)';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >

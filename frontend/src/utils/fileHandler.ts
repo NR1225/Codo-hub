@@ -1,5 +1,6 @@
 import { FILE_TYPES } from './constants';
 import i18n from '../i18n/config';
+import { classifyUploadPath, innerPath } from './uploadRules';
 
 export interface FileInfo {
   name: string;
@@ -23,6 +24,20 @@ interface FolderStructure {
     language?: string;
   };
 }
+
+// Сүйреп әкелінген немесе ZIP-тен шыққан File-да webkitRelativePath бос (ол тек оқылады),
+// сондықтан жобадағы жолы осы қасиетте сақталады
+const PATH_KEY = '__projectPath';
+
+/** File-ға жобадағы жолын («жоба/src/a.ts») бекіту */
+export const withPath = (file: File, path: string): File => {
+  Object.defineProperty(file, PATH_KEY, { value: path, enumerable: false });
+  return file;
+};
+
+/** Файлдың жобадағы жолы: бекітілгені → папка таңдағыштың жолы → аты */
+export const filePath = (file: File): string =>
+  (file as unknown as Record<string, string | undefined>)[PATH_KEY] || file.webkitRelativePath || file.name;
 
 const getFileExtension = (filename: string): string => {
   const lastDotIndex = filename.lastIndexOf('.');
@@ -277,15 +292,35 @@ export const buildFolderManifest = (
   structure: FolderStructure;
   files: Array<{ path: string; name: string; language: string; isImage: boolean; size: number }>;
   totalSize: number;
+  /** Серверге жіберілетін File-дар (files-пен бір ретте) */
+  selected: File[];
+  /** Өткізілген құпия/бинарлы файлдар (қолданушыға айтылады) */
+  skipped: string[];
+  /** Үнсіз өткізілген кэш/қоқыс файлдарының саны (node_modules т.б.) */
+  junkSkipped: number;
 } => {
   const fileArray = Array.from(files);
-  const folderName = fileArray[0]?.webkitRelativePath?.split('/')[0] || 'folder';
+  const folderName = filePath(fileArray[0] ?? new File([], 'folder')).split('/')[0] || 'folder';
   const structure: FolderStructure = {};
   const entries: Array<{ path: string; name: string; language: string; isImage: boolean; size: number }> = [];
+  const selected: File[] = [];
+  const skipped: string[] = [];
+  let junkSkipped = 0;
   let totalSize = 0;
 
   for (const file of fileArray) {
-    const path = file.webkitRelativePath || file.name;
+    const path = filePath(file);
+    // Кэш/қоқыс пен құпия файлдар структураға да, сұрауға да кірмейді (uploadRules.ts)
+    const skip = classifyUploadPath(innerPath(path));
+    if (skip === 'junk') {
+      junkSkipped++;
+      continue;
+    }
+    if (skip) {
+      skipped.push(path);
+      continue;
+    }
+    selected.push(file);
     const pathParts = path.split('/');
 
     // Қапшық структурасын құру
@@ -312,5 +347,5 @@ export const buildFolderManifest = (
     totalSize += file.size;
   }
 
-  return { folderName, structure, files: entries, totalSize };
+  return { folderName, structure, files: entries, totalSize, selected, skipped, junkSkipped };
 };

@@ -4,7 +4,7 @@ from typing import Optional
 import json
 from models import MessageCreate, MessageEdit, ReactionToggle, PinToggle, ForwardRequest, PollVote
 from services.message_service import MessageService
-from services.message_extras import build_poll_metadata, reply_snapshot
+from services.message_extras import build_poll_metadata, build_sticker_metadata, reply_snapshot
 from services.user_lookup import find_public_user
 from services.forward_service import forward_message
 from services.friend_service import FriendService
@@ -57,15 +57,20 @@ async def create_message(request: Request, message_data: MessageCreate, user: Us
         raise HTTPException(status_code=400, detail="Text messages require content")
 
     try:
-        can_message = FriendService.can_message(user.id, message_data.toUserId)
+        # Тікелей чатқа ма, «сұрауға» ма — алушының баптауы бойынша; рұқсат жоқ болса 403
+        delivery = FriendService.delivery_extra(user.id, message_data.toUserId)
         metadata = message_data.metadata
+        if isinstance(metadata, dict):
+            metadata.pop("storyReply", None)  # сторис үзіндісін тек сервер толтырады
+            metadata.pop("storyShare", None)
         content = message_data.content or ""
         if message_data.type == "poll":
             metadata = build_poll_metadata(metadata)
             content = metadata["question"]
+        if message_data.type == "sticker":
+            metadata = build_sticker_metadata(metadata)
+            content = ""
         if message_data.type == "project":
-            if not can_message:
-                raise ValueError("Тек достарға хабарлама жіберуге болады. Алдымен дос болыңыз.")
             # Жоба картасының деректерін сервер толтырады
             db = SessionLocal()
             try:
@@ -76,11 +81,11 @@ async def create_message(request: Request, message_data: MessageCreate, user: Us
             from_user_id=user.id,
             to_user_id=message_data.toUserId,
             content=content,
-            are_friends=can_message,
+            are_friends=True,
             message_type=message_data.type or "text",
             attachments=message_data.attachments,
             metadata=metadata,
-            extra=_reply_extra(user.id, message_data.toUserId, message_data.replyToId),
+            extra={**_reply_extra(user.id, message_data.toUserId, message_data.replyToId), **delivery},
         )
         return message
     except ValueError as e:
@@ -102,9 +107,7 @@ async def upload_file(
     """Upload a file and create a message with attachment"""
     try:
         # Алдымен рұқсатты тексереміз — рұқсат жоқ болса файл сақталмайды
-        can_message = FriendService.can_message(user.id, toUserId)
-        if not can_message:
-            raise HTTPException(status_code=403, detail="Тек достарға хабарлама жіберуге болады. Алдымен дос болыңыз.")
+        delivery = FriendService.delivery_extra(user.id, toUserId)
         reply_extra = _reply_extra(user.id, toUserId, replyToId)
 
         attachment = await save_chat_attachment(file, messageType)
@@ -116,17 +119,20 @@ async def upload_file(
                 metadata_dict = json.loads(metadata)
             except:
                 pass
+        if isinstance(metadata_dict, dict):
+            metadata_dict.pop("storyReply", None)
+            metadata_dict.pop("storyShare", None)
 
         # Create message
         message = await MessageService.create_message(
             from_user_id=user.id,
             to_user_id=toUserId,
             content=content or "",
-            are_friends=can_message,
+            are_friends=True,
             message_type=messageType,
             attachments=[attachment],
             metadata=metadata_dict,
-            extra=reply_extra,
+            extra={**reply_extra, **delivery},
         )
 
         return message

@@ -7,7 +7,17 @@ import os
 # Database file path
 DB_DIR = os.path.join(os.path.dirname(__file__), "data")
 os.makedirs(DB_DIR, exist_ok=True)
-DB_PATH = os.path.join(DB_DIR, "kazakh_hub.db")
+DB_PATH = os.path.join(DB_DIR, "codo_hub.db")
+
+# Сайт атауы ауысқанда ескі база файлын жаңа атқа бір рет көшіру
+_LEGACY_DB_PATH = os.path.join(DB_DIR, "kazakh_hub.db")
+if os.path.exists(_LEGACY_DB_PATH) and not os.path.exists(DB_PATH):
+    try:
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            if os.path.exists(_LEGACY_DB_PATH + suffix):
+                os.rename(_LEGACY_DB_PATH + suffix, DB_PATH + suffix)
+    except OSError:
+        DB_PATH = _LEGACY_DB_PATH  # файл бос емес (басқа процесс ашып тұр) — ескі атпен жалғастырамыз
 
 # Create SQLite engine
 engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
@@ -39,6 +49,8 @@ class User(Base):
     locked_until = Column(DateTime, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)  # Соңғы WebSocket қосылымы жабылған уақыт
     burkit_api_key = Column(Text, nullable=True)  # Бүркіттің Gemini кілті — шифрланған (utils/secret_box)
+    # Кім жаза алады: open — бәрі тікелей чатқа, closed — бейтаныстар «сұрауға», friends — тек достар
+    dm_privacy = Column(String(12), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -49,6 +61,7 @@ def init_db():
     _ensure_user_columns()
     _ensure_vibecoding_columns()
     _ensure_group_message_columns()
+    _ensure_story_columns()
     _drop_obsolete_tables()
     print(f"Database initialized at {DB_PATH}")
 
@@ -84,6 +97,8 @@ def _ensure_user_columns():
             conn.execute(text("ALTER TABLE users ADD COLUMN last_seen_at DATETIME"))
         if "burkit_api_key" not in existing:
             conn.execute(text("ALTER TABLE users ADD COLUMN burkit_api_key TEXT"))
+        if "dm_privacy" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN dm_privacy VARCHAR(12)"))
 
 
 def _ensure_vibecoding_columns():
@@ -100,6 +115,56 @@ def _ensure_vibecoding_columns():
             conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN folders TEXT NOT NULL DEFAULT '[]'"))
         if "notes_folder" not in existing:
             conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN notes_folder VARCHAR(1024)"))
+        if "share_token" not in existing:
+            # SQLite ADD COLUMN ... UNIQUE қолдамайды — бірегейлік индекстен
+            conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN share_token VARCHAR(64)"))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_vibecoding_projects_share_token ON vibecoding_projects (share_token)"
+            ))
+
+
+def _ensure_story_columns():
+    """`stories` кестесіне кейін қосылған бағандарды қосу (идемпотентті)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "stories" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("stories")}
+    with engine.begin() as conn:
+        if "reactions" not in existing:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN reactions TEXT NOT NULL DEFAULT '{}'"))
+        if "clicks" not in existing:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN clicks INTEGER NOT NULL DEFAULT 0"))
+        if "mention_id" not in existing:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN mention_id VARCHAR(12)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_stories_mention_id ON stories (mention_id)"))
+        if "mention_kind" not in existing:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN mention_kind VARCHAR(12)"))
+        if "mention_text" not in existing:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN mention_text VARCHAR(300)"))
+        if "status" not in existing:
+            conn.execute(text("ALTER TABLE stories ADD COLUMN status VARCHAR(12)"))
+
+    if "story_opinions" in inspector.get_table_names():
+        opinion_cols = {col["name"] for col in inspector.get_columns("story_opinions")}
+        with engine.begin() as conn:
+            if "evidence" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN evidence TEXT"))
+            if "evidence_project_id" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN evidence_project_id VARCHAR(64)"))
+            if "verdict" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN verdict VARCHAR(300)"))
+            if "status" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN status VARCHAR(12)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_story_opinions_status ON story_opinions (status)"))
+            if "moderator_note" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN moderator_note VARCHAR(500)"))
+            if "moderated_by" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN moderated_by VARCHAR(12)"))
+            if "moderated_at" not in opinion_cols:
+                conn.execute(text("ALTER TABLE story_opinions ADD COLUMN moderated_at DATETIME"))
 
 
 def _ensure_group_message_columns():
@@ -145,6 +210,20 @@ class PasswordReset(Base):
     used = Column(Boolean, default=False)
 
 
+class PendingRegistration(Base):
+    """Тіркелу email кодымен расталғанша күтетін деректер (расталғанда users-ке көшеді)"""
+    __tablename__ = "pending_registrations"
+
+    email = Column(String(255), primary_key=True)
+    username = Column(String(50), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    code_hash = Column(String(64), nullable=False)
+    attempts = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    last_sent_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class VibecodingProject(Base):
     """Vibecoding бетінде жасалған жоба — тек иесіне көрінеді"""
     __tablename__ = "vibecoding_projects"
@@ -155,6 +234,8 @@ class VibecodingProject(Base):
     files = Column(Text, nullable=False, default="[]")  # JSON: [{id, name, path, content, language}]
     folders = Column(Text, nullable=False, default="[]")  # JSON: ["src", "src/utils"] — бос папкалар да сақталады
     notes_folder = Column(String(1024), nullable=True)  # Notes-тағы байланысқан папка (services/project_notes.py)
+    # Бөлісу сілтемесі (/vibecoding/shared/<token>); null — сілтеме жоқ немесе өшірілген
+    share_token = Column(String(64), nullable=True, unique=True, index=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -275,10 +356,57 @@ class Note(Base):
     kind = Column(String(16), nullable=False, default="note")
     content = Column(Text, nullable=False, default="")
     links = Column(Text, nullable=False, default="[]")  # JSON: ["Басқа жазба", ...] — [[сілтеме]] нысандары
-    tags = Column(Text, nullable=False, default="[]")  # JSON: ["идея", "жоба/kazakh-hub"]
+    tags = Column(Text, nullable=False, default="[]")  # JSON: ["идея", "жоба/codo-hub"]
     starred = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class Story(Base):
+    """Басты беттегі сторис (жарнама): фото/видео, жазу және Codo Hub-тағы жобаға сілтеме.
+    expires_at өткен соң көрінбейді (services/story_service.py өшіреді)"""
+    __tablename__ = "stories"
+
+    id = Column(String(36), primary_key=True)
+    author_id = Column(String(12), nullable=False, index=True)
+    media_url = Column(String(500), nullable=False)
+    media_type = Column(String(8), nullable=False)  # image | video | text (фотосыз: media_url = "bg:<фон>")
+    caption = Column(String(300), nullable=True)
+    project_id = Column(String(64), nullable=True)  # codes.id — тек автордың өз жобасы (түбір деңгейдегі)
+    viewers = Column(Text, nullable=False, default="[]")  # JSON: [{id, at}] — кім, қашан көрді
+    reactions = Column(Text, nullable=False, default="{}")  # JSON: {user_id: эмодзи}
+    clicks = Column(Integer, nullable=False, default=0)  # «Жобаға өту» басылған саны
+    # Белгіленген адам және пікір түрі: praise (мақтау) | complaint (шағым)
+    mention_id = Column(String(12), nullable=True, index=True)
+    mention_kind = Column(String(12), nullable=True)
+    mention_text = Column(String(300), nullable=True)  # пікірдің өзі — авторы жазады
+    # pending — модератор тексеруде (басқаларға көрінбейді); бос/published — жарияланған
+    status = Column(String(12), nullable=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+
+class StoryOpinion(Base):
+    """Стористе белгіленген адам туралы пікір (мақтау/шағым) — профильде көрінеді.
+    Сторис 24 сағатта өшсе де пікір қалады; авторы стористі өзі өшірсе — бірге өшеді"""
+    __tablename__ = "story_opinions"
+
+    id = Column(String(36), primary_key=True)
+    story_id = Column(String(36), nullable=True, index=True)
+    author_id = Column(String(12), nullable=False, index=True)
+    target_id = Column(String(12), nullable=False, index=True)
+    kind = Column(String(12), nullable=False)  # praise | complaint
+    text = Column(String(300), nullable=False)
+    # Шағымның дәлелі (мәтін + сол адамның жобасы) және Бүркіттің түсіндірмесі
+    evidence = Column(Text, nullable=True)
+    evidence_project_id = Column(String(64), nullable=True)
+    verdict = Column(String(300), nullable=True)
+    # Шағым күйі: pending (модераторда) | approved (бос та — осы) | rejected | removed
+    status = Column(String(12), nullable=True, index=True)
+    moderator_note = Column(String(500), nullable=True)  # модератор шешімінің себебі
+    moderated_by = Column(String(12), nullable=True)
+    moderated_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
 
 
 class NoteVault(Base):

@@ -2,18 +2,18 @@
    қалқымалы панельдер. Барлық стильдер .vc-page ішінде шектелген. */
 
 .vc-page {
-  --vc-bg: #000;
-  --vc-panel-top: #141414;
-  --vc-panel-bottom: #0c0c0c;
-  --vc-line: #1f1f1f;
-  --vc-border: #262626;
-  --vc-hover: #1a1a1a;
-  --vc-surface: #111;
-  --vc-text: #f5f5f5;
-  --vc-muted: #8f8f8f;
-  --vc-accent: #fafafa;
-  --vc-on-accent: #0a0a0a;
-  --vc-accent-hover: #d4d4d4;
+  --vc-bg: var(--mono-000000);
+  --vc-panel-top: var(--mono-141414);
+  --vc-panel-bottom: var(--mono-0c0c0c);
+  --vc-line: var(--mono-1f1f1f);
+  --vc-border: var(--mono-262626);
+  --vc-hover: var(--mono-1a1a1a);
+  --vc-surface: var(--mono-111111);
+  --vc-text: var(--mono-f5f5f5);
+  --vc-muted: var(--mono-8f8f8f);
+  --vc-accent: var(--mono-fafafa);
+  --vc-on-accent: var(--mono-0a0a0a);
+  --vc-accent-hover: var(--mono-d4d4d4);
   --vc-danger: #f87171;
   --vc-radius: 18px;
   --vc-ease: cubic-bezier(0.32, 0.72, 0, 1);
@@ -48,8 +48,8 @@
   border-radius: var(--vc-radius);
   background: linear-gradient(180deg, var(--vc-panel-top) 0%, var(--vc-panel-bottom) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 40px -16px rgba(0, 0, 0, 0.9);
+    inset 0 1px 0 rgba(var(--mono-ink), 0.04),
+    0 16px 40px -16px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: vcRise 0.5s var(--vc-ease) both;
 }
 
@@ -80,7 +80,7 @@
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: #2e2e2e transparent;
+  scrollbar-color: var(--mono-2e2e2e) transparent;
 }
 
 .vc-count {
@@ -91,11 +91,11 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #1c1c1c;
-  border: 1px solid #2e2e2e;
+  background: var(--mono-1c1c1c);
+  border: 1px solid var(--mono-2e2e2e);
   font-size: 0.75rem;
   font-weight: 700;
-  color: #e5e5e5;
+  color: var(--mono-e5e5e5);
 }
 
 .vc-empty {
@@ -158,7 +158,7 @@
 }
 
 .vc-btn--ghost {
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   border-color: var(--vc-border);
   color: var(--vc-text);
 }
@@ -179,7 +179,7 @@
   position: relative;
   overflow: hidden;
   padding: 0 1.15rem 0 0.95rem;
-  box-shadow: 0 0 0 0 rgba(250, 250, 250, 0.35), 0 8px 24px -10px rgba(250, 250, 250, 0.55);
+  box-shadow: 0 0 0 0 rgba(var(--mono-rgb-250), 0.35), 0 8px 24px -10px rgba(var(--mono-rgb-250), 0.55);
 }
 
 .vc-run::after {
@@ -187,14 +187,14 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.75) 50%, transparent 65%) no-repeat;
+  background: linear-gradient(105deg, transparent 35%, rgba(var(--mono-ink), 0.75) 50%, transparent 65%) no-repeat;
   background-size: 300% 100%;
   background-position: 150% 0;
   animation: vcSheen 3.2s ease-in-out 1s infinite;
 }
 
 .vc-run:hover:not(:disabled) {
-  box-shadow: 0 0 0 4px rgba(250, 250, 250, 0.12), 0 10px 28px -10px rgba(250, 250, 250, 0.7);
+  box-shadow: 0 0 0 4px rgba(var(--mono-rgb-250), 0.12), 0 10px 28px -10px rgba(var(--mono-rgb-250), 0.7);
 }
 
 .vc-like svg path {
@@ -202,8 +202,8 @@
 }
 
 .vc-like.is-liked {
-  border-color: #3a3a3a;
-  background: #1a1a1a;
+  border-color: var(--mono-3a3a3a);
+  background: var(--mono-1a1a1a);
 }
 
 .vc-like.is-liked svg path {
@@ -223,17 +223,17 @@
   justify-content: center;
   padding: 0;
   border-radius: 12px;
-  border: 1px solid #2e2e2e;
-  background: #1c1c1c;
-  color: #e5e5e5;
+  border: 1px solid var(--mono-2e2e2e);
+  background: var(--mono-1c1c1c);
+  color: var(--mono-e5e5e5);
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .vc-icon-btn:hover {
-  background: #242424;
-  border-color: #3a3a3a;
-  color: #fff;
+  background: var(--mono-242424);
+  border-color: var(--mono-3a3a3a);
+  color: var(--mono-ffffff);
 }
 
 .vc-icon-btn--sm {
@@ -270,7 +270,7 @@
 
 .vc-chip-btn:hover:not(:disabled) {
   color: var(--vc-text);
-  border-color: #3a3a3a;
+  border-color: var(--mono-3a3a3a);
 }
 
 .vc-chip-btn:disabled {
@@ -279,8 +279,8 @@
 
 .vc-chip-btn.is-active {
   color: var(--vc-text);
-  background: #1c1c1c;
-  border-color: #3a3a3a;
+  background: var(--mono-1c1c1c);
+  border-color: var(--mono-3a3a3a);
 }
 
 .vc-chip-btn.is-active svg path {
@@ -317,8 +317,8 @@
   flex-direction: column;
   border: 1px solid var(--vc-border);
   border-radius: 14px;
-  background: #121212;
-  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.9);
+  background: var(--mono-121212);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow)));
   animation: vcMenuIn 0.18s var(--vc-ease);
 }
 
@@ -358,11 +358,11 @@
   height: 22px;
   padding: 0 9px;
   border-radius: 999px;
-  border: 1px solid #2e2e2e;
-  background: #161616;
+  border: 1px solid var(--mono-2e2e2e);
+  background: var(--mono-161616);
   font-size: 0.74rem;
   font-weight: 600;
-  color: #d4d4d4;
+  color: var(--mono-d4d4d4);
 }
 
 .vc-tag--lang {
@@ -376,7 +376,7 @@
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: #4a4a4a;
+  background: var(--mono-4a4a4a);
 }
 
 .vc-input {
@@ -384,7 +384,7 @@
   padding: 10px 12px;
   border: 1px solid var(--vc-border);
   border-radius: 12px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   color: var(--vc-text);
   font: inherit;
   font-size: 0.9rem;
@@ -395,12 +395,12 @@
 
 .vc-input:focus {
   outline: none;
-  border-color: #4a4a4a;
-  box-shadow: 0 0 0 3px rgba(250, 250, 250, 0.08);
+  border-color: var(--mono-4a4a4a);
+  box-shadow: 0 0 0 3px rgba(var(--mono-rgb-250), 0.08);
 }
 
 .vc-input::placeholder {
-  color: #5c5c5c;
+  color: var(--mono-5c5c5c);
 }
 
 /* ---------- Жоғарғы панель (hero) ---------- */
@@ -408,32 +408,124 @@
 .vc-hero {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'nav actions'
+    'main main';
   align-items: center;
-  column-gap: 14px;
-  row-gap: 10px;
-  padding: 14px 16px;
+  gap: 14px 16px;
+  padding: 12px 16px 16px;
   overflow: visible;
   z-index: 5;
 }
 
-.vc-hero__mono {
-  width: 48px;
-  height: 48px;
+/* ---- Навигация: артқа + жол көрсеткіші ---- */
+
+.vc-hero__nav {
+  grid-area: nav;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  border: 1px solid #2e2e2e;
-  background: linear-gradient(135deg, #262626, #121212);
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: var(--vc-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  gap: 12px;
 }
 
-.vc-hero__info {
+.vc-back {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--mono-2e2e2e);
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--mono-1f1f1f), var(--mono-141414));
+  box-shadow: inset 0 1px 0 rgba(var(--mono-ink), 0.06), 0 6px 18px -10px rgba(0, 0, 0, 0.8);
+  color: var(--mono-e5e5e5);
+  cursor: pointer;
+  transition: background 0.25s var(--vc-ease), border-color 0.25s var(--vc-ease),
+    color 0.25s var(--vc-ease), transform 0.2s var(--vc-ease);
+}
+
+.vc-back svg {
+  width: 17px;
+  height: 17px;
+  transition: transform 0.3s var(--vc-ease);
+}
+
+/* Үстіне апарғанда — ақ дөңгелек, стрелка солға жылжиды */
+.vc-back:hover {
+  border-color: var(--vc-accent);
+  background: var(--vc-accent);
+  color: var(--vc-on-accent);
+}
+
+.vc-back:hover svg {
+  transform: translateX(-3px);
+}
+
+.vc-back:active {
+  transform: scale(0.92);
+}
+
+.vc-back:focus-visible {
+  outline: 2px solid var(--vc-accent);
+  outline-offset: 2px;
+}
+
+.vc-crumbs {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--vc-muted);
+}
+
+.vc-crumbs__link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.vc-crumbs__link:last-child {
+  color: var(--vc-text);
+  font-weight: 600;
+}
+
+.vc-crumbs__link:hover {
+  color: var(--vc-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.vc-crumbs__sep {
+  color: var(--mono-4a4a4a);
+}
+
+/* ---- Әрекеттер ---- */
+
+.vc-hero__actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- Атауы, сипаттамасы, чиптер ---- */
+
+.vc-hero__main {
+  grid-area: main;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--vc-line);
 }
 
 .vc-hero__title {
@@ -441,58 +533,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1.35rem;
+  font-size: 1.6rem;
   font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-}
-
-.vc-hero__meta {
-  margin-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  font-size: 0.82rem;
-  color: var(--vc-muted);
-}
-
-.vc-hero__author {
-  color: var(--vc-text);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.vc-hero__author:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.vc-hero__stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.vc-hero__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.vc-hero__extra {
-  grid-column: 3 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .vc-hero__desc {
   margin: 0;
-  max-width: 80ch;
+  max-width: 90ch;
   font-size: 0.9rem;
   line-height: 1.55;
-  color: #c4c4c4;
+  color: var(--mono-c4c4c4);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -504,10 +556,72 @@
   overflow: hidden;
 }
 
-.vc-hero__tags {
+.vc-hero__chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+.vc-chip {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--mono-262626);
+  border-radius: 999px;
+  background: var(--mono-121212);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--mono-c4c4c4);
+  white-space: nowrap;
+}
+
+.vc-chip svg {
+  width: 14px;
+  height: 14px;
+  color: var(--vc-muted);
+}
+
+.vc-chip--author {
+  padding-left: 3px;
+  color: var(--vc-text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.vc-chip--author:hover {
+  border-color: var(--mono-3a3a3a);
+  background: var(--vc-hover);
+}
+
+.vc-chip__avatar {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--mono-3a3a3a), var(--mono-1f1f1f));
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--vc-text);
+}
+
+.vc-chip--lang {
+  color: var(--vc-text);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+}
+
+.vc-chip--tag {
+  border-style: dashed;
+  background: transparent;
+  color: var(--vc-muted);
 }
 
 /* ---------- Негізгі тор ---------- */
@@ -550,7 +664,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #cfcfcf;
+  color: var(--mono-cfcfcf);
   font: inherit;
   font-size: 0.86rem;
   text-align: left;
@@ -564,8 +678,8 @@
 }
 
 .vc-tree__row.is-active {
-  background: #1f1f1f;
-  color: #fff;
+  background: var(--mono-1f1f1f);
+  color: var(--mono-ffffff);
   box-shadow: inset 2px 0 0 var(--vc-accent);
 }
 
@@ -608,7 +722,7 @@
 .vc-skeleton span {
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, #1a1a1a 0%, #262626 50%, #1a1a1a 100%);
+  background: linear-gradient(90deg, var(--mono-1a1a1a) 0%, var(--mono-262626) 50%, var(--mono-1a1a1a) 100%);
   background-size: 200% 100%;
   animation: vcShimmer 1.2s linear infinite;
 }
@@ -622,7 +736,7 @@
   gap: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
-  color: #d4d4d4;
+  color: var(--mono-d4d4d4);
 }
 
 .vc-code__path svg {
@@ -637,7 +751,7 @@
 }
 
 .vc-code__body {
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   border-radius: 0 0 var(--vc-radius) var(--vc-radius);
 }
 
@@ -671,12 +785,12 @@
   justify-content: center;
   padding: 1.5rem;
   /* Мөлдір суреттер үшін шахмат фоны */
-  background-color: #0a0a0a;
+  background-color: var(--mono-0a0a0a);
   background-image:
-    linear-gradient(45deg, #121212 25%, transparent 25%),
-    linear-gradient(-45deg, #121212 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #121212 75%),
-    linear-gradient(-45deg, transparent 75%, #121212 75%);
+    linear-gradient(45deg, var(--mono-121212) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--mono-121212) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--mono-121212) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--mono-121212) 75%);
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
@@ -685,7 +799,7 @@
   max-width: 100%;
   max-height: 70vh;
   border-radius: 10px;
-  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, calc(0.8 * var(--mono-shadow)));
 }
 
 /* ---------- Пікірлер ---------- */
@@ -707,7 +821,7 @@
 }
 
 .vc-comment:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--mono-ink), 0.02);
 }
 
 .vc-comment.is-reply {
@@ -726,8 +840,8 @@
   justify-content: center;
   overflow: hidden;
   border-radius: 50%;
-  border: 1px solid #2e2e2e;
-  background: #1c1c1c;
+  border: 1px solid var(--mono-2e2e2e);
+  background: var(--mono-1c1c1c);
   color: var(--vc-text);
   font-size: 0.85rem;
   font-weight: 800;
@@ -791,7 +905,7 @@
 
 .vc-comment__quote strong {
   flex-shrink: 0;
-  color: #d4d4d4;
+  color: var(--mono-d4d4d4);
 }
 
 .vc-comment__quote span {
@@ -803,7 +917,7 @@
 .vc-comment__text {
   font-size: 0.88rem;
   line-height: 1.55;
-  color: #e5e5e5;
+  color: var(--mono-e5e5e5);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -843,13 +957,13 @@
   padding: 8px;
   border: 1px solid var(--vc-border);
   border-radius: 16px;
-  background: #0a0a0a;
+  background: var(--mono-0a0a0a);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .vc-composer:focus-within {
-  border-color: #3a3a3a;
-  box-shadow: 0 0 0 3px rgba(250, 250, 250, 0.05);
+  border-color: var(--mono-3a3a3a);
+  box-shadow: 0 0 0 3px rgba(var(--mono-rgb-250), 0.05);
 }
 
 .vc-composer__row {
@@ -893,7 +1007,7 @@
 }
 
 .vc-composer__input::placeholder {
-  color: #5c5c5c;
+  color: var(--mono-5c5c5c);
 }
 
 .vc-send {
@@ -928,7 +1042,7 @@
   margin: 0 0 8px;
   padding: 6px 6px 6px 10px;
   border-radius: 10px;
-  background: #161616;
+  background: var(--mono-161616);
   font-size: 0.78rem;
   color: var(--vc-muted);
 }
@@ -943,25 +1057,6 @@
 
 .vc-composer__reply strong {
   color: var(--vc-text);
-}
-
-.vc-composer__preview {
-  position: relative;
-  display: inline-block;
-  margin: 0 0 8px;
-}
-
-.vc-composer__preview img {
-  display: block;
-  max-height: 96px;
-  border-radius: 10px;
-  border: 1px solid var(--vc-border);
-}
-
-.vc-composer__preview .vc-icon-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
 }
 
 .vc-composer--guest {
@@ -1003,7 +1098,7 @@
   font-weight: 900;
   letter-spacing: -0.04em;
   line-height: 1;
-  background: linear-gradient(180deg, #fafafa, #3a3a3a);
+  background: linear-gradient(180deg, var(--mono-fafafa), var(--mono-3a3a3a));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1013,7 +1108,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #262626;
+  border: 2px solid var(--mono-262626);
   border-top-color: var(--vc-accent);
   animation: vcSpin 0.8s linear infinite;
 }
@@ -1041,8 +1136,8 @@
   padding: 18px;
   border: 1px solid var(--vc-border);
   border-radius: 20px;
-  background: linear-gradient(180deg, #161616 0%, #0c0c0c 100%);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(180deg, var(--mono-161616) 0%, var(--mono-0c0c0c) 100%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, calc(0.6 * var(--mono-shadow)));
   animation: vcRise 0.3s var(--vc-ease);
 }
 
@@ -1140,7 +1235,7 @@
   }
 
   .vc-hero__title {
-    font-size: 1.2rem;
+    font-size: 1.35rem;
   }
 }
 
@@ -1178,7 +1273,7 @@
     padding: 4px;
     border: 1px solid var(--vc-line);
     border-radius: 14px;
-    background: rgba(12, 12, 12, 0.85);
+    background: rgba(var(--mono-rgb-12), 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
@@ -1205,9 +1300,9 @@
   }
 
   .vc-tabs__item.is-active {
-    background: #1f1f1f;
+    background: var(--mono-1f1f1f);
     color: var(--vc-text);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 0 rgba(var(--mono-ink), 0.05);
   }
 
   .vc-tabs__item:focus-visible {
@@ -1223,9 +1318,9 @@
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    background: #262626;
+    background: var(--mono-262626);
     font-size: 0.7rem;
-    color: #e5e5e5;
+    color: var(--mono-e5e5e5);
   }
 
   .vc-body,
@@ -1280,42 +1375,37 @@
     --vc-radius: 16px;
   }
 
+  /* Телефонда: навигация · атауы · әрекеттер (төменгі жолда, «Іске қосу» қалған енді алады) */
   .vc-hero {
-    grid-template-columns: auto minmax(0, 1fr);
-    padding: 12px;
-    column-gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'nav'
+      'main'
+      'actions';
+    gap: 12px;
+    padding: 10px 12px 12px;
   }
 
-  .vc-hero__mono {
-    display: none;
+  .vc-hero__main {
+    padding-top: 12px;
+    gap: 8px;
   }
 
   .vc-hero__title {
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
 
-  .vc-hero__meta {
-    font-size: 0.78rem;
-    gap: 4px 8px;
-  }
-
-  .vc-hero__extra {
-    grid-column: 1 / -1;
-    order: 11;
-  }
-
   .vc-hero__desc {
     font-size: 0.86rem;
   }
 
-  /* Әрекеттер — төменгі жолда, «Іске қосу» қалған енді алады */
-  .vc-hero__actions {
-    grid-column: 1 / -1;
-    order: 10;
+  .vc-chip {
+    height: 26px;
+    font-size: 0.74rem;
   }
 
   .vc-hero__actions .vc-run {
@@ -1446,7 +1536,8 @@
 
 /* Аласа экран (ландшафт телефон): жоғарғы панель ықшам */
 @media (max-height: 520px) and (orientation: landscape) {
-  .vc-hero__extra {
+  .vc-hero__desc,
+  .vc-chip--tag {
     display: none;
   }
 
@@ -1469,10 +1560,25 @@
     animation: none;
   }
 
+  .vc-back,
+  .vc-back svg {
+    transition: none;
+  }
+
+  .vc-back:hover svg {
+    transform: none;
+  }
+
   .vc-btn,
   .vc-send,
   .vc-tabs__item,
   .vc-tree__chevron {
     transition: none;
   }
+}
+
+/* Іске қосу панелі ашық — файлдар/код/пікірлер жасырылады (күйі сақталады) */
+.vc-page.is-running > .vc-tabs,
+.vc-page.is-running > .vc-body {
+  display: none;
 }

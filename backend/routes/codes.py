@@ -4,8 +4,13 @@ from typing import Optional, List
 import json
 import base64
 import mimetypes
+import time
+from starlette.datastructures import UploadFile as StarletteUploadFile
+from starlette.formparsers import MultiPartException
+from config import MAX_PROJECT_FILES, MAX_MANIFEST_BYTES
 from models import CodeCreate, CodeUpdate, CommentCreate, CommentUpdate, ViewRequest, DeleteMultipleRequest
 from services.code_service import CodeService
+from utils.upload_rules import classify_upload_path, SKIP_MESSAGES
 from utils.auth import get_current_user
 from db import User
 from slowapi import Limiter
@@ -50,13 +55,33 @@ async def create_code(request: Request, code_data: CodeCreate, user: User = Depe
         # author is always the authenticated user (prevents attribution spoofing
         # and the ownership checks on edit/delete being set to someone else).
         code_dict['author'] = user.username
+        # Жалғыз файл да папкадағыдай ережемен: тек код, пакет/кэш/құпия/бинарлы емес
+        kind = classify_upload_path(code_dict.get('title') or '')
+        if kind:
+            raise ValueError(SKIP_MESSAGES[kind])
         return CodeService.create_code(code_dict)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import logging
-        logging.getLogger("kazakh_hub").error(f"Code creation error: {e}")
+        logging.getLogger("codo_hub").error(f"Code creation error: {e}")
         raise HTTPException(status_code=500, detail="Қате орын алды! Сервер қатесі.")
+
+
+def _inner_path(path: str) -> str:
+    """«жоба/src/a.py» → «src/a.py»: түбірлік папканың аты тексеріске кірмейді"""
+    parts = path.replace('\\', '/').split('/', 1)
+    return parts[1] if len(parts) == 2 else parts[0]
+
+
+def _structure_skipped(key: str, value) -> bool:
+    """Структурадағы өткізілген файл немесе қоқыс папкасы (node_modules т.б.)"""
+    inner = _inner_path(key)
+    if inner == key and '/' not in key.replace('\\', '/'):
+        return False  # түбірлік папканың өзі
+    if isinstance(value, dict) and value.get('type') == 'folder':
+        return classify_upload_path(f"{inner}/_") == 'junk'
+    return classify_upload_path(inner) is not None
 
 
 # Сурет кеңейтімдері — content-ті data-URL (base64) ретінде сақтау үшін
@@ -65,12 +90,7 @@ _IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico'}
 
 @router.post("/codes/folder")
 @limiter.limit("30/minute")
-async def create_folder(
-    request: Request,
-    manifest: str = Form(...),
-    files: List[UploadFile] = File(...),
-    user: User = Depends(get_current_user),
-):
+async def create_folder(request: Request, user: User = Depends(get_current_user)):
     """Бүтін папканы бір сұраумен жүктеу.
 
     Frontend бір multipart сұрау жібереді:
@@ -80,8 +100,20 @@ async def create_folder(
 
     Бет әр файл үшін жеке сұрау жасамайды (және файл мазмұнын оқымайды) —
     контейнер + барлық ішкі файлдарды сервер құрып шығарады.
+    Форма қолмен оқылады: Starlette-тің әдепкі шегі (1000 файл, 1 МБ өріс) үлкен жобаға жетпейді.
     """
+    started = time.perf_counter()
     try:
+        try:
+            form = await request.form(
+                max_files=MAX_PROJECT_FILES, max_fields=10, max_part_size=MAX_MANIFEST_BYTES
+            )
+        except MultiPartException as e:
+            raise HTTPException(status_code=400, detail=f"{e.message} (шегі: {MAX_PROJECT_FILES} файл)")
+        manifest = form.get('manifest')
+        files = [f for f in form.getlist('files') if isinstance(f, StarletteUploadFile)]
+        if not isinstance(manifest, str):
+            raise HTTPException(status_code=400, detail="manifest жоқ")
         try:
             manifest_data = json.loads(manifest)
         except json.JSONDecodeError:
@@ -98,10 +130,36 @@ async def create_folder(
                       f"жіберілген={len(files)}"
             )
 
+        # Кэш/қоқыс (node_modules, __pycache__…) үнсіз, құпия (.env) мен бинарлы файлдар —
+        # тізіммен өткізіледі. Тексеріс түбірлік папкасыз жолмен (жоба «build» деп аталуы мүмкін)
+        pairs = []
+        skipped: List[str] = []
+        junk_skipped = 0
+        for entry, upload in zip(file_entries, files):
+            path = entry.get('path') or upload.filename or entry.get('name', 'file')
+            kind = classify_upload_path(_inner_path(path))
+            if kind == 'junk':
+                junk_skipped += 1
+            elif kind:
+                skipped.append(path)
+            else:
+                pairs.append((entry, upload))
+        if not pairs:
+            raise HTTPException(
+                status_code=400,
+                detail="Жүктейтін файл қалмады: бәрі кэш, құпия немесе бинарлы файлдар"
+                       + (f" ({', '.join(skipped[:10])})" if skipped else ""),
+            )
+
+        structure = {
+            key: value for key, value in (manifest_data.get('structure') or {}).items()
+            if not _structure_skipped(key, value)
+        }
+
         # Контейнер мазмұны (структура метаақпараты)
         folder_content = json.dumps({
-            'structure': manifest_data.get('structure', {}),
-            'fileCount': len(file_entries),
+            'structure': structure,
+            'fileCount': len(pairs),
         }, ensure_ascii=False, indent=2)
 
         folder_data = {
@@ -111,12 +169,12 @@ async def create_folder(
             'author': user.username,
             'description': manifest_data.get('description'),
             'tags': manifest_data.get('tags') or ['folder'],
-            'folderStructure': manifest_data.get('structure'),
+            'folderStructure': structure,
         }
 
         # Әр файл үшін контент дайындау (сервердің өзі оқиды — frontend оқымайды)
         files_data = []
-        for entry, upload in zip(file_entries, files):
+        for entry, upload in pairs:
             raw = await upload.read()
             if raw is None:
                 raw = b''
@@ -145,14 +203,18 @@ async def create_folder(
                 'folderPath': path,
             })
 
-        return CodeService.create_folder_batch(folder_data, files_data)
+        result = CodeService.create_folder_batch(folder_data, files_data)
+        result['skipped'] = skipped
+        result['junkSkipped'] = junk_skipped
+        result['serverMs'] = round((time.perf_counter() - started) * 1000)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
         import logging
-        logging.getLogger("kazakh_hub").error(f"Folder upload error: {e}")
+        logging.getLogger("codo_hub").error(f"Folder upload error: {e}")
         raise HTTPException(status_code=500, detail="Қате орын алды! Сервер қатесі.")
 
 
