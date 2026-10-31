@@ -632,7 +632,7 @@ const ForwardModal: React.FC<{
       <div className="cht-modal cht-ma-fwdmodal" role="dialog" aria-modal="true" aria-labelledby="cht-fwd-title">
         <div className="cht-modal__head">
           <h2 id="cht-fwd-title">{t('chat.actions.forwardTitle')}</h2>
-          <button type="button" className="cht-icon-btn" onClick={onClose} aria-label={t('common.close')}>
+          <button type="button" className="cht-icon-btn x-close" onClick={onClose} aria-label={t('common.close')}>
             <CloseIcon size={16} />
           </button>
         </div>

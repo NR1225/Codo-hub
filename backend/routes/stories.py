@@ -13,8 +13,10 @@ from fastapi import HTTPException
 from services import opinion_service
 from services.story_service import StoryService
 from utils.auth import get_current_user, get_optional_user
+from utils.signed_route import SignedMediaRoute
 
-router = APIRouter()
+# Жауаптағы файл сілтемелері қарап отырған адамға қол қойылып беріледі
+router = APIRouter(route_class=SignedMediaRoute)
 limiter = Limiter(key_func=get_remote_address)
 
 

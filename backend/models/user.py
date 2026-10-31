@@ -7,7 +7,8 @@ from utils.validators import validate_email
 class UserRegister(BaseModel):
     username: str = Field(min_length=2, max_length=50, pattern=r'^[a-zA-Z0-9_Ѐ-ӿ]+$')
     email: str = Field(max_length=255)
-    password: str = Field(min_length=8, max_length=128)
+    # Құпия сөз жоқ — кіру әрқашан email кодымен (ескі клиенттер жіберсе, еленбейді)
+    password: Optional[str] = Field(default=None, max_length=128)
     captcha_token: Optional[str] = Field(default=None, max_length=2048)
 
     @field_validator('email')
@@ -23,7 +24,7 @@ class FirebaseLogin(BaseModel):
 class UserLogin(BaseModel):
     email: Optional[str] = Field(default=None, max_length=255)
     username: Optional[str] = Field(default=None, max_length=50)
-    password: str = Field(max_length=128)
+    password: Optional[str] = Field(default=None, max_length=128)  # қолданылмайды
     captcha_token: Optional[str] = Field(default=None, max_length=2048)
 
     @field_validator('email')
@@ -32,11 +33,6 @@ class UserLogin(BaseModel):
         if v is not None:
             return validate_email(v)
         return v
-
-
-class ChangePassword(BaseModel):
-    currentPassword: str = Field(max_length=128)
-    newPassword: str = Field(min_length=8, max_length=128)
 
 
 class UserUpdate(BaseModel):
@@ -74,26 +70,12 @@ class RegisterResend(BaseModel):
         return validate_email(v)
 
 
-class ForgotPasswordRequest(BaseModel):
-    email: str = Field(max_length=255)
-
-    @field_validator('email')
-    @classmethod
-    def validate_email(cls, v):
-        return validate_email(v)
-
-
-class ResetPasswordRequest(BaseModel):
-    token: str = Field(max_length=200)
-    new_password: str = Field(min_length=8, max_length=128)
-
-
 class TwoFASetupVerify(BaseModel):
     code: str = Field(max_length=6, pattern=r'^\d{6}$')
 
 
 class TwoFADisable(BaseModel):
-    password: str = Field(max_length=128)
+    code: str = Field(pattern=r'^\d{6}$')  # Authenticator-дағы ағымдағы код
 
 
 class TwoFALoginVerify(BaseModel):

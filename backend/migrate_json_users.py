@@ -2,14 +2,12 @@
 import json
 import os
 from db import SessionLocal, User
-from utils.password import hash_password
 
 
 def migrate_json_users():
     """One-time migration of JSON-stored users to SQL database"""
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     users_file = os.path.join(data_dir, "users.json")
-    passwords_file = os.path.join(data_dir, "passwords.json")
 
     if not os.path.exists(users_file):
         print("No users.json found, skipping migration")
@@ -23,12 +21,6 @@ def migrate_json_users():
         if not json_users:
             print("No users in users.json, skipping migration")
             return
-
-        # Load JSON passwords
-        passwords = {}
-        if os.path.exists(passwords_file):
-            with open(passwords_file, 'r', encoding='utf-8') as f:
-                passwords = json.load(f)
 
         migrated = 0
         skipped = 0
@@ -49,22 +41,11 @@ def migrate_json_users():
                 skipped += 1
                 continue
 
-            # Determine password hash
-            password_hash = None
-            if email in passwords:
-                pwd = passwords[email]
-                if pwd and pwd.startswith("$2b$"):
-                    # Already a bcrypt hash
-                    password_hash = pwd
-                elif pwd:
-                    # Plaintext — hash it
-                    password_hash = hash_password(pwd)
-
             new_user = User(
                 id=user_id,
                 username=user_data.get("username", email.split("@")[0]),
                 email=email,
-                password_hash=password_hash,
+                password_hash=None,  # кіру тек email кодымен
                 avatar=user_data.get("avatar"),
                 bio=user_data.get("bio"),
             )

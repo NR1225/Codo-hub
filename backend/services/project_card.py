@@ -23,8 +23,14 @@ def _load_files(raw: Optional[str]) -> list:
     return value if isinstance(value, list) else []
 
 
-def _repo_card(project_id: str) -> Dict[str, Any]:
+def _repo_card(db: Session, sender_id: str, project_id: str) -> Dict[str, Any]:
     code = next((c for c in codes if c.get("id") == project_id and not c.get("folderId")), None)
+    if code and code.get("isPrivate"):
+        # Жабық жобамен тек оны көре алатын адам (иесі не мүшесі) бөлісе алады
+        from services.code_service import CodeService
+        sender = db.query(User).filter(User.id == sender_id).first()
+        if not CodeService.can_view(code, sender.username if sender else None):
+            code = None
     if not code:
         raise HTTPException(status_code=404, detail="Repository not found")
     structure = code.get("folderStructure") or {}
@@ -77,7 +83,7 @@ def build_project_metadata(db: Session, sender_id: str, metadata: Optional[Dict[
     if not isinstance(project_id, str) or not project_id or len(project_id) > 64:
         raise HTTPException(status_code=400, detail="Invalid project")
     if kind == "repo":
-        return _repo_card(project_id)
+        return _repo_card(db, sender_id, project_id)
     if kind == "vibe":
         return _vibe_card(db, sender_id, project_id, bool(metadata.get("invite")))
     raise HTTPException(status_code=400, detail="Invalid project kind")

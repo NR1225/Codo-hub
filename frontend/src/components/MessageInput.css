@@ -218,7 +218,7 @@
 
 .message-attach-item:hover .message-attach-item__icon,
 .message-attach-item:focus-visible .message-attach-item__icon {
-  background: var(--home-accent, var(--mono-fafafa));
+  background: #b6b6b8;
   box-shadow: none;
   color: var(--home-on-accent, var(--mono-0a0a0a));
   transform: translateY(-2px) scale(1.06);
@@ -299,11 +299,10 @@
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: var(--home-accent, var(--mono-fafafa));
-  color: var(--home-on-accent, var(--mono-0a0a0a));
+  background: none;
+  color: var(--text-primary, var(--mono-f5f5f5));
   cursor: pointer;
-  box-shadow: 0 4px 14px -4px rgba(var(--mono-ink), 0.35);
-  transition: background-color 0.15s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .message-send-btn svg {
@@ -311,8 +310,7 @@
 }
 
 .message-send-btn:hover:not(:disabled) {
-  background: var(--primary-hover, var(--mono-d4d4d4));
-  transform: scale(1.06);
+  transform: scale(1.12);
 }
 
 .message-send-btn:hover:not(:disabled) svg {
@@ -329,9 +327,7 @@
 }
 
 .message-send-btn:disabled {
-  background: var(--mono-222222);
   color: var(--mono-555555);
-  box-shadow: none;
   cursor: not-allowed;
 }
 

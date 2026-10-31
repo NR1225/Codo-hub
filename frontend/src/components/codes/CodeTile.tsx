@@ -3,14 +3,22 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CodeFile } from '../../utils/api';
 import { formatDate } from '../../utils/dateFormatter';
-import { FileIcon, FolderIcon, HeartIcon, CommentIcon, EyeIcon } from '../home/icons';
+import { FileIcon, FolderIcon, HeartIcon, CommentIcon, EyeIcon, LockIcon } from '../home/icons';
 import { monogram } from '../home/monogram';
 import { ViewMode, codeSnippet, folderEntries, isLivePreviewable } from './codeUtils';
 import CodeLivePreview from './CodeLivePreview';
 
 /* ---------- Код картасы ---------- */
 
-const CodeTile: React.FC<{ code: CodeFile; index: number; view: ViewMode }> = ({ code, index, view }) => {
+interface CodeTileProps {
+  code: CodeFile;
+  index: number;
+  view: ViewMode;
+  /** Иесінің мәзірі (⋮) — сілтеменің ішінде емес, картаның үстінде тұрады */
+  menu?: React.ReactNode;
+}
+
+const CodeTile: React.FC<CodeTileProps> = ({ code, index, view, menu }) => {
   const { t } = useTranslation();
   const snippet = codeSnippet(code);
   const folder = folderEntries(code);
@@ -18,10 +26,10 @@ const CodeTile: React.FC<{ code: CodeFile; index: number; view: ViewMode }> = ({
   const comments = code.comments?.length ?? 0;
   const views = code.views ?? code.viewedBy?.length ?? 0;
 
-  return (
+  const card = (
     <Link
       to={`/view/${code.id}`}
-      className={`cdx-card cdx-card--${view} ${code.isFolder ? 'is-folder' : ''}`}
+      className={`cdx-card cdx-card--${view} ${code.isFolder ? 'is-folder' : ''} ${menu ? 'has-menu' : ''}`}
       // Кезекпен пайда болу анимациясы
       style={{ '--d': Math.min(index, 12) } as React.CSSProperties}
     >
@@ -32,6 +40,12 @@ const CodeTile: React.FC<{ code: CodeFile; index: number; view: ViewMode }> = ({
         <div className="cdx-card__titles">
           <h3 className="cdx-card__title">{code.title}</h3>
           <span className="cdx-card__meta">
+            {code.isPrivate && (
+              <span className="cdx-card__private" title={t('projectVisibility.privateHint')}>
+                <LockIcon size={12} />
+                {t('projectVisibility.privateBadge')}
+              </span>
+            )}
             <span className="cdx-card__author">{code.author}</span>
             <span aria-hidden="true">·</span>
             <time dateTime={code.createdAt}>{formatDate(code.createdAt)}</time>
@@ -60,7 +74,7 @@ const CodeTile: React.FC<{ code: CodeFile; index: number; view: ViewMode }> = ({
             <p className="cdx-card__desc">{code.description}</p>
           )}
           {/* Веб-код болса — үзіндінің үстінен іске қосылған беті шығады */}
-          {isLivePreviewable(code) && <CodeLivePreview codeId={code.id} title={code.title} />}
+          {isLivePreviewable(code) && <CodeLivePreview codeId={code.id} title={code.title} isPrivate={code.isPrivate} />}
         </div>
       )}
 
@@ -90,6 +104,14 @@ const CodeTile: React.FC<{ code: CodeFile; index: number; view: ViewMode }> = ({
         </span>
       </div>
     </Link>
+  );
+
+  if (!menu) return card;
+  return (
+    <div className="cdx-card-wrap">
+      {card}
+      <div className="cdx-card__menu">{menu}</div>
+    </div>
   );
 };
 

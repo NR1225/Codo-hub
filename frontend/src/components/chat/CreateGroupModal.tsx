@@ -55,7 +55,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserId, sugg
       >
         <div className="cht-modal__head">
           <h2>{t('chat.group.createGroup')}</h2>
-          <button type="button" className="cht-icon-btn" onClick={onClose} aria-label={t('common.close')}>
+          <button type="button" className="cht-icon-btn x-close" onClick={onClose} aria-label={t('common.close')}>
             <CloseIcon size={16} />
           </button>
         </div>

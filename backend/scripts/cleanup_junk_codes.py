@@ -51,7 +51,7 @@ def structure_skipped(key: str, value, root: str | None) -> bool:
     inner = inner_path(key, root)
     if isinstance(value, dict) and value.get("type") == "folder":
         return classify_upload_path(f"{inner}/_") == "junk"
-    return classify_upload_path(inner) is not None
+    return classify_upload_path(inner) == "junk"
 
 
 def backup(db_path: str) -> str:
@@ -96,7 +96,8 @@ def main() -> None:
             continue
         path = d.get("folderPath") or d.get("title") or ""
         kind = classify_upload_path(inner_path(path, roots.get(folder_id)) if folder_id else path)
-        if not kind:
+        # Құпия/база/бинарлы файлдар енді қорғалып сақталады — тек қоқыс жойылады
+        if kind != "junk":
             continue
         doomed.append(code_id)
         by_kind[kind] += 1

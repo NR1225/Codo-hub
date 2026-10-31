@@ -8,14 +8,16 @@ from services.message_extras import build_poll_metadata, build_sticker_metadata,
 from services.user_lookup import find_public_user
 from services.forward_service import forward_message
 from services.friend_service import FriendService
-from services.upload_service import save_chat_attachment
+from services.upload_service import dm_scope, save_chat_attachment, strip_client_attachments
 from services.project_card import build_project_metadata
 from utils.auth import get_current_user, verify_user_access
+from utils.signed_route import SignedMediaRoute
 from db import SessionLocal, User
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-router = APIRouter()
+# Жауаптағы файл сілтемелері қарап отырған адамға қол қойылып беріледі
+router = APIRouter(route_class=SignedMediaRoute)
 limiter = Limiter(key_func=get_remote_address)
 
 
@@ -83,7 +85,7 @@ async def create_message(request: Request, message_data: MessageCreate, user: Us
             content=content,
             are_friends=True,
             message_type=message_data.type or "text",
-            attachments=message_data.attachments,
+            attachments=strip_client_attachments(message_data.attachments),
             metadata=metadata,
             extra={**_reply_extra(user.id, message_data.toUserId, message_data.replyToId), **delivery},
         )
@@ -110,7 +112,7 @@ async def upload_file(
         delivery = FriendService.delivery_extra(user.id, toUserId)
         reply_extra = _reply_extra(user.id, toUserId, replyToId)
 
-        attachment = await save_chat_attachment(file, messageType)
+        attachment = await save_chat_attachment(file, messageType, dm_scope(user.id, toUserId))
 
         # Parse metadata if provided
         metadata_dict = {}

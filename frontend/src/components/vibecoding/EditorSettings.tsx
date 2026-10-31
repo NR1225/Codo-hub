@@ -61,7 +61,7 @@ const EditorSettingsPanel: React.FC<EditorSettingsProps> = ({ onClose }) => {
           <SettingsIcon size={14} />
         </span>
         <span className="vibe-settings-head-title">{t('vibecoding.settings.title', 'Редактор баптаулары')}</span>
-        <button type="button" className="vx-icon-btn vx-icon-btn--sm" onClick={onClose} title="Жабу">
+        <button type="button" className="vx-icon-btn vx-icon-btn--sm x-close" onClick={onClose} title="Жабу">
           <CloseIcon size={12} />
         </button>
       </div>

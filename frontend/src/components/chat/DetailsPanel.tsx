@@ -39,7 +39,7 @@ const DetailsPanel: React.FC<DetailsPanelProps> = ({ title, onClose, children, f
       <aside className="cht-details" aria-label={title}>
         <div className="cht-details__head">
           <h2>{title}</h2>
-          <button ref={closeRef} type="button" className="cht-icon-btn" onClick={onClose} aria-label={t('common.close')}>
+          <button ref={closeRef} type="button" className="cht-icon-btn x-close" onClick={onClose} aria-label={t('common.close')}>
             <CloseIcon size={16} />
           </button>
         </div>

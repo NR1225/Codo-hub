@@ -9,6 +9,7 @@ import { useToast } from '../../contexts/ToastContext';
 import StoryViewer from './stories/StoryViewer';
 import StoryComposer from './stories/StoryComposer';
 import { avatarSrc, firstUnseenIndex, isGroupSeen, readSeen, sortGroups, writeSeen } from './stories/storyUtils';
+import { imageStorage } from '../../utils/imageStorage';
 import './stories/Stories.css';
 
 /* Басты беттегі сторис — қолданушылар өздері жариялайтын жарнама:
@@ -17,6 +18,13 @@ import './stories/Stories.css';
 interface HomeStoriesProps {
   codes: CodeFile[];
 }
+
+const StoryAvatar: React.FC<{ avatar: string | null | undefined; name: string }> = ({ avatar, name }) => {
+  const src = avatarSrc(avatar);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return src && !failed ? <img src={src} alt="" onError={() => setFailed(true)} /> : <>{name.charAt(0).toUpperCase()}</>;
+};
 
 const HomeStories: React.FC<HomeStoriesProps> = ({ codes }) => {
   const { t } = useTranslation();
@@ -136,11 +144,19 @@ const HomeStories: React.FC<HomeStoriesProps> = ({ codes }) => {
     }
   };
 
-  // Дөңгелекте — тек профиль суреті (жоқ болса — аттың бірінші әрпі)
-  const renderAvatar = (avatar: string | null | undefined, name: string) => {
-    const src = avatarSrc(avatar);
-    return src ? <img src={src} alt="" /> : name.charAt(0).toUpperCase();
-  };
+  // Дөңгелекте — тек профиль суреті (жоқ болса не жүктелмесе — аттың бірінші әрпі)
+  // Header сияқты: өз аватарымыз браузердің imageStorage-ында сақталуы мүмкін
+  const [ownAvatar, setOwnAvatar] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    let alive = true;
+    imageStorage.getImage(`avatar-${user.id}`).then((img) => alive && setOwnAvatar(img || null)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, user?.avatar]);
+
+  const renderAvatar = (avatar: string | null | undefined, name: string) => <StoryAvatar avatar={avatar} name={name} />;
 
   const others = groups.map((g, i) => ({ g, i })).filter(({ i }) => i !== ownGroupIndex);
 
@@ -153,7 +169,7 @@ const HomeStories: React.FC<HomeStoriesProps> = ({ codes }) => {
             <div className={`hs-item ${isGroupSeen(ownGroup, seen) ? 'is-seen' : ''}`}>
               <button type="button" className="hs-item__hit" onClick={() => openGroup(ownGroupIndex)} aria-label={t('home.yourStory')}>
                 <span className="hs-ring">
-                  <span className="hs-bubble hs-bubble--avatar">{renderAvatar(ownGroup.avatar ?? user?.avatar, ownGroup.author)}</span>
+                  <span className="hs-bubble hs-bubble--avatar">{renderAvatar(ownAvatar ?? ownGroup.avatar ?? user?.avatar, ownGroup.author)}</span>
                 </span>
                 <span className="hs-item__name">{t('home.yourStory')}</span>
               </button>
@@ -165,7 +181,7 @@ const HomeStories: React.FC<HomeStoriesProps> = ({ codes }) => {
             <button type="button" className="hs-item hs-item--new" onClick={startCompose}>
               <span className="hs-ring">
                 {user ? (
-                  <span className="hs-bubble hs-bubble--avatar">{renderAvatar(user.avatar, user.username)}</span>
+                  <span className="hs-bubble hs-bubble--avatar">{renderAvatar(ownAvatar ?? user.avatar, user.username)}</span>
                 ) : (
                   <span className="hs-bubble"><FontAwesomeIcon icon={faPlus} /></span>
                 )}

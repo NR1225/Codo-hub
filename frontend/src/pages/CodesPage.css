@@ -949,6 +949,29 @@ a.cdx-row {
   opacity: 0.6;
 }
 
+/* Тізім соңы: көрінгенде келесі 30 жоба жүктеледі (useLoadMoreSentinel) */
+.cdx-more {
+  display: flex;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 0;
+}
+
+.cdx-more__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--cdx-line-strong);
+  border-top-color: var(--cdx-muted);
+  border-radius: 50%;
+  animation: cdxSpin 0.8s linear infinite;
+}
+
+@keyframes cdxSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ---------- Код картасы ---------- */
 
 .cdx-card {
@@ -1010,17 +1033,16 @@ a.cdx-row {
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: linear-gradient(145deg, var(--mono-2c2c2c), var(--mono-191919));
-  box-shadow: inset 0 0 0 1px rgba(var(--mono-ink), 0.07);
-  color: var(--mono-ededed);
+  background: var(--mono-141414);
+  box-shadow: inset 0 0 0 1.5px var(--mono-2e2e2e);
+  color: var(--mono-ffffff);
   font-size: 0.9rem;
   font-weight: 800;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.3s var(--cdx-spring);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.3s var(--cdx-spring);
 }
 
 .cdx-card:hover .cdx-card__mono {
-  background: var(--home-accent);
-  color: var(--home-on-accent);
+  box-shadow: inset 0 0 0 1.5px var(--mono-ffffff);
   transform: rotate(-6deg) scale(1.05);
 }
 
@@ -1078,6 +1100,48 @@ a.cdx-row {
   text-transform: uppercase;
 }
 
+/* Жабық жоба белгісі (тек иесі мен мүшелері көреді) */
+.cdx-card__private {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px 1px 5px;
+  border-radius: 999px;
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1px var(--mono-2a2a2a);
+  color: var(--mono-cfcfcf);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* Иесінің мәзірі бар карта: ⋮ батырмасы сілтеменің сыртында, оң жақ жоғарғы бұрышта */
+.cdx-card-wrap {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cdx-card-wrap > .cdx-card {
+  flex: 1;
+}
+
+.cdx-card-wrap:focus-within,
+.cdx-card-wrap:has(.is-open) {
+  z-index: 5;
+}
+
+.cdx-card.has-menu .cdx-card__head {
+  padding-right: 34px;
+}
+
+.cdx-card__menu {
+  position: absolute;
+  top: 17px;
+  right: 12px;
+}
+
 /* Код үзіндісі — редактор терезесі сияқты */
 .cdx-card__preview {
   position: relative;
@@ -1115,6 +1179,16 @@ a.cdx-row {
   visibility: hidden;
   pointer-events: none;
   transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+
+/* Дөңгелек шеттегі ақшыл жиекті карта түсімен жабады */
+.cdx-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--mono-141414);
+  pointer-events: none;
 }
 
 .cdx-live.is-ready {

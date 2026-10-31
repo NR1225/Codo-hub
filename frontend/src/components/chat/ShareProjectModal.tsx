@@ -35,8 +35,8 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({ username, onClose
 
   useEffect(() => {
     apiService
-      .getCodeFiles(undefined, 1000, 0, false)
-      .then((res) => setRepos(res.codes.filter((c) => c.author === username && !c.folderId)))
+      .getAllCodesBy(username)
+      .then(setRepos)
       .catch(() => setRepos([]));
     apiService
       .getVibecodingProjects()
@@ -141,7 +141,7 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({ username, onClose
       >
         <div className="cht-modal__head">
           <h2>{t('chat.project.share')}</h2>
-          <button type="button" className="cht-icon-btn" onClick={onClose} aria-label={t('common.close')}>
+          <button type="button" className="cht-icon-btn x-close" onClick={onClose} aria-label={t('common.close')}>
             <CloseIcon size={16} />
           </button>
         </div>

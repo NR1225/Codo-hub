@@ -266,6 +266,13 @@ export const MoreIcon: SizedIcon = ({ size }) => (
   </Icon>
 );
 
+export const LockIcon: SizedIcon = ({ size }) => (
+  <Icon size={size}>
+    <rect x="4.5" y="10.5" width="15" height="10" rx="2.2" />
+    <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+  </Icon>
+);
+
 export const TrashIcon: SizedIcon = ({ size }) => (
   <Icon size={size}>
     <path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.8 12a1.8 1.8 0 0 0 1.8 1.5h5.8a1.8 1.8 0 0 0 1.8-1.5l.8-12" />
@@ -473,5 +480,14 @@ export const MailOpenIcon: SizedIcon = ({ size }) => (
   <Icon size={size}>
     <path d="M4 10 12 4.5 20 10v8.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5Z" />
     <path d="m4 10 8 5.5 8-5.5" />
+  </Icon>
+);
+
+export const StarIcon: React.FC<{ filled?: boolean; size?: number }> = ({ filled, size = 15 }) => (
+  <Icon size={size}>
+    <path
+      d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"
+      fill={filled ? 'currentColor' : 'none'}
+    />
   </Icon>
 );

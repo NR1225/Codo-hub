@@ -6,9 +6,11 @@ import { faComments, faTrashCan, faCirclePlay } from '@fortawesome/free-solid-sv
 import { apiService, OpinionItem, StoryMentionKind } from '../../utils/api';
 import { formatDateTime } from '../../utils/dateFormatter';
 import { avatarSrc } from '../home/stories/storyUtils';
+import { ratingOf, RATING_ICON } from './rating';
 import './ProfileOpinions.css';
 
-/* Профильдегі «Пікірлер»: басқалар стористе осы адамды белгілеп қалдырған мақтау мен шағымдар */
+/* Профильдегі «Рейтинг»: басқалар стористе осы адамды белгілеп қалдырған мақтау мен шағымдар.
+   Жоғарыда — рейтинг (жасыл жақсы, сары орташа, қызыл жаман), төменде — пікірлердің өзі */
 
 const PAGE = 20;
 
@@ -77,8 +79,39 @@ const ProfileOpinions: React.FC<Props> = ({ username, currentUserId, onCountsCha
     { key: 'complaint', label: `⚠️ ${t('profile.opinions.complaint')}`, count: counts.complaint },
   ];
 
+  const rating = ratingOf(counts);
+  const praisePct = rating.total ? (counts.praise / rating.total) * 100 : 0;
+
   return (
     <div className="pop">
+      <section className={`pop__rating is-${rating.level}`} aria-label={t('profile.opinions.title')}>
+        <div className="pop__rating-main">
+          <span className="pop__rating-icon" aria-hidden>{RATING_ICON[rating.level]}</span>
+          <span className="pop__rating-value">{rating.percent === null ? '—' : `${rating.percent}%`}</span>
+          <span className="pop__rating-text">
+            <span className="pop__rating-label">{t(`profile.rating.${rating.level}`)}</span>
+            <span className="pop__rating-hint">
+              {rating.total ? t('profile.rating.basedOn', { count: rating.total }) : t('profile.rating.noneHint')}
+            </span>
+          </span>
+        </div>
+        <div className="pop__meter" role="img"
+          aria-label={t('profile.rating.meter', { praise: counts.praise, complaint: counts.complaint })}>
+          {rating.total === 0 ? (
+            <span className="pop__meter-empty" />
+          ) : (
+            <>
+              {counts.praise > 0 && <span className="pop__meter-good" style={{ flexGrow: praisePct }} />}
+              {counts.complaint > 0 && <span className="pop__meter-bad" style={{ flexGrow: 100 - praisePct }} />}
+            </>
+          )}
+        </div>
+        <div className="pop__meter-legend">
+          <span><i className="pop__dot is-good" />👍 {t('profile.opinions.praise')}: <b>{counts.praise}</b></span>
+          <span><i className="pop__dot is-bad" />⚠️ {t('profile.opinions.complaint')}: <b>{counts.complaint}</b></span>
+        </div>
+      </section>
+
       <div className="pop__filters" role="tablist">
         {filters.map((f) => (
           <button key={f.key} type="button" role="tab" aria-selected={filter === f.key}

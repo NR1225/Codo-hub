@@ -1435,7 +1435,7 @@
 }
 
 .dark-theme .btn-google:hover:not(:disabled) {
-  background: white;
+  background: #b6b6b8;
 }
 
 .btn-google:hover:not(:disabled)::before {

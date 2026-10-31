@@ -52,8 +52,9 @@ RESPONSE_SCHEMA = {
 
 # ---------- Мақтау: лайк шарты ----------
 
-def target_projects(username: str) -> List[Dict[str, Any]]:
-    """Адамның түбір деңгейдегі жобалары (лайк саны бойынша, көбі бірінші)"""
+def target_projects(username: str, public_only: bool = False) -> List[Dict[str, Any]]:
+    """Адамның түбір деңгейдегі жобалары (лайк саны бойынша, көбі бірінші).
+    public_only — бөтен адамға көрсетілетін тізім: жабық жобалар (атауы да) кірмейді"""
     from database import codes
 
     items = [
@@ -66,6 +67,7 @@ def target_projects(username: str) -> List[Dict[str, Any]]:
         }
         for c in codes
         if c.get("author") == username and not c.get("folderId")
+        and not (public_only and c.get("isPrivate"))
     ]
     return sorted(items, key=lambda p: p["likes"], reverse=True)
 
@@ -81,7 +83,7 @@ def mention_info(target: User) -> Dict[str, Any]:
         "praiseMinLikes": PRAISE_MIN_LIKES,
         "bestLikes": likes,
         "canPraise": likes >= PRAISE_MIN_LIKES,
-        "projects": target_projects(target.username)[:50],
+        "projects": target_projects(target.username, public_only=True)[:50],
     }
 
 
@@ -201,7 +203,11 @@ async def review_complaint(user: User, target: User, text: str, evidence: str,
     code_text = ""
     if project_id:
         code = CodeService.find_code_by_id(project_id)
-        if not code or code.get("author") != target.username or code.get("folderId"):
+        # Жабық жобаны көруге рұқсаты жоқ адамға ол «жоқ» (басқа жерлердегідей 404) —
+        # оның бар екені де, коды да (Бүркіттің жауабы арқылы) ашылмайды
+        if not code or not CodeService.can_view(code, user.username):
+            raise HTTPException(status_code=404, detail="Жоба табылмады")
+        if code.get("author") != target.username or code.get("folderId"):
             raise HTTPException(status_code=400, detail="Бұл жоба осы адамдікі емес")
         code_text = _project_code(project_id)
 

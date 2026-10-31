@@ -22,6 +22,7 @@ from typing import Dict, List, Optional
 
 from config import TERMINAL_WORKSPACE_DIR
 from services import shared_packages
+from utils.upload_rules import classify_upload_path, is_skipped
 
 logger = logging.getLogger("codo_hub.terminal_workspace")
 
@@ -34,6 +35,16 @@ IGNORED_DIRS = {
 MAX_FILE_BYTES = 512 * 1024          # бір файл (үлкені жобаға тартылмайды)
 MAX_PULL_BYTES = 2 * 1024 * 1024     # жобаның шегімен бірдей
 MAX_PULL_FILES = 500
+
+
+def _junk_dir(rel_dir: str) -> bool:
+    """Upload-тағы ереже: кэш/тәуелділік/build папкасы (dist, .pytest_cache, *.egg-info…)"""
+    return classify_upload_path(f"{rel_dir}/_") == "junk"
+
+
+def _junk_file(rel: str) -> bool:
+    """Кэш/лог/lock-файл/орындалатын файл — жобаға (редакторға) қайтпайды"""
+    return is_skipped(classify_upload_path(rel))
 
 _locks: Dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
@@ -169,7 +180,9 @@ def push(user_id: str, project_id: str, project_name: str, files: List[dict],
             full = _inside(root, rel)
             if not full:
                 continue
-            data = (item.get("content") or "").encode("utf-8")
+            # Бинарлы файл (нақты .sqlite база т.б.) байттармен келеді, қалғаны — мәтін
+            raw = item.get("bytes")
+            data = raw if isinstance(raw, bytes) else (item.get("content") or "").encode("utf-8")
             want = _hash(data)
             disk = _read_bytes(full)
             disk_hash = _hash(disk) if disk is not None else None
@@ -248,17 +261,23 @@ def pull(user_id: str, project_id: str) -> Optional[dict]:
         upserts = []
         total = 0
         for dirpath, dirnames, filenames in os.walk(root):
+            rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
             dirnames[:] = [
                 d for d in dirnames
                 if d not in IGNORED_DIRS and not os.path.islink(os.path.join(dirpath, d))
+                and not _junk_dir(d if rel_dir == "." else f"{rel_dir}/{d}")
             ]
-            rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
             if rel_dir != ".":
                 disk_folders.add(rel_dir)
             for name in filenames:
                 full = os.path.join(dirpath, name)
                 rel = name if rel_dir == "." else f"{rel_dir}/{name}"
                 if os.path.islink(full):
+                    continue
+                if _junk_file(rel):
+                    # package-lock.json, *.log, *.pyc… — дискіде қалады, жобаға тартылмайды
+                    if rel in known:
+                        seen_files.add(rel)
                     continue
                 try:
                     size = os.path.getsize(full)
@@ -282,7 +301,10 @@ def pull(user_id: str, project_id: str) -> Optional[dict]:
 
         deletes = [rel for rel in known if rel not in seen_files and not os.path.exists(os.path.join(root, *rel.split("/")))]
         new_folders = sorted(disk_folders - known_folders)
-        deleted_folders = sorted(f for f in known_folders if f not in disk_folders)
+        deleted_folders = sorted(
+            f for f in known_folders
+            if f not in disk_folders and not os.path.isdir(os.path.join(root, *f.split("/")))
+        )
         return {
             "upserts": upserts,
             "deletes": deletes,
@@ -295,7 +317,11 @@ def signature(root: str) -> str:
     """Папканың арзан «суреті» (жол + өлшем + mtime) — өзгеріс болды ма, соны білу үшін"""
     h = hashlib.sha1()
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
+        rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
+        dirnames[:] = sorted(
+            d for d in dirnames
+            if d not in IGNORED_DIRS and not _junk_dir(d if rel_dir == "." else f"{rel_dir}/{d}")
+        )
         h.update(dirpath.encode("utf-8", "replace"))
         for name in sorted(filenames):
             try:

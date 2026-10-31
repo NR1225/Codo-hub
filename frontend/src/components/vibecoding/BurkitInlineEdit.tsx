@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import BurkitLogo from '../BurkitLogo';
-import { ArrowUpIcon, CloseIcon } from './icons';
+import { CloseIcon } from './icons';
+import SendIcon from '../SendIcon';
 
 /* Ctrl+K — редактордың ішіндегі Бүркіт (Cursor-дағы inline edit): белгіленген жолдардың үстінде
    шығатын шағын өріс. Нұсқау жазылып Enter басылса, Бүркіт сол жолдарды қайта жазады,
@@ -69,10 +70,10 @@ const BurkitInlineEdit: React.FC<BurkitInlineEditProps> = ({ top, rangeLabel, on
           <span className="vx-ai__dots" aria-hidden="true"><span /><span /><span /></span>
         ) : (
           <button type="submit" className="vx-inline__send" disabled={!value.trim()} title="Жіберу (Enter)">
-            <ArrowUpIcon size={13} />
+            <SendIcon size={12} />
           </button>
         )}
-        <button type="button" className="vx-icon-btn vx-icon-btn--xs" onClick={onClose} title="Жабу (Esc)">
+        <button type="button" className="vx-icon-btn vx-icon-btn--xs x-close" onClick={onClose} title="Жабу (Esc)">
           <CloseIcon size={12} />
         </button>
       </div>

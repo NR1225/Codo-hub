@@ -5,6 +5,7 @@ import { apiService, RunInfo } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { detectRunCommands } from '../vibecoding/terminalCommands';
 import type { Project } from '../../contexts/VibecodingContext';
+import { DEV_SERVER_EVENT, DEV_SERVER_STOP_EVENT, type DevServerInfo } from '../../utils/devServer';
 import { CloseIcon, ExternalIcon, GlobeIcon, MonitorIcon, PlayIcon, RefreshIcon, TrashIcon } from '../home/icons';
 import './CodeRunPanel.css';
 
@@ -54,6 +55,10 @@ const CodeRunPanel: React.FC<CodeRunPanelProps> = ({ codeId, runId, selectedPath
 
   const [command, setCommand] = useState<string | null>(null);
   const [termStatus, setTermStatus] = useState<{ status: string; error: string | null }>({ status: 'connecting', error: null });
+  // Терминалда іске қосылған dev-сервер — жоба осы беттің өзінде, терминалдың үстінде ашылады
+  const [server, setServer] = useState<DevServerInfo | null>(null);
+  const [serverOpen, setServerOpen] = useState(true);
+  const [serverReload, setServerReload] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +104,7 @@ const CodeRunPanel: React.FC<CodeRunPanelProps> = ({ codeId, runId, selectedPath
     return selected && /\.html?$/i.test(selected) ? selected : info.entry;
   }, [info, selectedPath]);
 
-  const src = entry ? apiService.runUrl(codeId, entry) : '';
+  const src = entry ? apiService.runUrl(codeId, entry, info?.runToken) : '';
 
   // Жаңа іске қосу — iframe қайта жасалады, консоль тазарады
   useEffect(() => {
@@ -120,21 +125,45 @@ const CodeRunPanel: React.FC<CodeRunPanelProps> = ({ codeId, runId, selectedPath
         setLines((prev) => [...prev.slice(-(MAX_LINES - 1)), line]);
         if (line.level === 'error') setConsoleOpen(true);
       } else if (data.type === 'page' && typeof data.path === 'string') {
-        // /api/run/<id>/src/page.html → src/page.html
+        // /api/run/<id>/[~қолтаңба/]src/page.html → src/page.html
         const marker = `/run/${codeId}/`;
         const at = data.path.indexOf(marker);
-        if (at !== -1) setPage(decodeURIComponent(data.path.slice(at + marker.length)));
+        if (at !== -1) setPage(decodeURIComponent(data.path.slice(at + marker.length).replace(/^~[^/]+\//, '')));
       }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [codeId]);
 
+  // Бетте тек осы панельдің терминалы бар — оның шығысында табылған адрес біздікі
+  useEffect(() => {
+    const onServer = (e: Event) => {
+      setServer((e as CustomEvent<DevServerInfo>).detail);
+      setServerOpen(true);
+    };
+    const onServerStop = (e: Event) => {
+      const { port } = (e as CustomEvent<{ port: number }>).detail;
+      setServer((prev) => (prev && prev.port === port ? null : prev));
+    };
+    window.addEventListener(DEV_SERVER_EVENT, onServer);
+    window.addEventListener(DEV_SERVER_STOP_EVENT, onServerStop);
+    return () => {
+      window.removeEventListener(DEV_SERVER_EVENT, onServer);
+      window.removeEventListener(DEV_SERVER_STOP_EVENT, onServerStop);
+    };
+  }, []);
+
+  // Қайта іске қосу не басқа команда — ескі сервердің адресі енді жарамсыз
+  useEffect(() => {
+    setServer(null);
+  }, [reloadKey, command, codeId]);
+
   const onTermStatus = useCallback((status: string, error: string | null) => setTermStatus({ status, error }), []);
 
   const errorCount = lines.filter((l) => l.level === 'error').length;
   const isWeb = info?.kind === 'web' && !!src;
   const isTerminal = info?.kind === 'terminal';
+  const showServer = isTerminal && !!server && serverOpen;
 
   return (
     <section className="vc-panel vc-run-panel" aria-label={t('viewCode.runPanel.title', 'Іске қосу')}>
@@ -165,10 +194,21 @@ const CodeRunPanel: React.FC<CodeRunPanelProps> = ({ codeId, runId, selectedPath
               ))}
             </select>
           )}
-          {isWeb && (
+          {isTerminal && server && (
+            <button
+              type="button"
+              className={`vc-icon-btn ${serverOpen ? 'is-active' : ''}`}
+              onClick={() => setServerOpen((v) => !v)}
+              title={serverOpen ? t('viewCode.runPanel.hidePreview', 'Көріністі жасыру') : t('viewCode.runPanel.showPreview', 'Көріністі көрсету')}
+              aria-pressed={serverOpen}
+            >
+              <GlobeIcon />
+            </button>
+          )}
+          {(isWeb || (isTerminal && server)) && (
             <a
               className="vc-icon-btn"
-              href={src}
+              href={isWeb ? src : server!.url}
               target="_blank"
               rel="noopener noreferrer"
               title={t('viewCode.runPanel.openTab', 'Толық бетте ашу')}
@@ -187,7 +227,7 @@ const CodeRunPanel: React.FC<CodeRunPanelProps> = ({ codeId, runId, selectedPath
               <RefreshIcon />
             </button>
           )}
-          <button type="button" className="vc-icon-btn" onClick={onClose} title={t('viewCode.runPanel.close', 'Жабу')}>
+          <button type="button" className="vc-icon-btn x-close" onClick={onClose} title={t('viewCode.runPanel.close', 'Жабу')}>
             <CloseIcon size={16} />
           </button>
         </div>
@@ -209,10 +249,37 @@ const CodeRunPanel: React.FC<CodeRunPanelProps> = ({ codeId, runId, selectedPath
           />
         ) : isTerminal ? (
           user ? (
-            <Suspense fallback={<p className="vc-empty">{t('common.loading')}</p>}>
-              {/* Қайта іске қосу — жаңа сессия (ескі бағдарлама жұмыс істеп тұрса да) */}
-              <CodeRunTerminal key={`${codeId}-${reloadKey}-${command}`} codeId={codeId} command={command} runKey={reloadKey} onStatus={onTermStatus} />
-            </Suspense>
+            <>
+              {showServer && (
+                <div className="vc-run__server">
+                  <div className="vc-run__server-bar">
+                    <span className="vc-run-panel__path" title={server!.url}>{server!.url.replace(/^https?:\/\//, '')}</span>
+                    <button
+                      type="button"
+                      className="vc-icon-btn vc-icon-btn--sm"
+                      onClick={() => setServerReload((k) => k + 1)}
+                      title={t('viewCode.runPanel.reloadPreview', 'Бетті жаңарту')}
+                    >
+                      <RefreshIcon />
+                    </button>
+                  </div>
+                  <iframe
+                    key={`${server!.url}#${serverReload}`}
+                    className="vc-run__frame"
+                    title={t('viewCode.runPanel.title', 'Іске қосу')}
+                    src={server!.url}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-pointer-lock allow-downloads"
+                  />
+                </div>
+              )}
+              <Suspense fallback={<p className="vc-empty">{t('common.loading')}</p>}>
+                {/* Қайта іске қосу — жаңа сессия (ескі бағдарлама жұмыс істеп тұрса да).
+                    Көрініс ашылса да терминал қайта құрылмайды — тек биіктігі кішірейеді */}
+                <div className={`vc-run__term-wrap ${showServer ? 'is-docked' : ''}`}>
+                  <CodeRunTerminal key={`${codeId}-${reloadKey}-${command}`} codeId={codeId} command={command} runKey={reloadKey} onStatus={onTermStatus} />
+                </div>
+              </Suspense>
+            </>
           ) : (
             <div className="vc-empty vc-run-panel__login">
               <p>{t('viewCode.runPanel.loginRequired', 'Бұл жоба терминалда іске қосылады — ол үшін аккаунтқа кіріңіз.')}</p>

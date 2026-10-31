@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from services.project_settings import resolve_private
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -376,7 +377,7 @@ async def publish_project(
     # Кэш/қоқыс үнсіз, құпия (.env) мен бинарлы файлдар — тізіммен өткізіледі (Upload-пен бірдей ереже)
     kinds = {f["path"]: classify_upload_path(f["path"]) for f in all_files}
     files = [f for f in all_files if kinds[f["path"]] is None]
-    skipped = [p for p, kind in kinds.items() if kind in ("secret", "blocked")]
+    skipped = [p for p, kind in kinds.items() if kind in ("executable", "secret", "database", "binary")]
     if not files:
         raise HTTPException(status_code=400, detail="Жоба бос — жариялайтын файл жоқ")
 
@@ -421,6 +422,7 @@ async def publish_project(
         "description": data.description,
         "tags": [t.strip()[:30] for t in data.tags if t.strip()] or ["folder", "vibecoding"],
         "folderStructure": structure,
+        "isPrivate": resolve_private(None, user.id),
     }
     try:
         result = CodeService.create_folder_batch(folder_data, files_data)

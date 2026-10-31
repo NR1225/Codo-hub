@@ -9,18 +9,19 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from models import (
-    UserRegister, UserLogin, FirebaseLogin, ChangePassword,
-    ForgotPasswordRequest, ResetPasswordRequest, RegisterVerify, RegisterResend,
+    UserRegister, UserLogin, FirebaseLogin, RegisterVerify, RegisterResend,
     TwoFASetupVerify, TwoFADisable, TwoFALoginVerify,
 )
-from db import get_db, User, PasswordReset, PendingRegistration
-from utils.password import hash_password, verify_password, hash_refresh_token, verify_refresh_token
+from db import get_db, User, PendingRegistration
+from utils.password import hash_refresh_token, verify_refresh_token
 from utils.auth import (
     create_access_token, create_refresh_token, create_temp_2fa_token,
     decode_token, get_current_user,
 )
 from utils.captcha import verify_captcha
-from config import LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_MINUTES
+from services.cli_token_service import CliTokenService
+from services import login_guard, monitoring
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -133,7 +134,7 @@ def _create_tokens(user: User, db: Session) -> dict:
     }
 
 
-REGISTRATION_CODE_TTL_MINUTES = 10
+REGISTRATION_CODE_TTL_MINUTES = 3  # қайта сұралса — ескі код бірден жарамсыз (хэші ауысады)
 REGISTRATION_CODE_MAX_ATTEMPTS = 5
 REGISTRATION_CODE_RESEND_SECONDS = 60
 
@@ -147,17 +148,22 @@ def _new_registration_code() -> str:
 
 
 def _send_registration_code(email: str, code: str, username: str) -> None:
-    from utils.email import send_verification_code_email
-    if not send_verification_code_email(to_email=email, code=code, username=username):
-        import logging
-        logging.getLogger("codo_hub").warning(
-            "Registration code email could not be sent to %s (SMTP may not be configured)", email,
-        )
+    from utils.email import send_in_background, send_verification_code_email
+
+    def send():
+        if not send_verification_code_email(to_email=email, code=code, username=username):
+            import logging
+            logging.getLogger("codo_hub").warning(
+                "Registration code email could not be sent to %s (SMTP may not be configured)", email,
+            )
+
+    send_in_background(send)
 
 
 @router.post("/auth/register")
 @limiter.limit("3/minute")
 async def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
+    """Тіркелу: пошта + логин → поштаға код. Құпия сөз жоқ — кіру әрқашан кодпен"""
     try:
         if not await verify_captcha(user_data.captcha_token, get_remote_address(request)):
             raise HTTPException(status_code=400, detail="Captcha verification failed")
@@ -165,14 +171,6 @@ async def register(request: Request, user_data: UserRegister, db: Session = Depe
             raise HTTPException(status_code=400, detail="Username is required")
         if not user_data.email or not user_data.email.strip():
             raise HTTPException(status_code=400, detail="Email is required")
-        if not user_data.password or not user_data.password.strip():
-            raise HTTPException(status_code=400, detail="Password is required")
-        if len(user_data.password) < 8:
-            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-        if not any(c.isupper() for c in user_data.password):
-            raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter")
-        if not any(c.isdigit() for c in user_data.password):
-            raise HTTPException(status_code=400, detail="Password must contain at least one digit")
 
         username = user_data.username.strip()
         email = user_data.email.strip().lower()
@@ -185,13 +183,17 @@ async def register(request: Request, user_data: UserRegister, db: Session = Depe
 
         # Аккаунт әзірге ашылмайды: деректер email кодымен расталғанша күтеді
         now = _utcnow()
-        code = _new_registration_code()
         pending = db.query(PendingRegistration).filter(PendingRegistration.email == email).first()
+        if pending and pending.last_sent_at:
+            wait = REGISTRATION_CODE_RESEND_SECONDS - int((now - _naive_utc(pending.last_sent_at)).total_seconds())
+            if wait > 0:
+                raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds")
+        code = _new_registration_code()
         if not pending:
             pending = PendingRegistration(email=email)
             db.add(pending)
         pending.username = username
-        pending.password_hash = hash_password(user_data.password)
+        pending.password_hash = ""  # құпия сөз қолданылмайды
         pending.code_hash = hash_refresh_token(code)
         pending.attempts = 0
         pending.last_sent_at = now
@@ -227,6 +229,7 @@ async def verify_registration(request: Request, body: RegisterVerify, db: Sessio
     if not verify_refresh_token(body.code, pending.code_hash):
         pending.attempts = (pending.attempts or 0) + 1
         db.commit()
+        monitoring.record("register_code_fail", ip=login_guard.client_ip(request), detail={"email": login_guard.mask_email(email)})
         raise HTTPException(status_code=400, detail="Invalid verification code")
 
     # Код күтіп тұрғанда басқа біреу осы email/атпен тіркеліп үлгеруі мүмкін
@@ -247,7 +250,7 @@ async def verify_registration(request: Request, body: RegisterVerify, db: Sessio
             id=user_id,
             username=pending.username,
             email=email,
-            password_hash=pending.password_hash,
+            password_hash=None,  # құпия сөз жоқ — кіру әрқашан email кодымен
             avatar=None,
         )
         db.add(new_user)
@@ -259,7 +262,10 @@ async def verify_registration(request: Request, body: RegisterVerify, db: Sessio
         db.rollback()
         raise HTTPException(status_code=500, detail="Registration failed")
 
-    # Email расталды, аккаунт ашылды — құпия сөзді қайта сұрамай бірден кіргіземіз
+    # Email расталды, аккаунт ашылды — құпия сөзді қайта сұрамай бірден кіргіземіз.
+    # Email осы браузерде расталды — құрылғы таныс болады
+    device_value = login_guard.remember_device(db, request, new_user)
+    monitoring.record("register", user_id=new_user.id, ip=login_guard.client_ip(request))
     tokens = _create_tokens(new_user, db)
     response = JSONResponse(content={
         "message": "User registered successfully",
@@ -270,6 +276,7 @@ async def verify_registration(request: Request, body: RegisterVerify, db: Sessio
         "token_type": "bearer",
     })
     _set_refresh_token_cookie(response, tokens["refresh_token"])
+    login_guard.set_device_cookie(response, device_value)
     return response
 
 
@@ -300,58 +307,37 @@ async def resend_registration_code(request: Request, body: RegisterResend, db: S
 @router.post("/auth/login")
 @limiter.limit("5/minute")
 async def login(request: Request, login_data: UserLogin, db: Session = Depends(get_db)):
+    """Кіру: пошта не логин → поштаға код (құпия сөз жоқ). Токендер тек /auth/login/verify-да"""
     if not login_data.email and not login_data.username:
         raise HTTPException(status_code=400, detail="Email or username required")
-    if not login_data.password:
-        raise HTTPException(status_code=400, detail="Password is required")
     if not await verify_captcha(login_data.captcha_token, get_remote_address(request)):
         raise HTTPException(status_code=400, detail="Captcha verification failed")
 
+    ip = login_guard.client_ip(request)
     user = None
     if login_data.email:
-        user = db.query(User).filter(User.email == login_data.email.strip().lower()).first()
-    elif login_data.username:
+        email = login_data.email.strip().lower()
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            # Пошта сайтта бар-жоғы білінбеуі үшін — шынайыдай жауап, бірақ код жіберілмейді
+            monitoring.record("login_unknown_user", ip=ip, detail={"identifier": login_guard.mask_email(email)})
+            return login_guard.fake_challenge(email)
+    else:
         user = db.query(User).filter(User.username == login_data.username.strip()).first()
+        if not user:
+            monitoring.record("login_unknown_user", ip=ip, detail={"identifier": login_data.username.strip()[:3] + "***"})
+            raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not user:
-        # No per-account tracking for unknown accounts; the IP rate limiter covers it.
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    challenge = login_guard.start_login(db, request, user)
+    device_value = challenge.pop("_device")
+    response = JSONResponse(content=challenge)
+    login_guard.set_device_cookie(response, device_value)
+    return response
 
-    # Per-account brute-force lockout (independent of the IP rate limiter).
-    # Use naive UTC: SQLAlchemy's SQLite DateTime drops tzinfo on read, so
-    # comparing an offset-aware `now` against the stored value would raise.
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if user.locked_until and _naive_utc(user.locked_until) > now:
-        retry_after = int((user.locked_until - now).total_seconds())
-        raise HTTPException(
-            status_code=429,
-            detail="Account temporarily locked due to too many failed attempts. Try again later.",
-            headers={"Retry-After": str(retry_after)},
-        )
 
-    if not user.password_hash or not verify_password(login_data.password, user.password_hash):
-        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-        if user.failed_login_attempts >= LOGIN_MAX_ATTEMPTS:
-            user.locked_until = now + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
-            user.failed_login_attempts = 0  # fresh attempts after the lock expires
-        db.commit()
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    # Password verified: clear counters before issuing any tokens (also before
-    # the 2FA temp token, since the password is proven at this point).
-    user.failed_login_attempts = 0
-    user.locked_until = None
-    db.commit()
-
-    # If 2FA is enabled, return a temp token instead of real tokens
-    if user.totp_enabled:
-        temp_token = create_temp_2fa_token(data={"sub": user.id})
-        return {
-            "requires_2fa": True,
-            "temp_token": temp_token,
-            "user_id": user.id,
-        }
-
+def _login_success(request: Request, user: User, db: Session, device_value: str | None = None) -> JSONResponse:
+    monitoring.record("login_ok", user_id=user.id, ip=login_guard.client_ip(request),
+                      detail={"device": login_guard.device_label(request)})
     tokens = _create_tokens(user, db)
     response = JSONResponse(content={
         "user": _user_dict(user),
@@ -359,7 +345,37 @@ async def login(request: Request, login_data: UserLogin, db: Session = Depends(g
         "token_type": "bearer",
     })
     _set_refresh_token_cookie(response, tokens["refresh_token"])
+    if device_value:
+        login_guard.set_device_cookie(response, device_value)
     return response
+
+
+class LoginCodeVerify(BaseModel):
+    challenge_id: str = Field(min_length=10, max_length=64)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class LoginCodeResend(BaseModel):
+    challenge_id: str = Field(min_length=10, max_length=64)
+
+
+@router.post("/auth/login/verify")
+@limiter.limit("10/minute")
+async def verify_login_code(request: Request, body: LoginCodeVerify, db: Session = Depends(get_db)):
+    """Поштаға келген кодпен кіру. Код 3 минут жарамды, 5 қатеден кейін күшін жояды,
+    тек код сұралған браузерде ғана расталады"""
+    user = login_guard.verify(db, request, body.challenge_id, body.code)
+    if user.totp_enabled:
+        # Email коды расталды, енді TOTP (Authenticator) коды
+        return {"requires_2fa": True, "temp_token": create_temp_2fa_token(data={"sub": user.id}), "user_id": user.id}
+    return _login_success(request, user, db)
+
+
+@router.post("/auth/login/resend")
+@limiter.limit("3/minute")
+async def resend_login_code(request: Request, body: LoginCodeResend, db: Session = Depends(get_db)):
+    """Жаңа код жіберу (60 секундта бір рет). Алдыңғы код бірден жарамсыз болады"""
+    return login_guard.resend(db, request, body.challenge_id)
 
 
 def _verify_firebase_id_token(token: str) -> dict:
@@ -416,7 +432,7 @@ async def firebase_login(request: Request, body: FirebaseLogin, db: Session = De
                 id=user_id,
                 username=_unique_username(db, claims.get("name", ""), email.split("@")[0]),
                 email=email,
-                password_hash=None,  # құпия сөзді кейін "Құпия сөзді ұмыттыңыз ба?" арқылы қоюға болады
+                password_hash=None,  # құпия сөз жоқ — кіру email кодымен
                 avatar=None,
             )
             db.add(user)
@@ -427,21 +443,11 @@ async def firebase_login(request: Request, body: FirebaseLogin, db: Session = De
             db.rollback()
             raise HTTPException(status_code=500, detail="Registration failed")
 
-    if user.totp_enabled:
-        temp_token = create_temp_2fa_token(data={"sub": user.id})
-        return {
-            "requires_2fa": True,
-            "temp_token": temp_token,
-            "user_id": user.id,
-        }
-
-    tokens = _create_tokens(user, db)
-    response = JSONResponse(content={
-        "user": _user_dict(user),
-        "access_token": tokens["access_token"],
-        "token_type": "bearer",
-    })
-    _set_refresh_token_cookie(response, tokens["refresh_token"])
+    # Google арқылы кірсе де — поштаға код (TOTP қосулы болса, кодтан кейін TOTP)
+    challenge = login_guard.start_login(db, request, user)
+    device_value = challenge.pop("_device")
+    response = JSONResponse(content=challenge)
+    login_guard.set_device_cookie(response, device_value)
     return response
 
 
@@ -478,6 +484,7 @@ async def refresh_token(request: Request, db: Session = Depends(get_db)):
     # so treat ANY mismatch as reuse and revoke the whole session — this also
     # kills the live access token (strict session check in resolve_access_user).
     if not user.refresh_token_hash or not verify_refresh_token(refresh_token_value, user.refresh_token_hash):
+        monitoring.record("refresh_reuse", user_id=user.id, ip=login_guard.client_ip(request))
         user.session_id = None
         user.refresh_token_hash = None
         db.commit()
@@ -526,107 +533,6 @@ async def logout(request: Request, user: User = Depends(get_current_user), db: S
     return response
 
 
-@router.post("/auth/change-password")
-@limiter.limit("5/minute")
-async def change_password(
-    request: Request,
-    body: ChangePassword,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if not body.currentPassword:
-        raise HTTPException(status_code=400, detail="Current password is required")
-    if len(body.newPassword) < 8:
-        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
-    if not any(c.isupper() for c in body.newPassword):
-        raise HTTPException(status_code=400, detail="New password must contain at least one uppercase letter")
-    if not any(c.isdigit() for c in body.newPassword):
-        raise HTTPException(status_code=400, detail="New password must contain at least one digit")
-
-    if not user.password_hash or not verify_password(body.currentPassword, user.password_hash):
-        raise HTTPException(status_code=401, detail="Current password is incorrect")
-
-    user.password_hash = hash_password(body.newPassword)
-    # Invalidate sessions after password change
-    user.session_id = None
-    user.refresh_token_hash = None
-    db.commit()
-
-    return {"message": "Password changed successfully. Please log in again."}
-
-
-@router.post("/auth/forgot-password")
-@limiter.limit("3/minute")
-async def forgot_password(request: Request, forgot_request: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == forgot_request.email.strip().lower()).first()
-    if not user:
-        # Don't reveal whether email exists
-        return {"message": "If the email exists, a reset link has been sent."}
-
-    token = secrets.token_urlsafe(32)
-    reset = PasswordReset(
-        id=str(uuid.uuid4()),
-        user_id=user.id,
-        token=token,
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-    )
-    db.add(reset)
-    db.commit()
-
-    # Send password reset email
-    from utils.email import send_password_reset_email
-    email_sent = send_password_reset_email(
-        to_email=user.email,
-        token=token,
-        username=user.username,
-    )
-
-    if not email_sent:
-        import logging
-        logging.getLogger("codo_hub").warning(
-            "Password reset email could not be sent to %s. "
-            "SMTP may not be configured. Reset token: %s",
-            user.email, token,
-        )
-
-    return {
-        "message": "If the email exists, a reset link has been sent.",
-    }
-
-
-@router.post("/auth/reset-password")
-@limiter.limit("5/minute")
-async def reset_password(request: Request, body: ResetPasswordRequest, db: Session = Depends(get_db)):
-    if len(body.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-    if not any(c.isupper() for c in body.new_password):
-        raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter")
-    if not any(c.isdigit() for c in body.new_password):
-        raise HTTPException(status_code=400, detail="Password must contain at least one digit")
-
-    reset_entry = db.query(PasswordReset).filter(
-        PasswordReset.token == body.token,
-        PasswordReset.used == False,
-    ).first()
-
-    if not reset_entry:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-    if reset_entry.expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > _naive_utc(reset_entry.expires_at):
-        raise HTTPException(status_code=400, detail="Reset token has expired")
-
-    user = db.query(User).filter(User.id == reset_entry.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user.password_hash = hash_password(body.new_password)
-    user.session_id = None
-    user.refresh_token_hash = None
-    reset_entry.used = True
-    db.commit()
-
-    return {"message": "Password reset successfully"}
-
-
 # ── 2FA endpoints ──
 
 @router.post("/auth/2fa/setup")
@@ -669,6 +575,7 @@ async def verify_2fa_setup(
     codes = generate_recovery_codes()
     user.recovery_codes = json.dumps([hash_recovery_code(c) for c in codes])
     db.commit()
+    monitoring.record("2fa_enabled", user_id=user.id, ip=login_guard.client_ip(request))
 
     return {
         "message": "2FA enabled successfully",
@@ -687,13 +594,18 @@ async def disable_2fa(
     if not user.totp_enabled:
         raise HTTPException(status_code=400, detail="2FA is not enabled")
 
-    if not user.password_hash or not verify_password(two_fa_request.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Incorrect password")
+    from utils.totp import verify_totp_code
+
+    # Құпия сөз жоқ — Authenticator-дағы ағымдағы кодпен растау
+    if not user.totp_secret or not verify_totp_code(user.totp_secret, two_fa_request.code):
+        monitoring.record("2fa_fail", user_id=user.id, ip=login_guard.client_ip(request), detail={"disable": True})
+        raise HTTPException(status_code=400, detail="Invalid 2FA code")
 
     user.totp_secret = None
     user.totp_enabled = False
     user.recovery_codes = None
     db.commit()
+    monitoring.record("2fa_disabled", user_id=user.id, ip=login_guard.client_ip(request))
 
     return {"message": "2FA disabled successfully"}
 
@@ -738,13 +650,7 @@ async def verify_2fa_login(request: Request, two_fa_request: TwoFALoginVerify, d
                 pass
 
     if not code_valid:
+        monitoring.record("2fa_fail", user_id=user.id, ip=login_guard.client_ip(request))
         raise HTTPException(status_code=400, detail="Invalid 2FA code")
 
-    tokens = _create_tokens(user, db)
-    response = JSONResponse(content={
-        "user": _user_dict(user),
-        "access_token": tokens["access_token"],
-        "token_type": "bearer",
-    })
-    _set_refresh_token_cookie(response, tokens["refresh_token"])
-    return response
+    return _login_success(request, user, db)

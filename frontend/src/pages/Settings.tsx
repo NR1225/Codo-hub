@@ -1,30 +1,35 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useConfirm, LOGOUT_ICON } from '../contexts/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faFolder, faTrash, faEye, faInfoCircle, faFolderOpen, faBook, faList, faLock, faEnvelope,
+  faFolder, faInfoCircle, faFolderOpen, faBook, faList, faLock, faEnvelope,
   faSliders, faUserShield, faTriangleExclamation, faRightFromBracket, faChevronRight, faGlobe,
-  faCircleHalfStroke, faBell, faKey, faShieldHalved,faArrowUpRightFromSquare,
+  faCircleHalfStroke, faBell, faShieldHalved, faArrowUpRightFromSquare, faTerminal, faComments,
 } from '@fortawesome/free-solid-svg-icons';
+import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
+import SettingsEmailChange from '../components/settings/SettingsEmailChange';
 import { useTheme } from '../contexts/ThemeContext';
-import { apiService, CodeFile, SiteConfig } from '../utils/api';
-import { formatDate } from '../utils/dateFormatter';
+import { apiService, SiteConfig } from '../utils/api';
 import { monogram } from '../components/home/monogram';
 import SettingsInfoGuide from '../components/settings/SettingsInfoGuide';
 import SettingsInfoDoc from '../components/settings/SettingsInfoDoc';
+import SettingsCliTokens from '../components/settings/SettingsCliTokens';
+import SettingsChat from '../components/settings/SettingsChat';
+import SettingsGithub from '../components/settings/SettingsGithub';
+import SettingsProjects from '../components/settings/SettingsProjects';
 import { isInfoDoc } from '../components/settings/infoDocs';
 import './Settings.css';
 
 // Әр қойындының өз адресі бар: /settings/<tab>; жай /settings — «Жалпы»
-const SETTINGS_TABS = ['general', 'account', 'folders', 'info'] as const;
+const SETTINGS_TABS = ['general', 'account', 'chat', 'folders', 'terminal', 'info'] as const;
 type SettingsTab = typeof SETTINGS_TABS[number];
 
 // «Аккаунт» қойындысының бір карточкадағы бөлімдері (бөлек адресі жоқ)
-type AccountSection = 'password' | '2fa' | 'delete';
+type AccountSection = 'email' | '2fa' | 'github' | 'delete';
 
 const isSettingsTab = (value: string | undefined): value is SettingsTab =>
   SETTINGS_TABS.includes(value as SettingsTab);
@@ -43,13 +48,6 @@ const Settings: React.FC = () => {
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
 
-  // Password change
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // 2FA
   const [totpEnabled, setTotpEnabled] = useState(false);
@@ -59,17 +57,12 @@ const Settings: React.FC = () => {
   const [twoFACode, setTwoFACode] = useState('');
   const [twoFARecoveryCodes, setTwoFARecoveryCodes] = useState<string[]>([]);
   const [twoFAError, setTwoFAError] = useState('');
-  const [twoFADisablePassword, setTwoFADisablePassword] = useState('');
+  const [twoFADisableCode, setTwoFADisableCode] = useState('');
   const [show2FADisable, setShow2FADisable] = useState(false);
 
   // Delete account
   const [deleteConfirmStep, setDeleteConfirmStep] = useState(0);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Folders
-  const [folders, setFolders] = useState<CodeFile[]>([]);
-  const [foldersLoading, setFoldersLoading] = useState(false);
-  const [folderError, setFolderError] = useState('');
 
   // Site config (footer мазмұнын көрсету үшін)
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
@@ -79,33 +72,6 @@ const Settings: React.FC = () => {
       console.error('Failed to load config:', err);
     });
   }, []);
-
-  const loadFolders = useCallback(async () => {
-    if (!user?.username) return;
-    setFoldersLoading(true);
-    setFolderError('');
-    try {
-      const codesResponse = await apiService.getCodeFiles(undefined, 1000, 0, false);
-      const userFolders = codesResponse.codes.filter(
-        (code) => code.author === user.username && code.language === 'folder'
-      );
-      setFolders(userFolders);
-    } catch (err: any) {
-      setFolderError(err?.message || t('common.error'));
-    } finally {
-      setFoldersLoading(false);
-    }
-  }, [user?.username, t]);
-
-  const handleDeleteFolder = async (folderId: string, folderTitle: string) => {
-    if (!window.confirm(t('viewCode.folderDeleteConfirm') + ` "${folderTitle}"?`)) return;
-    try {
-      await apiService.deleteCodeFile(folderId);
-      setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    } catch (err: any) {
-      setFolderError(err?.message || t('viewCode.errorDeleteCode'));
-    }
-  };
 
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
@@ -124,12 +90,6 @@ const Settings: React.FC = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (activeTab === 'folders' && user?.username) {
-      loadFolders();
-    }
-  }, [activeTab, user?.username, loadFolders]);
-
   // Мобильде навигация көлденең жолақ — белсенді қойынды (мысалы, соңғы «Қауіпті аймақ») экраннан тыс қалмасын
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -146,43 +106,6 @@ const Settings: React.FC = () => {
     i18n.changeLanguage(value);
     localStorage.setItem('i18nextLng', value);
     setLanguage(value);
-  };
-
-  const handleChangePassword = async () => {
-    setPasswordError('');
-    setPasswordSuccess('');
-    if (!currentPassword) {
-      setPasswordError(t('settings.currentPassword') + ' is required');
-      return;
-    }
-    if (newPassword.length < 8) {
-      setPasswordError(t('register.passwordMinLength'));
-      return;
-    }
-    if (!/[A-ZА-ЯЁҰҒҚҢҺҮІ]/.test(newPassword)) {
-      setPasswordError(t('register.passwordUppercase'));
-      return;
-    }
-    if (!/[0-9]/.test(newPassword)) {
-      setPasswordError(t('register.passwordDigit'));
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setPasswordError(t('register.passwordMismatch'));
-      return;
-    }
-    setPasswordLoading(true);
-    try {
-      await apiService.changePassword(currentPassword, newPassword);
-      setPasswordSuccess(t('common.success'));
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-    } catch (err: any) {
-      setPasswordError(err?.message || 'Error');
-    } finally {
-      setPasswordLoading(false);
-    }
   };
 
   const handle2FASetup = async () => {
@@ -216,10 +139,10 @@ const Settings: React.FC = () => {
 
   const handle2FADisable = async () => {
     try {
-      await apiService.disable2FA(twoFADisablePassword);
+      await apiService.disable2FA(twoFADisableCode);
       setTotpEnabled(false);
       setShow2FADisable(false);
-      setTwoFADisablePassword('');
+      setTwoFADisableCode('');
       if (user) {
         const updatedUser = { ...user, totp_enabled: false };
         localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -261,12 +184,15 @@ const Settings: React.FC = () => {
   const tabs: { key: SettingsTab; label: string; desc: string; icon: IconDefinition }[] = [
     { key: 'general', label: t('settings.general'), desc: t('settings.generalDesc'), icon: faSliders },
     { key: 'account', label: t('settings.account'), desc: t('settings.accountDesc'), icon: faUserShield },
+    { key: 'chat', label: t('settings.chatTab'), desc: t('settings.chatDesc'), icon: faComments },
     { key: 'folders', label: t('settings.folderTab'), desc: t('settings.folderDesc'), icon: faFolder },
+    { key: 'terminal', label: t('settings.cli.tab'), desc: t('settings.cli.desc'), icon: faTerminal },
     { key: 'info', label: t('settings.infoTab'), desc: t('settings.infoDesc'), icon: faInfoCircle },
   ];
   const accountSections: { key: AccountSection; label: string; icon: IconDefinition }[] = [
-    { key: 'password', label: t('settings.changePassword'), icon: faKey },
+    { key: 'email', label: t('emailChange.title'), icon: faEnvelope },
     { key: '2fa', label: t('settings.twoFactorAuth'), icon: faShieldHalved },
+    { key: 'github', label: 'GitHub', icon: faGithub },
     { key: 'delete', label: t('settings.deleteAccountButton'), icon: faTriangleExclamation },
   ];
   const currentTab = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
@@ -448,49 +374,7 @@ const Settings: React.FC = () => {
                         <span className="stg-row__arrow"><FontAwesomeIcon icon={faChevronRight} /></span>
                       </button>
 
-                      {isOpen && section.key === 'password' && (
-                        <div className="stg-acc__body">
-                          <label className="stg-field">
-                            <span className="stg-field__label">{t('settings.currentPassword')}</span>
-                            <input
-                              type="password"
-                              className="stg-input"
-                              value={currentPassword}
-                              onChange={(e) => setCurrentPassword(e.target.value)}
-                              autoComplete="current-password"
-                            />
-                          </label>
-                          <label className="stg-field">
-                            <span className="stg-field__label">{t('settings.newPassword')}</span>
-                            <input
-                              type="password"
-                              className="stg-input"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              minLength={8}
-                              autoComplete="new-password"
-                            />
-                          </label>
-                          <label className="stg-field">
-                            <span className="stg-field__label">{t('settings.confirmNewPassword')}</span>
-                            <input
-                              type="password"
-                              className="stg-input"
-                              value={confirmNewPassword}
-                              onChange={(e) => setConfirmNewPassword(e.target.value)}
-                              minLength={8}
-                              autoComplete="new-password"
-                            />
-                          </label>
-                          {passwordError && <p className="stg-msg stg-msg--error">{passwordError}</p>}
-                          {passwordSuccess && <p className="stg-msg stg-msg--success">{passwordSuccess}</p>}
-                          <div className="stg-actions">
-                            <button type="button" className="stg-btn stg-btn--primary" onClick={handleChangePassword} disabled={passwordLoading}>
-                              {passwordLoading ? '...' : t('common.save')}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      {isOpen && section.key === 'email' && <SettingsEmailChange />}
 
                       {isOpen && section.key === '2fa' && (
                         <div className="stg-acc__body">
@@ -511,13 +395,16 @@ const Settings: React.FC = () => {
                               {show2FADisable ? (
                                 <div className="stg-inline">
                                   <input
-                                    type="password"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    maxLength={6}
                                     className="stg-input"
-                                    placeholder={t('settings.currentPassword')}
-                                    value={twoFADisablePassword}
-                                    onChange={(e) => setTwoFADisablePassword(e.target.value)}
+                                    placeholder={t('auth.2fa.disableCodePlaceholder')}
+                                    value={twoFADisableCode}
+                                    onChange={(e) => setTwoFADisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                   />
-                                  <button type="button" className="stg-btn stg-btn--primary" onClick={handle2FADisable}>
+                                  <button type="button" className="stg-btn stg-btn--primary" onClick={handle2FADisable} disabled={twoFADisableCode.length !== 6}>
                                     {t('auth.2fa.disableTitle')}
                                   </button>
                                 </div>
@@ -573,6 +460,12 @@ const Settings: React.FC = () => {
                         </div>
                       )}
 
+                      {isOpen && section.key === 'github' && (
+                        <div className="stg-acc__body">
+                          <SettingsGithub />
+                        </div>
+                      )}
+
                       {isOpen && section.key === 'delete' && (
                         <div className="stg-acc__body">
                           <p className="stg-text">{t('settings.dangerZoneDescription')}</p>
@@ -613,70 +506,14 @@ const Settings: React.FC = () => {
               </section>
             )}
 
-            {/* Folder Tab */}
-            {activeTab === 'folders' && (
-              foldersLoading ? (
-                <div className="stg-folders">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="stg-folder stg-folder--skeleton" />
-                  ))}
-                </div>
-              ) : folderError ? (
-                <p className="stg-msg stg-msg--error">{folderError}</p>
-              ) : folders.length === 0 ? (
-                <div className="stg-empty">
-                  <span className="stg-empty__icon">
-                    <FontAwesomeIcon icon={faFolder} />
-                  </span>
-                  <p className="stg-empty__title">{t('settings.noFolders')}</p>
-                  <p className="stg-text">{t('settings.noFoldersDescription')}</p>
-                </div>
-              ) : (
-                <div className="stg-folders">
-                  {folders.map((folder, i) => (
-                    <article key={folder.id} className="stg-folder" style={{ '--d': Math.min(i, 12) } as React.CSSProperties}>
-                      <div className="stg-folder__head">
-                        <span className="stg-folder__icon">
-                          <FontAwesomeIcon icon={faFolder} />
-                        </span>
-                        <span className="stg-folder__title">{folder.title}</span>
-                      </div>
-                      {folder.description && <p className="stg-folder__desc">{folder.description}</p>}
-                      <div className="stg-folder__foot">
-                        <span className="stg-folder__meta">
-                          {formatDate(folder.createdAt, i18n.language)}
-                          {folder.folderStats ? (
-                            <> · {folder.folderStats.files + folder.folderStats.folders} {t('settings.files')}</>
-                          ) : folder.folderStructure && (
-                            <> · {Object.keys(folder.folderStructure).length} {t('settings.files')}</>
-                          )}
-                        </span>
-                        <div className="stg-folder__actions">
-                          <button
-                            type="button"
-                            className="stg-icon-btn"
-                            onClick={() => navigate(`/view/${folder.id}`)}
-                            title={t('viewCode.title')}
-                            aria-label={t('viewCode.title')}
-                          >
-                            <FontAwesomeIcon icon={faEye} />
-                          </button>
-                          <button
-                            type="button"
-                            className="stg-icon-btn stg-icon-btn--danger"
-                            onClick={() => handleDeleteFolder(folder.id, folder.title)}
-                            title={t('common.delete')}
-                            aria-label={t('common.delete')}
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )
-            )}
+            {/* Жобалар — ашу/жабу, әдепкі жабық баптауы */}
+            {activeTab === 'folders' && <SettingsProjects />}
+
+            {/* Chat Tab — маған кім жаза алады (профильдегі «Чат» табымен бір компонент) */}
+            {activeTab === 'chat' && <SettingsChat />}
+
+            {/* Terminal Tab — codo CLI арқылы жоба жүктеу */}
+            {activeTab === 'terminal' && <SettingsCliTokens />}
 
             {/* Info Tab (футердің орнына баптау бетіне көшірілді) */}
             {activeTab === 'info' && infoDoc && <SettingsInfoDoc doc={infoDoc} />}

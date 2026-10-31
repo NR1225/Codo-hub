@@ -6,7 +6,6 @@ import { CodeFile, apiService, BurkitError, BurkitStatus, VibecodingProjectDTO }
 import { useAuth } from '../../contexts/AuthContext';
 import {
   SparkleIcon,
-  ArrowUpIcon,
   ArrowRightIcon,
   RefreshIcon,
   CloseIcon,
@@ -44,6 +43,7 @@ import { useBurkitHistory, titleFromText, conversationToMarkdown, BurkitConversa
 import { applyFileBlocks, projectContext, restoreFiles } from '../../utils/burkitProjectFiles';
 import type { ProjectOp } from '../vibecoding/burkitBlocks';
 import './SiteAI.css';
+import SendIcon from '../SendIcon';
 
 // Gemini Бүркіті: соңғы хабарлар саны және бір сұрауға құралдармен жасалатын қадамдар
 const AI_HISTORY = 20;
@@ -1426,7 +1426,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
               aria-label={t('home.siteAiSend')}
               title={t('home.siteAiSend')}
             >
-              <ArrowUpIcon />
+              <SendIcon />
             </button>
           )}
         </div>

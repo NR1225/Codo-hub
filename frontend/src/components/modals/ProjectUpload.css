@@ -43,7 +43,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 600px;
+  max-width: 540px;
   max-height: min(90dvh, 860px);
   overflow: hidden;
   border: 1px solid var(--pu-line);
@@ -65,35 +65,29 @@
 
 .pu-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 20px 16px 24px;
+  padding: 14px 14px 14px 22px;
   border-bottom: 1px solid var(--pu-line);
 }
 
 .pu-head h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--pu-text);
-}
-
-.pu-head p {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: var(--pu-muted);
 }
 
 .pu-close {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--pu-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--pu-bg);
   color: var(--pu-muted);
   cursor: pointer;
@@ -114,7 +108,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px 24px 24px;
+  padding: 18px 22px 20px;
 }
 
 /* ---------- Батырмалар ---------- */
@@ -185,18 +179,25 @@
 
 /* ---------- 1. Таңдау ---------- */
 
+.pu-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .pu-drop {
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  padding: 40px 24px 28px;
+  gap: 14px;
+  padding: 30px 20px 24px;
   border: 1.5px dashed var(--pu-border);
-  border-radius: 18px;
+  border-radius: 16px;
+  text-align: center;
   background:
     radial-gradient(120% 80% at 50% 0%, rgba(var(--mono-ink), 0.05) 0%, transparent 60%),
     var(--pu-bg);
-  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.25s var(--pu-ease);
+  transition: border-color 0.2s ease, transform 0.25s var(--pu-ease);
 }
 
 .pu-drop.is-active {
@@ -207,71 +208,253 @@
 .pu-drop__glyph {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  margin-bottom: 18px;
+  width: 52px;
+  height: 52px;
   border: 1px solid var(--pu-border);
-  border-radius: 20px;
+  border-radius: 16px;
   background: linear-gradient(180deg, var(--pu-hover), var(--pu-surface));
   color: var(--pu-text);
   animation: puFloat 3s ease-in-out infinite;
 }
 
 .pu-drop__glyph svg {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
 }
 
 .pu-drop__title {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.pu-drop__hint {
-  max-width: 380px;
-  margin: 6px 0 22px;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--pu-muted);
+  font-size: 0.98rem;
+  font-weight: 600;
 }
 
 .pu-pick__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
-}
-
-.pu-rules {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   gap: 8px;
-  margin: 26px 0 0;
-  padding: 0;
-  list-style: none;
 }
 
-.pu-rules li {
+/* GitHub сілтемесі: белгі мен батырма өрістің ішінде */
+.pu-github {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pu-github__icon {
+  position: absolute;
+  left: 14px;
+  display: inline-flex;
+  color: var(--pu-muted);
+  pointer-events: none;
+}
+
+/* .pu-input төменірек жарияланған — оның padding-ін басу үшін селектор күштірек */
+.pu-github .pu-github__input {
+  height: 46px;
+  padding: 0 96px 0 40px;
+}
+
+.pu-github .pu-btn {
+  position: absolute;
+  right: 7px;
+}
+
+/* GitHub профилі: қосу сілтемесі не @login + реполар тізімі */
+.pu-ghacc {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.pu-ghacc__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pu-ghacc__who {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--pu-line);
-  border-radius: 999px;
+  min-width: 0;
+  padding: 0 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pu-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pu-ghacc__who svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.pu-ghacc__link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--pu-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.pu-ghacc__link:hover:not(:disabled) {
+  color: var(--pu-text);
   background: var(--pu-surface);
-  font-size: 0.78rem;
+}
+
+.pu-ghacc__link:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.pu-ghacc__link:focus-visible,
+.pu-repos__item:focus-visible {
+  outline: 2px solid var(--pu-accent);
+  outline-offset: 2px;
+}
+
+.pu-ghacc__chev {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.pu-ghacc__chev.is-open {
+  transform: rotate(180deg);
+}
+
+.pu-ghacc__chev svg {
+  width: 12px;
+  height: 12px;
+}
+
+.pu-repos {
+  max-height: 240px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--pu-border);
+  border-radius: 12px;
+  background: var(--pu-bg);
+}
+
+.pu-repos__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--pu-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pu-repos__item:hover {
+  background: var(--pu-hover);
+}
+
+.pu-repos__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pu-repos__lock {
+  display: inline-flex;
+  color: var(--pu-warn);
+}
+
+.pu-repos__lang {
+  flex-shrink: 0;
+  font-size: 0.72rem;
   color: var(--pu-muted);
 }
 
-.pu-rules li.is-ok svg {
+.pu-repos__empty {
+  padding: 10px;
+  font-size: 0.8rem;
+  color: var(--pu-muted);
+  text-align: center;
+}
+
+.pu-pick__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 0 2px;
+  font-size: 0.76rem;
+  color: var(--pu-muted);
+}
+
+.pu-pick__foot > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pu-pick__foot svg {
+  flex-shrink: 0;
   color: var(--pu-ok);
 }
 
-.pu-rules li.is-off {
-  text-decoration: line-through;
-  text-decoration-color: rgba(var(--mono-ink), 0.25);
+/* Терминалдан жүктеуге сілтеме (Баптаулар → Терминал) */
+.pu-terminal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: var(--pu-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.pu-terminal code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.74rem;
+}
+
+.pu-terminal svg {
+  width: 13px;
+  height: 13px;
+  color: currentColor;
+}
+
+.pu-terminal:hover {
+  color: var(--pu-text);
+  background: var(--pu-surface);
+}
+
+.pu-terminal:focus-visible {
+  outline: 2px solid var(--pu-accent);
+  outline-offset: 2px;
 }
 
 /* ---------- Күй (тексеру, жүктеу, дайын) ---------- */
@@ -301,15 +484,142 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pu-spinner {
-  width: 36px;
-  height: 36px;
-  margin-bottom: 10px;
-  border: 3px solid var(--pu-border);
-  border-top-color: var(--pu-accent);
+/* Тексеру белгісі: ортада папка, айналасында толқындар */
+.pu-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  animation: puSpin 0.8s linear infinite;
+  background: var(--pu-surface);
+  border: 1px solid var(--pu-border);
+  color: var(--pu-text);
+  animation: puFloat 2.4s ease-in-out infinite;
 }
+
+.pu-orb span {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 1px solid var(--pu-accent);
+  opacity: 0;
+  animation: puRipple 2s var(--pu-ease) infinite;
+}
+
+.pu-orb span + span {
+  animation-delay: 1s;
+}
+
+/* Мәтін бойымен жылтыр жүгіреді — «ойланып жатыр» */
+.pu-shimmer {
+  background: linear-gradient(90deg, var(--pu-muted) 0%, var(--pu-text) 45%, var(--pu-muted) 90%) 0 0 / 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: puShimmer 2.2s linear infinite;
+}
+
+/* Қадамдар тізімі */
+.pu-think {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  max-width: 320px;
+  margin: 18px 0 0;
+  padding: 10px;
+  list-style: none;
+  border: 1px solid var(--pu-line);
+  border-radius: 14px;
+  background: var(--pu-surface);
+  text-align: left;
+}
+
+.pu-think__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  color: var(--pu-muted);
+  transition: color 0.3s ease, background 0.3s ease, opacity 0.3s ease;
+}
+
+.pu-think__step.is-wait {
+  opacity: 0.45;
+}
+
+.pu-think__step.is-active {
+  background: var(--pu-hover);
+  color: var(--pu-text);
+  font-weight: 600;
+}
+
+.pu-think__step.is-done {
+  color: var(--pu-text);
+}
+
+.pu-think__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pu-border);
+}
+
+.pu-think__mark i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.pu-think__step.is-active .pu-think__mark {
+  border-color: var(--pu-accent);
+  border-right-color: transparent;
+  animation: puSpin 0.9s linear infinite;
+}
+
+.pu-think__step.is-done .pu-think__mark {
+  border-color: transparent;
+  background: rgba(52, 211, 153, 0.16);
+  color: var(--pu-ok);
+  animation: puPop 0.3s var(--pu-ease) both;
+}
+
+.pu-think__mark svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 3;
+}
+
+.pu-think__label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pu-think__dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 2px;
+}
+
+.pu-think__dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: puDot 1.2s ease-in-out infinite;
+}
+
+.pu-think__dots i:nth-child(2) { animation-delay: 0.15s; }
+.pu-think__dots i:nth-child(3) { animation-delay: 0.3s; }
 
 .pu-ring {
   --pu-pct: 0;
@@ -325,9 +635,29 @@
 }
 
 .pu-ring span {
+  display: grid;
+  place-items: center;
   font-size: 1.5rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Файлдар жіберілді — сервер жауабын күтеміз: сақина айналады */
+.pu-ring.is-thinking {
+  position: relative;
+  background:
+    radial-gradient(closest-side, var(--pu-panel-top) 82%, transparent 83% 100%),
+    conic-gradient(from 0deg, transparent 0 55%, var(--pu-accent) 100%);
+  animation: puSpin 1.1s linear infinite;
+}
+
+.pu-ring.is-thinking span {
+  animation: puSpin 1.1s linear infinite reverse, puBreath 1.6s ease-in-out infinite;
+}
+
+.pu-ring.is-thinking svg {
+  width: 30px;
+  height: 30px;
 }
 
 .pu-done {
@@ -528,6 +858,224 @@
   color: var(--pu-warn);
 }
 
+/* Қорғалған файлдар: түрлерге бөлінген тізім, әр файлды жүктемеуге болады */
+
+.pu-guard {
+  --pu-tone: var(--pu-warn);
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.pu-guard__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.07) 0%, transparent 100%);
+}
+
+.pu-guard__badge {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--pu-warn);
+}
+
+.pu-guard__intro {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pu-guard__intro strong {
+  font-size: 0.9rem;
+}
+
+.pu-guard__intro span {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--pu-muted);
+}
+
+.pu-guard__count {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border: 1px solid var(--pu-line);
+  border-radius: 999px;
+  background: var(--pu-surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--pu-muted);
+}
+
+.pu-guard__group {
+  border-top: 1px solid var(--pu-line);
+}
+
+.pu-guard__group.is-secret { --pu-tone: var(--pu-warn); }
+.pu-guard__group.is-database { --pu-tone: #60a5fa; }
+.pu-guard__group.is-testdata { --pu-tone: #a78bfa; }
+
+.pu-guard__group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 6px;
+}
+
+.pu-guard__icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pu-tone) 14%, transparent);
+  color: var(--pu-tone);
+}
+
+.pu-guard__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pu-guard__group-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pu-guard__group-text strong {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.pu-guard__group-text span {
+  font-size: 0.72rem;
+  color: var(--pu-muted);
+}
+
+.pu-guard__all {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pu-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pu-guard__all:hover {
+  background: var(--pu-hover);
+  color: var(--pu-text);
+}
+
+.pu-guard__list {
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
+}
+
+.pu-guard__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  transition: background 0.15s ease, opacity 0.2s ease;
+}
+
+.pu-guard__row:hover {
+  background: var(--pu-hover);
+}
+
+.pu-guard__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.pu-guard__dir {
+  color: var(--pu-muted);
+}
+
+.pu-guard__size {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--pu-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pu-guard__row.is-off .pu-guard__path,
+.pu-guard__row.is-off .pu-guard__size {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-color: var(--pu-muted);
+}
+
+.pu-guard__note {
+  margin: 0;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--pu-line);
+  font-size: 0.75rem;
+  color: var(--pu-muted);
+}
+
+/* Ауыстырғыш: қосулы — жүктеледі */
+.pu-switch {
+  flex-shrink: 0;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--pu-border);
+  border-radius: 999px;
+  background: var(--pu-surface);
+  cursor: pointer;
+  transition: background 0.2s var(--pu-ease), border-color 0.2s var(--pu-ease);
+}
+
+.pu-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pu-muted);
+  transition: transform 0.2s var(--pu-ease), background 0.2s var(--pu-ease);
+}
+
+.pu-switch[aria-checked='true'] {
+  border-color: transparent;
+  background: var(--pu-tone);
+}
+
+.pu-switch[aria-checked='true'] .pu-switch__knob {
+  transform: translateX(14px);
+  background: var(--pu-on-accent);
+}
+
+.pu-switch:focus-visible {
+  outline: 2px solid var(--pu-accent);
+  outline-offset: 2px;
+}
+
 /* Ағаш */
 
 .pu-structure__scroll {
@@ -619,6 +1167,323 @@
   color: var(--pu-muted);
 }
 
+/* Міндетті өріс белгісі */
+.pu-req {
+  margin-left: 2px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--pu-danger);
+}
+
+/* Бірнешеуін белгілеуге болатын тізім (тілдер, категориялар) */
+.pu-pickset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pu-pickset legend {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--pu-muted);
+}
+
+.pu-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pu-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 11px 0 8px;
+  border: 1px solid var(--pu-border);
+  border-radius: 10px;
+  background: var(--pu-bg);
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--pu-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.pu-check:hover {
+  border-color: var(--mono-404040, var(--pu-border));
+  color: var(--pu-text);
+}
+
+.pu-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--mono-ink), 0.12);
+}
+
+.pu-check.is-on {
+  border-color: var(--pu-accent);
+  background: var(--pu-hover);
+  color: var(--pu-text);
+}
+
+.pu-check__box {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--pu-border);
+  border-radius: 5px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pu-check.is-on .pu-check__box {
+  border-color: var(--pu-accent);
+  background: var(--pu-accent);
+  color: var(--pu-on-accent);
+}
+
+.pu-check__box svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 3.2;
+}
+
+.pu-check__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pu-check__meta {
+  font-size: 0.74rem;
+  color: var(--pu-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pu-check__tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(var(--mono-ink), 0.1);
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--pu-text);
+}
+
+/* Дропдаун: таңдалғандар чип болып тұрады, басқанда тізім ашылады */
+.pu-ms {
+  position: relative;
+}
+
+.pu-ms__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 38px 6px 8px;
+  border: 1px solid var(--pu-border);
+  border-radius: 12px;
+  background: var(--pu-bg);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pu-ms__trigger:focus-visible,
+.pu-ms.is-open .pu-ms__trigger {
+  outline: none;
+  border-color: var(--pu-accent);
+  box-shadow: 0 0 0 3px rgba(var(--mono-ink), 0.08);
+}
+
+.pu-ms__placeholder {
+  padding-left: 6px;
+  font-size: 0.92rem;
+  color: var(--pu-muted);
+}
+
+.pu-ms__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pu-ms__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px 0 9px;
+  border: 1px solid var(--pu-border);
+  border-radius: 8px;
+  background: var(--pu-hover);
+  font-size: 0.82rem;
+  color: var(--pu-text);
+}
+
+.pu-ms__remove {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pu-muted);
+  cursor: pointer;
+}
+
+.pu-ms__remove:hover {
+  background: rgba(var(--mono-ink), 0.1);
+  color: var(--pu-text);
+}
+
+.pu-ms__chevron {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--pu-muted);
+  transform: translateY(-50%);
+  transition: transform 0.2s var(--pu-ease);
+  pointer-events: none;
+}
+
+.pu-ms.is-open .pu-ms__chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.pu-ms__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 6px;
+  border: 1px solid var(--pu-border);
+  border-radius: 14px;
+  background: var(--pu-panel-top);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+  animation: puNotice 0.18s var(--pu-ease) both;
+}
+
+.pu-ms__search {
+  width: 100%;
+  height: 36px;
+  margin-bottom: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--pu-line);
+  border-radius: 9px;
+  background: var(--pu-bg);
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--pu-text);
+}
+
+.pu-ms__search:focus {
+  outline: none;
+  border-color: var(--pu-border);
+}
+
+.pu-ms__list {
+  max-height: 248px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.pu-ms__group {
+  padding: 8px 8px 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pu-muted);
+}
+
+.pu-ms__option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  color: var(--pu-text);
+  cursor: pointer;
+}
+
+.pu-ms__option:hover,
+.pu-ms__option:focus-visible {
+  outline: none;
+  background: var(--pu-hover);
+}
+
+.pu-ms__option.is-on .pu-check__box {
+  border-color: var(--pu-accent);
+  background: var(--pu-accent);
+  color: var(--pu-on-accent);
+}
+
+.pu-ms__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.pu-ms__meta {
+  font-size: 0.74rem;
+  color: var(--pu-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pu-ms__empty {
+  padding: 12px 8px;
+  font-size: 0.84rem;
+  text-align: center;
+  color: var(--pu-muted);
+}
+
+.pu-check__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  opacity: 0.75;
+}
+
+.pu-check__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pu-check.is-on .pu-check__icon {
+  opacity: 1;
+}
+
+.pu-missing {
+  margin: -4px 0 0;
+  font-size: 0.76rem;
+  text-align: center;
+  color: var(--pu-muted);
+}
+
 .pu-auto {
   padding: 1px 7px;
   border-radius: 999px;
@@ -675,18 +1540,295 @@ select.pu-input optgroup {
   resize: vertical;
 }
 
-.pu-alert {
-  padding: 10px 14px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  border-radius: 12px;
-  background: rgba(248, 113, 113, 0.08);
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--pu-danger);
+/* Хабарлама: сол жақта түсті жолақ пен белгі, тақырып + мәтін */
+.pu-notice {
+  --pu-tone: var(--pu-danger);
+  --pu-tone-rgb: 248, 113, 113;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 12px 12px 14px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--pu-tone-rgb), 0.28);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(var(--pu-tone-rgb), 0.12), rgba(var(--pu-tone-rgb), 0.03) 70%),
+    var(--pu-surface);
+  animation: puNotice 0.35s var(--pu-ease) both;
 }
 
-.pu-body > .pu-alert {
+.pu-notice::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--pu-tone);
+}
+
+.pu-notice.is-warn {
+  --pu-tone: var(--pu-warn);
+  --pu-tone-rgb: 251, 191, 36;
+}
+
+.pu-notice.is-info {
+  --pu-tone: var(--pu-accent);
+  --pu-tone-rgb: var(--mono-ink);
+}
+
+.pu-notice__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(var(--pu-tone-rgb), 0.16);
+  color: var(--pu-tone);
+}
+
+.pu-notice__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.pu-notice__text strong {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--pu-text);
+}
+
+.pu-notice__text span {
+  font-size: 0.83rem;
+  line-height: 1.45;
+  color: var(--pu-muted);
+  overflow-wrap: anywhere;
+}
+
+.pu-notice__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pu-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pu-notice__close:hover {
+  background: var(--pu-hover);
+  color: var(--pu-text);
+}
+
+.pu-body > .pu-notice {
   margin-top: 14px;
+}
+
+/* Папка рұқсаты: браузердің жүйелік терезесінің алдындағы түсіндірме */
+.pu-prime {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: puFade 0.2s ease both;
+}
+
+.pu-prime__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 26px 24px 20px;
+  border: 1px solid var(--pu-border);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--pu-panel-top) 0%, var(--pu-panel-bottom) 100%);
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(var(--mono-ink), 0.06),
+    0 24px 60px -20px rgba(0, 0, 0, calc(0.9 * var(--mono-shadow, 1)));
+  animation: puPrime 0.32s var(--pu-ease) both;
+}
+
+.pu-prime__glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 14px;
+  border: 1px solid var(--pu-border);
+  border-radius: 18px;
+  background: var(--pu-surface);
+  color: var(--pu-text);
+}
+
+.pu-prime__badge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--pu-panel-top);
+  border-radius: 50%;
+  background: var(--pu-ok);
+  color: #052e1c;
+}
+
+.pu-prime__card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--pu-text);
+}
+
+.pu-prime__card > p {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--pu-muted);
+}
+
+/* Браузер терезесінің нобайы */
+.pu-prime__mock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px dashed var(--pu-border);
+  border-radius: 14px;
+  background: var(--pu-bg);
+}
+
+.pu-prime__mock-line {
+  height: 7px;
+  width: 78%;
+  border-radius: 4px;
+  background: var(--pu-line);
+}
+
+.pu-prime__mock-line.is-short {
+  width: 52%;
+}
+
+.pu-prime__mock-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.pu-prime__mock-btn {
+  padding: 5px 11px;
+  border: 1px solid var(--pu-border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--pu-muted);
+}
+
+.pu-prime__mock-btn.is-allow {
+  border-color: var(--pu-accent);
+  background: var(--pu-accent);
+  color: var(--pu-on-accent);
+  animation: puAllow 2s ease-in-out infinite;
+}
+
+.pu-prime__points {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.pu-prime__points li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--pu-muted);
+}
+
+.pu-prime__points svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--pu-ok);
+}
+
+.pu-prime__points li:nth-child(2) svg {
+  color: var(--pu-muted);
+}
+
+.pu-prime__points li:nth-child(3) svg {
+  color: var(--pu-warn);
+}
+
+.pu-prime__skip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  color: var(--pu-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pu-prime__skip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pu-prime__skip input:checked + .pu-check__box {
+  border-color: var(--pu-accent);
+  background: var(--pu-accent);
+  color: var(--pu-on-accent);
+}
+
+.pu-prime__skip input:focus-visible + .pu-check__box {
+  outline: 2px solid var(--pu-accent);
+  outline-offset: 2px;
+}
+
+.pu-prime__actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+.pu-prime__actions .pu-btn {
+  flex: 1;
 }
 
 .pu-dropmask {
@@ -727,13 +1869,57 @@ select.pu-input optgroup {
   from { opacity: 0; transform: scale(0.6); }
 }
 
+@keyframes puRipple {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+
+@keyframes puShimmer {
+  to { background-position: -220% 0; }
+}
+
+@keyframes puDot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+@keyframes puBreath {
+  50% { opacity: 0.55; }
+}
+
+@keyframes puPrime {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
+@keyframes puAllow {
+  50% { box-shadow: 0 0 0 4px rgba(var(--mono-ink), 0.18); }
+}
+
+@keyframes puNotice {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pu-overlay,
   .pu-modal,
   .pu-card,
   .pu-drop__glyph,
-  .pu-done {
+  .pu-done,
+  .pu-orb,
+  .pu-orb span,
+  .pu-shimmer,
+  .pu-notice,
+  .pu-prime,
+  .pu-prime__card,
+  .pu-prime__mock-btn.is-allow,
+  .pu-think__dots i,
+  .pu-ring.is-thinking,
+  .pu-ring.is-thinking span {
     animation: none;
+  }
+
+  .pu-shimmer {
+    color: var(--pu-text);
   }
 }
 
@@ -761,7 +1947,7 @@ select.pu-input optgroup {
   }
 
   .pu-head {
-    padding: 16px 16px 12px;
+    padding: 12px 12px 12px 16px;
   }
 
   .pu-body {
@@ -769,10 +1955,79 @@ select.pu-input optgroup {
   }
 
   .pu-drop {
-    padding: 28px 16px 22px;
+    padding: 22px 14px 18px;
+  }
+
+  .pu-pick__actions {
+    width: 100%;
   }
 
   .pu-pick__actions .pu-btn {
-    flex: 1 1 140px;
+    flex: 1 1 130px;
   }
+}
+
+/* Ашық/жабық жоба: белгіленсе — тек иесі мен жоба мүшелері көреді */
+.pu-visibility {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--pu-border);
+  border-radius: 12px;
+  background: var(--pu-bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pu-visibility:hover {
+  border-color: var(--mono-404040, var(--pu-border));
+}
+
+.pu-visibility input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pu-visibility:focus-within {
+  box-shadow: 0 0 0 3px rgba(var(--mono-ink), 0.12);
+}
+
+.pu-visibility .pu-check__box {
+  margin-top: 2px;
+}
+
+.pu-visibility.is-on {
+  border-color: var(--pu-accent);
+  background: var(--pu-hover);
+}
+
+.pu-visibility.is-on .pu-check__box {
+  border-color: var(--pu-accent);
+  background: var(--pu-accent);
+  color: var(--pu-on-accent);
+}
+
+.pu-visibility__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pu-visibility__text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--pu-text);
+}
+
+.pu-visibility__text small {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--pu-muted);
 }

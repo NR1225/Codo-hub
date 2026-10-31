@@ -236,6 +236,22 @@
   color: var(--mono-ffffff);
 }
 
+/* Жоғарғы панель әрекеттері: «Іске қосу»-дан басқасы — бірдей stroke батырма */
+.vc-hero__actions .vc-btn--ghost,
+.vc-hero__actions .vc-like.is-liked,
+.vc-hero__actions .vc-icon-btn {
+  background: transparent;
+  border-color: var(--mono-2e2e2e);
+  color: var(--vc-text);
+}
+
+.vc-hero__actions .vc-btn--ghost:hover:not(:disabled),
+.vc-hero__actions .vc-icon-btn:hover {
+  background: transparent;
+  border-color: var(--mono-ffffff);
+  color: var(--mono-ffffff);
+}
+
 .vc-icon-btn--sm {
   width: 28px;
   height: 28px;
@@ -802,6 +818,123 @@
   box-shadow: 0 16px 40px -12px rgba(0, 0, 0, calc(0.8 * var(--mono-shadow)));
 }
 
+/* Бинарлы файл — мәтін орнына белгі және жүктеп алу */
+.vc-binary {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  color: var(--vc-muted);
+}
+
+.vc-binary p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+/* Қорғалған файл: кімге не көрсетіліп тұрғаны */
+.vc-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--vc-line);
+  background: var(--vc-surface);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--vc-muted);
+}
+
+.vc-notice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.vc-notice.is-locked {
+  color: var(--vc-text);
+}
+
+/* ---------- Жоба мүшелері ---------- */
+
+.vc-members {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--vc-border);
+  border-radius: 14px;
+  background: var(--vc-surface);
+}
+
+.vc-members.is-owner {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.vc-members__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.86rem;
+  color: var(--vc-text);
+}
+
+.vc-members__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--vc-muted);
+}
+
+.vc-members__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vc-members__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vc-muted);
+}
+
+.vc-members__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vc-members__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  color: var(--vc-text);
+  text-decoration: none;
+}
+
+.vc-members__name:hover {
+  text-decoration: underline;
+}
+
+.vc-members__error {
+  font-size: 0.8rem;
+  color: var(--vc-danger);
+}
+
 /* ---------- Пікірлер ---------- */
 
 .vc-comments__list {
@@ -950,48 +1083,60 @@
   gap: 6px;
 }
 
-/* Пікір жазу өрісі — Сайт ЖИ енгізу жолағы сияқты */
+/* Пікір жазу өрісі — сторис жауап жолы сияқты: жылдам стикерлер, стикер панелі, дөңгелек жол */
 .vc-composer {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0 10px 10px;
-  padding: 8px;
-  border: 1px solid var(--vc-border);
-  border-radius: 16px;
-  background: var(--mono-0a0a0a);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.vc-composer:focus-within {
-  border-color: var(--mono-3a3a3a);
-  box-shadow: 0 0 0 3px rgba(var(--mono-rgb-250), 0.05);
 }
 
 .vc-composer__row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 3px;
+  border: 1px solid var(--mono-3a3a3a);
+  border-radius: 22px;
+  background: var(--mono-0a0a0a);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.vc-composer__row .vc-icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border-color: transparent;
-  background: transparent;
+.vc-composer__row:focus-within {
+  border-color: var(--mono-ffffff);
+}
+
+/* Стикерлер батырмасы — жолдың басында */
+.vc-composer__icon {
+  width: 38px;
+  height: 38px;
+  margin: 2px 0;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
   color: var(--vc-muted);
+  font-size: 1.35rem;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.vc-composer__row .vc-icon-btn:hover {
-  background: var(--vc-hover);
+.vc-composer__icon:hover,
+.vc-composer__icon.is-open {
   color: var(--vc-text);
+  transform: scale(1.12);
 }
 
 .vc-composer__input {
   flex: 1;
   min-width: 0;
-  min-height: 36px;
+  min-height: 42px;
   max-height: 140px;
-  padding: 8px 2px;
+  padding: 11px 2px;
   border: none;
   background: transparent;
   color: var(--vc-text);
@@ -1010,28 +1155,29 @@
   color: var(--mono-5c5c5c);
 }
 
+/* Жіберу — әрдайым көрінеді, мәтін болмаса сөнік */
 .vc-send {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 2px 0;
+  display: grid;
+  place-items: center;
   border: none;
-  border-radius: 10px;
-  background: var(--vc-accent);
-  color: var(--vc-on-accent);
+  border-radius: 50%;
+  background: none;
+  color: var(--vc-text);
+  font-size: 1.15rem;
   cursor: pointer;
-  transition: transform 0.15s ease, background-color 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
 }
 
 .vc-send:hover:not(:disabled) {
-  background: var(--vc-accent-hover);
-  transform: translateY(-1px);
+  transform: scale(1.12);
 }
 
 .vc-send:disabled {
-  opacity: 0.25;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -1039,7 +1185,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 6px 6px 6px 10px;
   border-radius: 10px;
   background: var(--mono-161616);
@@ -1059,12 +1205,210 @@
   color: var(--vc-text);
 }
 
+/* ---------- Пікірдегі стикерлер (сторис жауабындағыдай) ---------- */
+
+/* Жазу жолына тіркелген Codo стикері — жіберу басылғанда кетеді */
+.vc-composer__sticker {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  margin: 2px 2px 2px 0;
+  animation: vcStickersIn 0.18s ease;
+}
+
+.vc-composer__sticker button {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mono-ffffff);
+  color: var(--mono-0a0a0a);
+  cursor: pointer;
+}
+
+/* Стикер суреті өз орнын толтырады (Stories.css бұл бетте жүктелмеуі мүмкін) */
+.vc-composer .sticker-img,
+.vc-comment__sticker .sticker-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.vc-react {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(var(--mono-rgb-250), 0.08);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease;
+}
+
+.vc-react:hover:not(:disabled) {
+  transform: scale(1.15);
+  background: rgba(var(--mono-rgb-250), 0.16);
+}
+
+.vc-react:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.vc-react:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.vc-react .sticker-img {
+  width: 82%;
+  height: 82%;
+}
+
+/* Стикерлер панелі: «Эмодзи» / «Codo» бөлімдері */
+.vc-stickers-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--vc-border);
+  border-radius: 18px;
+  background: var(--mono-111111);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  animation: vcStickersIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.vc-sticker-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.vc-sticker-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--vc-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.vc-sticker-tab .sticker-img {
+  width: 20px;
+  height: 20px;
+}
+
+.vc-sticker-tab:hover {
+  color: var(--vc-text);
+}
+
+.vc-sticker-tab.is-on {
+  background: rgba(var(--mono-rgb-250), 0.12);
+  color: var(--vc-text);
+}
+
+.vc-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.vc-sticker-grid .vc-react {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  font-size: 1.3rem;
+  background: none;
+}
+
+.vc-sticker-grid .vc-react:hover:not(:disabled) {
+  background: rgba(var(--mono-rgb-250), 0.12);
+}
+
+/* Codo стикерлері — суреттер, үлкенірек */
+.vc-sticker-grid.is-codo {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.vc-sticker-grid.is-codo .vc-react {
+  border-radius: 14px;
+  padding: 4px;
+}
+
+/* Тек стикерден тұратын пікір */
+.vc-comment__sticker {
+  display: block;
+  font-size: 2.6rem;
+  line-height: 1.1;
+}
+
+.vc-comment__sticker .sticker-img {
+  width: 96px;
+  height: 96px;
+}
+
+@keyframes vcStickersIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-stickers-panel {
+    animation: none;
+  }
+
+  .vc-react,
+  .vc-composer__icon {
+    transition: none;
+  }
+}
+
+/* Жауапты болдырмау — картсыз, жай X белгісі */
+.vc-composer__reply .vc-icon-btn {
+  border-color: transparent;
+  background: transparent;
+  color: var(--vc-muted);
+}
+
+.vc-composer__reply .vc-icon-btn:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--vc-text);
+}
+
 .vc-composer--guest {
   display: flex;
   align-items: center;
+  flex-direction: row;
   justify-content: space-between;
   gap: 10px;
   padding: 10px 10px 10px 14px;
+  border: 1px solid var(--vc-border);
+  border-radius: 16px;
+  background: var(--mono-0a0a0a);
   font-size: 0.84rem;
   color: var(--vc-muted);
 }

@@ -302,7 +302,7 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-btn--primary:hover:not(:disabled) {
-  background: #fff;
+  background: #b6b6b8;
   transform: translateY(-1px);
   box-shadow: 0 8px 28px -6px rgba(255, 255, 255, 0.35);
 }
@@ -1958,22 +1958,19 @@ body.is-panel-resizing .vibe-panel-bottom {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #fafafa;
-  color: #0a0a0a;
+  background: none;
+  color: #f5f5f5;
   cursor: pointer;
-  box-shadow: 0 4px 14px -4px rgba(255, 255, 255, 0.35);
-  transition: background-color 0.15s ease, box-shadow 0.2s ease, transform 0.2s var(--vx-ease);
+  transition: color 0.15s ease, transform 0.2s var(--vx-ease);
 }
 
 .vx-ai__send svg { transition: transform 0.2s var(--vx-ease); }
-.vx-ai__send:hover:not(:disabled) { background: #fff; transform: scale(1.06); }
+.vx-ai__send:hover:not(:disabled) { transform: scale(1.12); }
 .vx-ai__send:hover:not(:disabled) svg { transform: translateY(-2px); }
 .vx-ai__send:active:not(:disabled) { transform: scale(0.92); }
 
 .vx-ai__send:disabled {
-  background: #222;
   color: #555;
-  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -2291,7 +2288,7 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
 }
 
-.vx-hist__new:hover { background: #fff; }
+.vx-hist__new:hover { background: #b6b6b8; }
 
 .vx-hist__foot {
   flex-shrink: 0;
@@ -2525,7 +2522,7 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-term__connect:hover:not(:disabled) {
-  background: #fff;
+  background: #b6b6b8;
   transform: translateY(-1px);
   box-shadow: 0 8px 28px -6px rgba(255, 255, 255, 0.35);
 }
@@ -2720,7 +2717,7 @@ body.is-panel-resizing .vibe-panel-bottom {
   box-shadow: 0 8px 28px -8px rgba(255, 255, 255, 0.35);
   transition: transform 0.15s ease, background-color 0.2s ease;
 }
-.vx-term__ask:hover { background: #fff; transform: translateY(-1px); }
+.vx-term__ask:hover { background: #b6b6b8; transform: translateY(-1px); }
 .vx-term__ask:active { transform: scale(0.97); }
 
 .vx-term__ask-close {
@@ -3634,7 +3631,7 @@ body.is-panel-resizing .vibe-panel-bottom {
 
 .vx-ai__run-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--ide-text); }
 .vx-ai__run-btn.is-primary { border-color: #e5e5e5; background: #e5e5e5; color: #0a0a0a; font-weight: 600; }
-.vx-ai__run-btn.is-primary:hover { background: #fff; }
+.vx-ai__run-btn.is-primary:hover { background: #b6b6b8; }
 
 .vx-ai__run-state { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--vx-dim); font-size: 11.5px; }
 .vx-ai__run-state.is-done { color: #4ade80; }
@@ -3747,12 +3744,14 @@ body.is-panel-resizing .vibe-panel-bottom {
   height: 24px;
   border: 0;
   border-radius: 7px;
-  background: #e5e5e5;
-  color: #0a0a0a;
+  background: none;
+  color: #e5e5e5;
   cursor: pointer;
+  transition: transform 0.2s var(--vx-ease);
 }
 
-.vx-inline__send:disabled { background: #2a2a2a; color: #5c5c5c; cursor: default; }
+.vx-inline__send:hover:not(:disabled) { transform: scale(1.12); }
+.vx-inline__send:disabled { color: #5c5c5c; cursor: default; }
 .vx-inline__meta { padding: 2px 0 0 26px; color: #5c5c5c; font-size: 10.5px; }
 .vx-inline__error { color: #f87171; }
 

@@ -92,8 +92,7 @@ async function resolveVibe(host: ProjectHost, name?: string): Promise<ProjectSum
 }
 
 async function myPublished(host: ProjectHost): Promise<CodeFile[]> {
-  const res = await apiService.getCodeFiles(undefined, 1000, 0, false);
-  return res.codes.filter((c) => c.author === host.username && !c.folderId);
+  return apiService.getAllCodesBy(host.username);
 }
 
 /** Сілтемеден бөлісу токенін немесе Жобалар бетіндегі жобаның id-ін алу */

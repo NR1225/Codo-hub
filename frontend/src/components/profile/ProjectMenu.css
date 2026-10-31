@@ -1,0 +1,263 @@
+/* Профильдегі код картасының ⋮ мәзірі және жобаны өңдеу терезесі */
+
+.pjm {
+  position: relative;
+}
+
+.pjm__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--mono-a3a3a3);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pjm__btn:hover,
+.pjm.is-open .pjm__btn {
+  background: var(--mono-1f1f1f);
+  color: var(--mono-f5f5f5);
+}
+
+.pjm__btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--mono-fafafa);
+}
+
+.pjm__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 250px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--mono-141414);
+  box-shadow:
+    inset 0 0 0 1px var(--mono-2a2a2a),
+    0 18px 40px -12px rgba(0, 0, 0, 0.7);
+  animation: pjmIn 0.16s ease-out;
+}
+
+@keyframes pjmIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+.pjm__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 550;
+  text-align: left;
+  color: var(--mono-e5e5e5);
+  cursor: pointer;
+}
+
+.pjm__item:hover,
+.pjm__item:focus-visible {
+  outline: none;
+  background: var(--mono-1f1f1f);
+}
+
+.pjm__item--check {
+  align-items: flex-start;
+}
+
+.pjm__item--danger {
+  color: #f87171;
+}
+
+.pjm__box {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1.5px solid var(--mono-404040);
+  border-radius: 5px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pjm__item.is-on .pjm__box {
+  border-color: var(--mono-fafafa);
+  background: var(--mono-fafafa);
+  color: var(--mono-0a0a0a);
+}
+
+.pjm__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pjm__text > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pjm__text small {
+  font-size: 0.74rem;
+  font-weight: 450;
+  line-height: 1.4;
+  color: var(--mono-8f8f8f);
+}
+
+.pjm__sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--mono-262626);
+}
+
+/* ---------- Өңдеу терезесі ---------- */
+
+.pje-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  animation: pjmFade 0.18s ease;
+}
+
+@keyframes pjmFade {
+  from {
+    opacity: 0;
+  }
+}
+
+.pje {
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--mono-141414) 0%, var(--mono-0c0c0c) 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--mono-262626),
+    0 24px 60px -16px rgba(0, 0, 0, 0.8);
+  color: var(--mono-f5f5f5);
+  animation: pjmIn 0.2s ease-out;
+}
+
+.pje__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pje__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mono-8f8f8f);
+}
+
+.pje__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--mono-262626);
+  border-radius: 10px;
+  background: var(--mono-0a0a0a);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--mono-f5f5f5);
+}
+
+.pje__input:focus {
+  outline: none;
+  border-color: var(--mono-737373);
+}
+
+textarea.pje__input {
+  min-height: 96px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.pje .pjm__item {
+  padding: 10px 12px;
+  border: 1px solid var(--mono-262626);
+  background: var(--mono-0a0a0a);
+}
+
+.pje .pjm__item.is-on {
+  border-color: var(--mono-fafafa);
+  background: var(--mono-1a1a1a);
+}
+
+.pje__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+.pje__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pje__btn {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--mono-1f1f1f);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--mono-f5f5f5);
+  cursor: pointer;
+}
+
+.pje__btn:hover {
+  background: var(--mono-2a2a2a);
+}
+
+.pje__btn--primary {
+  background: var(--mono-fafafa);
+  color: var(--mono-0a0a0a);
+}
+
+.pje__btn--primary:hover {
+  background: var(--mono-d4d4d4);
+}
+
+.pje__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

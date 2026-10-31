@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faLaptop, faHeart, faComment, faEye, faFileAlt, faImage, faPen, faCopy, faCheck,
-  faArrowLeft, faPlus, faUpload, faGear, faTriangleExclamation,
+  faArrowLeft, faPlus, faUpload, faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import { User, CodeFile } from '../utils/api';
 import { apiService } from '../utils/api';
@@ -17,7 +17,10 @@ import { monogram } from '../components/home/monogram';
 import EditProfileModal from '../components/modals/EditProfileModal';
 import ChangeBackgroundModal from '../components/modals/ChangeBackgroundModal';
 import ProfileOpinions from '../components/profile/ProfileOpinions';
-import ProfileChatSettings from '../components/profile/ProfileChatSettings';
+import { ratingOf, RATING_ICON } from '../components/profile/rating';
+import ProjectMenu from '../components/profile/ProjectMenu';
+import ProjectEditModal, { ProjectEdit } from '../components/profile/ProjectEditModal';
+import { useToast, useConfirm } from '../contexts/ToastContext';
 // Код карталары (.cdx-card) мен тор/тізім ауыстырғышы (.cdx-seg) — кодтар бетінің стильдері
 import './CodesPage.css';
 import './Profile.css';
@@ -96,6 +99,8 @@ async function resolveAvatar<T extends { id?: string; avatar?: string }>(userDat
 
 const Profile: React.FC = () => {
   const { t } = useTranslation();
+  const toast = useToast();
+  const confirm = useConfirm();
   const { username: urlUsername } = useParams<{ username?: string }>();
   const navigate = useNavigate();
   const _cacheKey = profileCacheKey(urlUsername);
@@ -115,9 +120,10 @@ const Profile: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [view, setView] = useState<ViewMode>(readViewMode);
   // Оң жақ панель: кодтар не адам туралы пікірлер (стористерден)
-  // «Чат» (кім жаза алады) — тек өз профилімде
-  const [tab, setTab] = useState<'codes' | 'opinions' | 'chat'>('codes');
+  const [tab, setTab] = useState<'codes' | 'opinions'>('codes');
   const [opinionCounts, setOpinionCounts] = useState({ praise: 0, complaint: 0 });
+  // ⋮ мәзірінен ашылған өңдеу терезесі
+  const [editingCode, setEditingCode] = useState<CodeFile | null>(null);
   const profileUsername = user?.username;
 
   // Басқа профильге ауысқанда — «Кодтар» табы және пікірлер саны (панельдегі қорытынды үшін)
@@ -255,10 +261,9 @@ const Profile: React.FC = () => {
 
       userData = await resolveAvatar(userData);
 
-      const codesResponse = await apiService.getCodeFiles(undefined, 1000, 0, false);
+      // Тек осы пайдаланушының жобалары — сервер 30-дан береді, бәрі жиналады
+      const filteredCodes = await apiService.getAllCodesBy(userData.username);
       setUser(userData);
-      // Пайдаланушының кодтарын сүзгілеу
-      const filteredCodes = codesResponse.codes.filter((code) => code.author === userData.username);
       setUserCodes(filteredCodes);
 
       // Статистикаларды есептеу
@@ -280,6 +285,60 @@ const Profile: React.FC = () => {
       } else {
         console.warn('Silent profile refresh failed, keeping cached data:', err);
       }
+    }
+  };
+
+  // Өз жобаларымды өзгерткенде: тізім, статистика, модуль кэші және басқа беттердегі тізімдер жаңарады
+  // Функционалды жаңарту — қатар басылған ауыстырулар бір-бірін жоймайды
+  const applyCodes = (update: (prev: CodeFile[]) => CodeFile[]) => {
+    setUserCodes((prev) => {
+      const next = update(prev);
+      const nextStats = computeStats(next);
+      setStats(nextStats);
+      const cached = profileCache[_cacheKey];
+      if (cached) profileCache[_cacheKey] = { ...cached, userCodes: next, stats: nextStats };
+      return next;
+    });
+    apiService.invalidateCodesCache();
+    window.dispatchEvent(new CustomEvent('codesUpdated'));
+  };
+
+  const patchCode = (id: string, changes: Partial<CodeFile>) =>
+    applyCodes((prev) => prev.map((c) => (c.id === id ? { ...c, ...changes } : c)));
+
+  // Ашық/жабық — бірден сақталады; сәтсіз болса, бұрынғы күйіне қайтады
+  const togglePrivate = async (code: CodeFile) => {
+    const isPrivate = !code.isPrivate;
+    patchCode(code.id, { isPrivate });
+    try {
+      await apiService.updateCodeFile(code.id, { isPrivate });
+      toast.success(t(isPrivate ? 'projectVisibility.madePrivate' : 'projectVisibility.madePublic'));
+    } catch (err) {
+      patchCode(code.id, { isPrivate: code.isPrivate });
+      toast.error(err instanceof Error ? err.message : t('projectVisibility.updateError'));
+    }
+  };
+
+  const saveEdit = async (code: CodeFile, changes: ProjectEdit) => {
+    await apiService.updateCodeFile(code.id, changes);
+    patchCode(code.id, changes);
+    toast.success(t('projectVisibility.saved'));
+  };
+
+  const deleteCode = async (code: CodeFile) => {
+    const ok = await confirm({
+      title: t('projectVisibility.deleteConfirm', { title: code.title }),
+      message: t('projectVisibility.deleteMessage'),
+      confirmText: t('projectVisibility.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await apiService.deleteCodeFile(code.id);
+      applyCodes((prev) => prev.filter((c) => c.id !== code.id));
+      toast.success(t('projectVisibility.deleted'));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('projectVisibility.deleteError'));
     }
   };
 
@@ -385,12 +444,31 @@ const Profile: React.FC = () => {
               ))}
             </div>
 
-            {/* Пікірлер қорытындысы — басқанда «Пікірлер» табы ашылады */}
-            <button type="button" className="prf-opinions" onClick={() => setTab('opinions')}>
-              <span className="prf-opinions__label">{t('profile.opinions.title')}</span>
-              <span className="prf-opinions__praise">👍 {opinionCounts.praise}</span>
-              <span className="prf-opinions__complaint">⚠️ {opinionCounts.complaint}</span>
-            </button>
+            {/* Табтар: кодтар және рейтинг (түсімен: жасыл жақсы, сары орташа, қызыл жаман) */}
+            {(() => {
+              const rating = ratingOf(opinionCounts);
+              return (
+                <nav className="prf-nav" role="tablist" aria-orientation="vertical" aria-label={user.username}>
+                  <button type="button" role="tab" aria-selected={tab === 'codes'}
+                    className={`prf-navtab ${tab === 'codes' ? 'is-on' : ''}`} onClick={() => setTab('codes')}>
+                    <span className="prf-navtab__icon"><FontAwesomeIcon icon={faFileAlt} /></span>
+                    <span className="prf-navtab__text">
+                      <span className="prf-navtab__label">{isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}</span>
+                    </span>
+                    <span className="prf-main__count">{userCodes.length}</span>
+                  </button>
+                  <button type="button" role="tab" aria-selected={tab === 'opinions'}
+                    className={`prf-navtab prf-navtab--rate is-${rating.level} ${tab === 'opinions' ? 'is-on' : ''}`}
+                    onClick={() => setTab('opinions')}>
+                    <span className="prf-navtab__icon prf-navtab__rate" aria-hidden>{RATING_ICON[rating.level]}</span>
+                    <span className="prf-navtab__text">
+                      <span className="prf-navtab__label">{t('profile.opinions.title')}</span>
+                    </span>
+                    <span className="prf-main__count">{opinionTotal}</span>
+                  </button>
+                </nav>
+              );
+            })()}
 
             {isOwnProfile && (
               <div className="prf-actions">
@@ -398,39 +476,16 @@ const Profile: React.FC = () => {
                   <FontAwesomeIcon icon={faPen} />
                   {t('profile.editProfile')}
                 </button>
-                <button
-                  type="button"
-                  className="prf-btn prf-btn--ghost prf-btn--icon"
-                  onClick={() => navigate('/settings')}
-                  title={t('common.settings')}
-                  aria-label={t('common.settings')}
-                >
-                  <FontAwesomeIcon icon={faGear} />
-                </button>
               </div>
             )}
           </aside>
 
           <main className="prf-main">
             <header className="prf-main__head">
-              <div className="prf-tabs" role="tablist">
-                <button type="button" role="tab" aria-selected={tab === 'codes'}
-                  className={`prf-tab ${tab === 'codes' ? 'is-on' : ''}`} onClick={() => setTab('codes')}>
-                  {isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
-                  <span className="prf-main__count">{userCodes.length}</span>
-                </button>
-                <button type="button" role="tab" aria-selected={tab === 'opinions'}
-                  className={`prf-tab ${tab === 'opinions' ? 'is-on' : ''}`} onClick={() => setTab('opinions')}>
-                  {t('profile.opinions.title')}
-                  <span className="prf-main__count">{opinionTotal}</span>
-                </button>
-                {isOwnProfile && (
-                  <button type="button" role="tab" aria-selected={tab === 'chat'}
-                    className={`prf-tab ${tab === 'chat' ? 'is-on' : ''}`} onClick={() => setTab('chat')}>
-                    {t('profile.chatSettings.tab')}
-                  </button>
-                )}
-              </div>
+              <h2 className="prf-main__title">
+                {tab === 'opinions' ? t('profile.opinions.title') : isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
+                <span className="prf-main__count">{tab === 'opinions' ? opinionTotal : userCodes.length}</span>
+              </h2>
               <div className="prf-main__tools">
                 {tab === 'codes' && userCodes.length > 0 && <ViewToggle value={view} onChange={changeView} />}
                 {tab === 'codes' && isOwnProfile && (
@@ -443,9 +498,7 @@ const Profile: React.FC = () => {
             </header>
 
             <div className="prf-main__body">
-              {tab === 'chat' && isOwnProfile ? (
-                <ProfileChatSettings />
-              ) : tab === 'opinions' ? (
+              {tab === 'opinions' ? (
                 <ProfileOpinions username={user.username} currentUserId={currentUser?.id} onCountsChange={setOpinionCounts} />
               ) : userCodes.length === 0 ? (
                 <div className="prf-empty">
@@ -470,7 +523,20 @@ const Profile: React.FC = () => {
               ) : (
                 <div className={`cdx-grid cdx-grid--${view}`}>
                   {userCodes.map((code, i) => (
-                    <CodeTile key={code.id} code={code} index={i} view={view} />
+                    <CodeTile
+                      key={code.id}
+                      code={code}
+                      index={i}
+                      view={view}
+                      menu={isOwnProfile && code.author === user.username ? (
+                        <ProjectMenu
+                          code={code}
+                          onTogglePrivate={() => togglePrivate(code)}
+                          onEdit={() => setEditingCode(code)}
+                          onDelete={() => deleteCode(code)}
+                        />
+                      ) : undefined}
+                    />
                   ))}
                 </div>
               )}
@@ -481,6 +547,13 @@ const Profile: React.FC = () => {
 
       {isOwnProfile && (
         <>
+          {editingCode && (
+            <ProjectEditModal
+              code={editingCode}
+              onClose={() => setEditingCode(null)}
+              onSave={(changes) => saveEdit(editingCode, changes)}
+            />
+          )}
           <EditProfileModal
             isOpen={isEditModalOpen}
             onClose={() => {

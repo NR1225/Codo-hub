@@ -308,6 +308,100 @@
   color: var(--cdx-muted);
 }
 
+/* ---------- Сол жақ табтар: кодтар / рейтинг ---------- */
+
+.prf-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 12px 0;
+}
+
+.prf-navtab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--cdx-line);
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.prf-navtab:hover {
+  color: var(--text-primary);
+  background: var(--cdx-hover);
+  box-shadow: inset 0 0 0 1px var(--cdx-line-strong);
+}
+
+.prf-navtab:focus-visible {
+  outline: 2px solid var(--home-accent);
+  outline-offset: 2px;
+}
+
+.prf-navtab.is-on {
+  color: var(--text-primary);
+  background: var(--mono-1c1c1c);
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.prf-navtab__icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--mono-161616);
+  box-shadow: inset 0 0 0 1px var(--mono-2e2e2e);
+  color: var(--mono-e5e5e5);
+  font-size: 0.9rem;
+}
+
+.prf-navtab.is-on .prf-navtab__icon {
+  background: var(--home-accent);
+  color: var(--home-on-accent);
+  box-shadow: none;
+}
+
+/* Рейтинг белгісі — деңгей түсімен */
+.prf-navtab__rate {
+  border-radius: 50%;
+  box-shadow: none;
+  color: #fff;
+  background: var(--rate-none);
+}
+
+.prf-navtab--rate.is-good .prf-navtab__rate { background: var(--rate-good); color: #fff; }
+.prf-navtab--rate.is-mid .prf-navtab__rate { background: var(--rate-mid); color: #0b0b0b; }
+.prf-navtab--rate.is-bad .prf-navtab__rate { background: var(--rate-bad); color: #fff; }
+
+.prf-navtab__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prf-navtab__label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.prf-navtab .prf-main__count {
+  flex-shrink: 0;
+}
+
 /* ---------- Батырмалар ---------- */
 
 .prf-actions {
@@ -512,6 +606,15 @@
   .prf-stats {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  /* Панель үстінде тұрғанда табтар қатар тұрады */
+  .prf-nav {
+    flex-direction: row;
+  }
+
+  .prf-navtab {
+    flex: 1;
+  }
 }
 
 @media (max-width: 600px) {
@@ -529,6 +632,11 @@
 
   .prf-main__head {
     padding: 14px 16px;
+  }
+
+  .prf-navtab {
+    gap: 8px;
+    padding: 8px 10px;
   }
 
   .prf-main__body {

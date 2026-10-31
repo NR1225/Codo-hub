@@ -1,6 +1,8 @@
 """Жергілікті тексеруге арналған тест жобалары (тек dev дерекқорына!).
 
-Тест аккаунттарының (test1, test2…) атынан бірнеше жоба жасайды: пікірлер (жауаптарымен),
+Тест аккаунттарының (test1, test2…) атынан бірнеше жоба жасайды, оған қоса
+test_codes_data.py-дағы 50 шағын жоба (әр категориядан: AI, мобильді, веб, десктоп, ойын, API,
+дерекқор, DevOps, басқа): пікірлер (жауаптарымен),
 лайктар мен қаралымдар қоса. Танымалдығы әртүрлі: танымал (басты беттегі Бүркіттің ұсынысына
 шығады), орташа және жаңа (ешкім көрмеген — ұсынысқа шықпайды). Атаулары кәдімгі жобалардай,
 өшіру үшін тек жасырын «test-data» тегімен белгіленеді.
@@ -18,6 +20,7 @@ import argparse
 import json
 import os
 import sqlite3
+import random
 import uuid
 from datetime import datetime, timedelta
 
@@ -26,11 +29,34 @@ DB_PATH = os.path.join(BACKEND, "data", "codo_hub.db")
 PROJECTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_projects")
 TAG = "test-data"
 
-LANG = {".py": "python", ".js": "javascript", ".html": "html", ".css": "css", ".md": "markdown"}
+LANG = {
+    ".py": "python", ".js": "javascript", ".html": "html", ".css": "css", ".md": "markdown",
+    ".json": "json", ".txt": "plaintext", ".swift": "swift", ".kt": "kotlin", ".dart": "dart",
+    ".cs": "csharp", ".go": "go", ".rs": "rust", ".java": "java", ".cpp": "cpp", ".sql": "sql",
+    ".sh": "shell", ".yml": "yaml", ".yaml": "yaml", ".graphql": "graphql", ".toml": "toml",
+}
+# Жобаның негізгі тілі — сайттағы жүктеудей (cli/codo.py PROJECT_LANGUAGES)
+PROJECT_LANG = {
+    ".py": "Python", ".js": "JavaScript", ".html": "HTML", ".swift": "Swift", ".kt": "Kotlin",
+    ".dart": "Dart", ".cs": "C#", ".go": "Go", ".rs": "Rust", ".java": "Java", ".cpp": "C++",
+    ".sql": "SQL", ".sh": "Shell", ".yml": "YAML", ".yaml": "YAML", ".graphql": "GraphQL",
+}
 
 
 def lang_of(name: str) -> str:
+    if os.path.basename(name) == "Dockerfile":
+        return "dockerfile"
     return LANG.get(os.path.splitext(name)[1], "other")
+
+
+def project_lang(files: dict) -> str:
+    """Бірінші танылған файлдың тілі (Dockerfile — Docker)"""
+    for path in files:
+        if os.path.basename(path) == "Dockerfile":
+            return "Docker"
+        if lang := PROJECT_LANG.get(os.path.splitext(path)[1]):
+            return lang
+    return "other"
 
 
 def iso(days_ago: float) -> str:
@@ -69,8 +95,9 @@ def code(title, content, language, author, description, days_ago, likes, views, 
 
 
 def project(title, slug, language, author, description, days_ago, likes, views, viewed_by, comments, category) -> list:
-    """Папка-жоба (Upload-тағы пішінмен: жолдар түбірлік папка атымен басталады) + оның файлдары"""
-    files = read_project(slug)
+    """Папка-жоба (Upload-тағы пішінмен: жолдар түбірлік папка атымен басталады) + оның файлдары.
+    slug — test_projects/ ішіндегі папка атауы немесе дайын {жол: мазмұн} сөздігі."""
+    files = read_project(slug) if isinstance(slug, str) else slug
     structure = {title: {"type": "folder", "name": title}}
     for path, content in files.items():
         parts = path.split("/")
@@ -136,7 +163,7 @@ def seed(conn: sqlite3.Connection) -> list:
     items += project(
         "Калькулятор", "calculator", "python", "test1",
         "Консольдік калькулятор: ast арқылы қауіпсіз есептейді, тесттерімен", 6,
-        likers(15, "test1"), 420, likers(12, "test1"), calc_comments, "Құрал",
+        likers(15, "test1"), 420, likers(12, "test1"), calc_comments, "other",
     )
 
     # 2. Орташа
@@ -148,19 +175,19 @@ def seed(conn: sqlite3.Connection) -> list:
             comment("test1", "localStorage-тан басқа сақтау жолы бар ма?", 2.5, []),
             comment(others[2 % len(others)], "Сүзгісі ыңғайлы екен", 2, likers(1, "test2")),
         ],
-        "Құрал",
+        "web-app",
     )
 
     # 3. Жаңа — ешкім көрмеген, ұсынысқа шықпайды
     items += project(
         "Кофе үйі — лендинг", "landing", "html", "Test",
-        "Кофехана лендингі: мәзір, себет, брондау формасы", 0.05, [], 0, [], [], "Веб-сайт",
+        "Кофехана лендингі: мәзір, себет, брондау формасы", 0.05, [], 0, [], [], "web-app",
     )
 
     # 4. Аз танымал
     items += project(
         "CSS жүктеу анимациялары", "css-loaders", "css", others[0],
-        "Төрт жүктеу анимациясы — тек CSS", 1, likers(1, others[0]), 5, [], [], "Дизайн",
+        "Төрт жүктеу анимациясы — тек CSS", 1, likers(1, others[0]), 5, [], [], "web-app",
     )
 
     # 5. Танымал ойын
@@ -173,8 +200,28 @@ def seed(conn: sqlite3.Connection) -> list:
             comment(others[0], "WASD-пен де ойнауға болатыны ұнады", 1.2, []),
             comment("Test", "Код таза жазылған, рақмет", 1, likers(1, "test1")),
         ],
-        "Ойын",
+        "game",
     )
+
+    # 6. test_codes_data.py-дағы 50 шағын жоба — танымалдығы мен жасалған уақыты әртүрлі
+    from test_codes_data import SNIPPETS
+
+    rnd = random.Random(50)
+    authors = ["test1", "test2", "Test", *others]
+    remarks = ["Пайдалы екен, рақмет!", "Мен де осындай жазғым келеді 🔥", "Түсінікті жазылған 👍",
+               "Келесі нұсқасын күтеміз", "Осыны жобама қостым"]
+    for i, (title, category, description, files) in enumerate(SNIPPETS):
+        author = authors[i % len(authors)]
+        fame = rnd.choice([0, 0, 1, 1, 1, 2, 3])  # жаңа / аз / орташа / танымал
+        likes = likers(rnd.randint(*[(0, 0), (0, 2), (2, 6), (7, 14)][fame]), author)
+        views = [0, rnd.randint(2, 20), rnd.randint(25, 120), rnd.randint(150, 400)][fame]
+        days_ago = rnd.uniform(0.02, 30)
+        comments = [comment(rnd.choice([u for u in authors if u != author]), text, rnd.uniform(0, days_ago), [])
+                    for text in rnd.sample(remarks, min(fame, 2))]
+        items += project(
+            title, files, project_lang(files), author, description, days_ago,
+            likes, views, likes[:views], comments, category,
+        )
 
     seq = (conn.execute("select max(seq) from codes").fetchone()[0] or 0) + 1
     with conn:

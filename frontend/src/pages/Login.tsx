@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
@@ -10,6 +8,8 @@ import Turnstile, { TURNSTILE_ENABLED } from '../components/ui/Turnstile';
 import GoogleSignInButton from '../components/ui/GoogleSignInButton';
 import Parallax from 'parallax-js';
 import { imageStorage } from '../utils/imageStorage';
+import type { LoginChallenge } from '../utils/api';
+import LoginCodeStep from '../components/auth/LoginCodeStep';
 import './Auth.css';
 
 const Login: React.FC = () => {
@@ -17,7 +17,14 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   // Тіркелу email кодымен расталғаннан кейін осы бетке келеміз
-  const routeState = location.state as { registeredEmail?: string; googleTempToken?: string } | null;
+  const routeState = location.state as {
+    registeredEmail?: string;
+    emailChallenge?: LoginChallenge;
+    googleTempToken?: string;
+    from?: { pathname: string; search?: string };
+  } | null;
+  // ProtectedRoute жіберген бет (мыс. терминалдағы codo login ашқан /cli/login?code=…)
+  const redirectTo = routeState?.from ? `${routeState.from.pathname}${routeState.from.search ?? ''}` : '/';
   const registeredEmail = routeState?.registeredEmail || '';
   // Тіркелу бетіндегі Google батырмасы 2FA қосулы аккаунтқа тап болса, кодты осында сұраймыз
   const googleTempToken = routeState?.googleTempToken || '';
@@ -27,9 +34,9 @@ const Login: React.FC = () => {
   // Already logged in? Skip the login page and go home.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate(redirectTo, { replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, navigate, redirectTo]);
   
   // Сақталған логин деректерін жүктеу
   const savedEmail = localStorage.getItem('savedEmail') || '';
@@ -38,18 +45,19 @@ const Login: React.FC = () => {
   
   const [formData, setFormData] = useState({
     emailOrUsername: registeredEmail || savedLogin,
-    password: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showLoginForm, setShowLoginForm] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
   const [requires2FA, setRequires2FA] = useState(!!googleTempToken);
   const [tempToken, setTempToken] = useState(googleTempToken);
   const [twoFACode, setTwoFACode] = useState('');
   const [twoFAError, setTwoFAError] = useState('');
+  // Жаңа құрылғы не әр 5 кіруден кейін: поштаға келген код
+  // Тіркелу бетіндегі Google батырмасы код сұраса — осында жалғасады
+  const [emailChallenge, setEmailChallenge] = useState<LoginChallenge | null>(routeState?.emailChallenge || null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const parallaxRef = useRef<Parallax | null>(null);
   const parallaxSceneRef = useRef<HTMLDivElement>(null);
@@ -127,11 +135,8 @@ const Login: React.FC = () => {
     }
   }, []);
 
-  // Clear password when form is closed
   useEffect(() => {
     if (!showLoginForm) {
-      setFormData(prev => ({ ...prev, password: '' }));
-      setShowPassword(false);
       setError(null);
     }
   }, [showLoginForm]);
@@ -146,16 +151,19 @@ const Login: React.FC = () => {
       return;
     }
 
-    if (!formData.password.trim()) {
-      setError(t('login.enterPassword'));
-      return;
-    }
-
     setLoading(true);
 
     try {
       // Login with backend API
-      const response = await apiService.login(formData.emailOrUsername, formData.password, captchaToken);
+      // Құпия сөз жоқ: пошта не логин → поштаға код
+      const response = await apiService.login(formData.emailOrUsername, captchaToken);
+
+      // Поштаға код жіберілді — екінші қадам
+      if (response.requires_email_code) {
+        setEmailChallenge(response as LoginChallenge);
+        setLoading(false);
+        return;
+      }
 
       // Check if 2FA is required
       if (response.requires_2fa) {
@@ -191,8 +199,8 @@ const Login: React.FC = () => {
       // Dispatch custom event to notify other components of login
       window.dispatchEvent(new Event('userProfileUpdated'));
 
-      // Redirect to home
-      navigate('/');
+      // Redirect to home (or the page that sent us here)
+      navigate(redirectTo);
     } catch (err: any) {
       console.error('Login error:', err);
       // Turnstile токені бір рет қана жарамды — келесі әрекетке жаңасын аламыз
@@ -314,8 +322,39 @@ const Login: React.FC = () => {
           <div 
             className="auth-card"
           >
-            <h2 className="auth-title">{t('login.title')}</h2>
+            <h2 className="auth-title">{emailChallenge ? t('loginCode.title') : t('login.title')}</h2>
 
+            {emailChallenge ? (
+              <LoginCodeStep
+                challenge={emailChallenge}
+                onCancel={() => {
+                  setEmailChallenge(null);
+                  setCaptchaResetKey((k) => k + 1);
+                }}
+                onSuccess={async (res) => {
+                  // Email коды расталды, бірақ аккаунтта TOTP қосулы — Authenticator коды
+                  if (res.requires_2fa) {
+                    setEmailChallenge(null);
+                    setTempToken(res.temp_token);
+                    setRequires2FA(true);
+                    return;
+                  }
+                  const userData = res.user;
+                  if (userData.avatar && userData.avatar.trim() !== '') {
+                    try {
+                      await imageStorage.saveImage(`avatar-${userData.id}`, userData.avatar);
+                    } catch {}
+                  }
+                  const { avatar, ...userWithoutAvatar } = userData;
+                  login(
+                    { access_token: res.access_token, token_type: res.token_type },
+                    { ...userWithoutAvatar, avatar: avatar ? 'stored' : undefined },
+                  );
+                  window.dispatchEvent(new Event('userProfileUpdated'));
+                  navigate(redirectTo);
+                }}
+              />
+            ) : (
             <form onSubmit={handleSubmit} className="auth-form">
 
             <div className="form-group">
@@ -327,27 +366,6 @@ const Login: React.FC = () => {
                 placeholder={t('login.identifierPlaceholder')}
                 required
               />
-            </div>
-
-            <div className="form-group password-group">
-              <div className="password-input-wrapper">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder={t('login.passwordPlaceholder')}
-                  required
-                />
-                <button
-                  type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? t('login.passwordHide') : t('login.passwordShow')}
-                >
-                  <FontAwesomeIcon icon={showPassword ? faEye : faEyeSlash} />
-                </button>
-              </div>
             </div>
 
             <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
@@ -396,7 +414,7 @@ const Login: React.FC = () => {
                       const userForStorage = { ...userWithoutAvatar, avatar: avatar ? 'stored' : undefined };
                       login({ access_token: res.access_token, token_type: res.token_type }, userForStorage);
                       window.dispatchEvent(new Event('userProfileUpdated'));
-                      navigate('/');
+                      navigate(redirectTo);
                     } catch (err: any) {
                       setTwoFAError(err?.message || t('auth.2fa.wrongCode'));
                     }
@@ -407,32 +425,16 @@ const Login: React.FC = () => {
               </div>
             )}
 
-            {!requires2FA && (
-              <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  {t('auth.forgotPassword')}
-                </button>
-              </div>
-            )}
           </form>
+            )}
 
-          {!requires2FA && (
+          {!requires2FA && !emailChallenge && (
             <GoogleSignInButton
               onRequires2FA={(token) => {
                 setTempToken(token);
                 setRequires2FA(true);
               }}
+              onRequiresEmailCode={setEmailChallenge}
               onError={setError}
             />
           )}

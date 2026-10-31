@@ -7,6 +7,62 @@ function tApi(key: string, options?: Record<string, string>): string {
   return String(i18n.t(key, options));
 }
 
+/** Кіру: поштаға код жіберілді (әр кіруде; бұрын кірмеген құрылғы болса — new_device) */
+export interface LoginChallenge {
+  requires_email_code: true;
+  challenge_id: string;
+  reason: 'new_device' | 'login';
+  email: string;
+  expires_in: number;
+  resend_in: number;
+}
+
+/** Поштаны ауыстыру күтіп тұр: код ескі поштаға да, жаңа поштаға да жіберілді */
+export interface EmailChangePending {
+  oldEmail: string;
+  newEmail: string;
+  expires_in: number;
+  resend_in: number;
+}
+
+export interface MonitoringEvent {
+  id: number;
+  at: string | null;
+  kind: string;
+  severity: 'info' | 'warn' | 'error';
+  userId: string | null;
+  username?: string | null;
+  ip: string | null;
+  detail: any;
+}
+
+export interface MonitoringRoute { route: string; count: number; avgMs: number; maxMs: number; errors: number }
+
+export interface MonitoringOverview {
+  generatedAt: string;
+  uptimeSeconds: number;
+  requests: {
+    total: number; clientErrors: number; serverErrors: number; errorRate: number;
+    p50Ms: number; p95Ms: number; p99Ms: number;
+    series: { t: string; requests: number; errors: number; clientErrors: number }[];
+    topRoutes: MonitoringRoute[];
+    slowRoutes: MonitoringRoute[];
+  };
+  security24h: {
+    loginOk: number; loginFail: number; accountLocked: number; codesSent: number; codeFails: number;
+    newDevices: number; registrations: number; rateLimited: number; serverErrors: number;
+    refreshReuse: number; alerts: number; lockedAccountsNow: number;
+    byKind: Record<string, number>;
+    topIps: { ip: string; count: number }[];
+  };
+  users: { total: number; onlineNow: number; wsConnections: number; activeTerminals: number | null };
+  system: {
+    memoryMb: number | null; cpuPercent: number | null;
+    disk: { totalGb: number; freeGb: number; usedPercent: number } | null;
+    dbSizeMb: number | null; uploadsSizeMb: number; pid: number;
+  };
+}
+
 export interface Comment {
   id: string;
   author: string;
@@ -24,6 +80,32 @@ export interface RunInfo {
   /** Жоба файлдарының жолдары (түбірлік папкасыз) */
   paths: string[];
   packageJson: string | null;
+  /** Жабық жоба: /run/ жолының басына қойылатын қолтаңбалы сегмент (кім қарап отыр) */
+  runToken?: string;
+}
+
+/* Жобалар тізімі (GET /codes, folderId-сыз) — бетпе-бет: бір сұрауда ең көбі CODES_PAGE_SIZE
+   (backend config.py CODES_PAGE_LIMIT). Сүзгі мен сұрыптау серверде. */
+export const CODES_PAGE_SIZE = 30;
+
+export interface CodesQuery {
+  offset?: number;
+  author?: string;
+  search?: string;
+  lang?: string;
+  category?: string;
+  sort?: 'newest' | 'oldest' | 'rating' | 'title' | 'author';
+}
+
+export interface CodesPage {
+  codes: CodeFile[];
+  total: number;
+  offset: number;
+  hasMore: boolean;
+  /** Тіл таңдағышқа: тіл сүзгісінен бұрынғы нәтиженің тілдері, жиілігі бойынша */
+  languages?: { label: string; count: number }[];
+  /** Тіл сүзгісінен бұрынғы жалпы саны («Барлық тілдер») */
+  languagesTotal?: number;
 }
 
 export interface CodeFile {
@@ -46,6 +128,43 @@ export interface CodeFile {
   viewedBy?: string[]; // Array of user IDs who viewed this code
   hasContent?: boolean; // Тізімде content жіберілмейді — бар-жоғы осымен белгіленеді
   folderStats?: { files: number; folders: number; names: { name: string; type: string }[] }; // folderStructure орнына (тізімде)
+  /** Қорғалған файл: secret (.env) / database / testdata — түпнұсқасы тек рұқсаты барға ашылады */
+  protection?: 'secret' | 'database' | 'testdata';
+  /** Түпнұсқасын кім көреді: owner — тек иесі, members — иесі + жоба мүшелері */
+  visibility?: 'owner' | 'members';
+  /** true — маған жария нұсқасы (бос үлгі / бос база) көрсетілді */
+  locked?: boolean;
+  /** Жоба иесі қабылдаған мүшелер (тест деректерін көреді) */
+  members?: string[];
+  /** Тек /codes/mine: менің рөлім — өз жобам немесе қосылған жоба */
+  role?: 'owner' | 'member';
+  /** Тек /codes/mine: мен жұлдыз қойдым ба (басты беттегі тізімнің басында тұрады) */
+  starred?: boolean;
+  /** Жабық жоба: тек иесі мен жоба мүшелері көреді */
+  isPrivate?: boolean;
+}
+
+/** configured — серверде GitHub OAuth App бапталған ба; login — қосылған профиль */
+export interface GithubStatus {
+  configured: boolean;
+  connected: boolean;
+  login: string | null;
+}
+
+export interface GithubRepo {
+  fullName: string;
+  url: string;
+  private: boolean;
+  description: string | null;
+  language: string | null;
+}
+
+/** Жоба мүшелігі: status — қарап отырған адамның күйі; requests — тек иесіне */
+export interface ProjectMembership {
+  owner: string;
+  members: string[];
+  status: 'owner' | 'member' | 'pending' | 'none';
+  requests?: { username: string; requestedAt: string }[];
 }
 
 // Vibecoding жобасы — серверде тек иесіне сақталады
@@ -545,6 +664,15 @@ export interface ProjectNoteWriteResult {
   previous: string | null;
 }
 
+/** Терминалдағы codo CLI кілті; кілттің өзі тек жасалғанда бір рет келеді */
+export interface CliToken {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+}
+
 /** Бүркіт сұрауының қатесі; status 403 — кілт енгізілмеген */
 export class BurkitError extends Error {
   constructor(message: string, public status: number) {
@@ -560,7 +688,7 @@ class ApiService {
   private configCache: SiteConfig | null = null;
   private configCacheExpiry: number = 0;
   private static readonly CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private codesCache: { codes: CodeFile[]; total: number; offset: number; hasMore: boolean } | null = null;
+  private codesCache: CodesPage | null = null;
   private codesCacheExpiry: number = 0;
   private static readonly CODES_CACHE_TTL = 30 * 1000; // 30 seconds
 
@@ -728,21 +856,43 @@ class ApiService {
     }
   }
 
-  // Code files
+  // Жобалар тізімінің бір беті (ең көбі CODES_PAGE_SIZE). Әдепкі сұрау (бірінші бет, сүзгісіз) кэштеледі
+  async getCodesPage(query: CodesQuery = {}): Promise<CodesPage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '' && value !== null) params.append(key, String(value));
+    }
+    params.set('limit', String(CODES_PAGE_SIZE));
+    const { offset, author, search, lang, category, sort } = query;
+    const isDefaultQuery = !offset && !author && !search && !lang && !category && (sort ?? 'newest') === 'newest';
+    const now = Date.now();
+    if (isDefaultQuery && this.codesCache && now < this.codesCacheExpiry) return this.codesCache;
+
+    const result = await this.request<CodesPage>(`/codes?${params.toString()}`);
+    if (isDefaultQuery) {
+      this.codesCache = result;
+      this.codesCacheExpiry = now + ApiService.CODES_CACHE_TTL;
+    }
+    return result;
+  }
+
+  // Бір автордың барлық жобалары — бетпе-бет (әр сұрауда 30-дан) жинап алынады
+  async getAllCodesBy(author: string): Promise<CodeFile[]> {
+    const all: CodeFile[] = [];
+    for (let offset = 0; ; offset += CODES_PAGE_SIZE) {
+      const page = await this.getCodesPage({ author, offset });
+      all.push(...page.codes);
+      if (!page.hasMore || page.codes.length === 0) return all;
+    }
+  }
+
+  // Жобаның файлдары (folderId) — шексіз; folderId-сыз шақырылса, backend ең көбі 30 жоба береді
   async getCodeFiles(
     folderId?: string,
     limit?: number,
     offset?: number,
     includeContent?: boolean
   ): Promise<{ codes: CodeFile[]; total: number; limit?: number; offset: number; hasMore: boolean }> {
-    // Use cache for default listing (no folderId, default limit/offset, no content)
-    const isDefaultQuery = !folderId && limit === 50 && offset === 0 && !includeContent;
-    const now = Date.now();
-
-    if (isDefaultQuery && this.codesCache && now < this.codesCacheExpiry) {
-      return this.codesCache;
-    }
-
     const params = new URLSearchParams();
     if (folderId) params.append('folderId', folderId);
     if (limit !== undefined) params.append('limit', limit.toString());
@@ -766,12 +916,6 @@ class ApiService {
       result = response;
     }
 
-    // Cache default listing
-    if (isDefaultQuery) {
-      this.codesCache = result;
-      this.codesCacheExpiry = now + ApiService.CODES_CACHE_TTL;
-    }
-
     return result;
   }
 
@@ -781,15 +925,99 @@ class ApiService {
     return this.request<RunInfo>(`/codes/${id}/run-info`);
   }
 
-  /** Іске қосылған жобаның файлы — sandbox iframe осыдан ашылады */
-  runUrl(id: string, entry: string): string {
+  /** Іске қосылған жобаның файлы — sandbox iframe осыдан ашылады.
+   *  Жабық жобада token (run-info → runToken) жолға кіреді: iframe кіру токенін жібермейді */
+  runUrl(id: string, entry: string, token?: string): string {
     const [path, query] = entry.split('?');
     const encoded = path.split('/').map(encodeURIComponent).join('/');
-    return `${this.baseUrl}/run/${encodeURIComponent(id)}/${encoded}${query ? `?${query}` : ''}`;
+    const prefix = token ? `${token}/` : '';
+    return `${this.baseUrl}/run/${encodeURIComponent(id)}/${prefix}${encoded}${query ? `?${query}` : ''}`;
   }
 
   async getCodeFile(id: string, lite = false): Promise<CodeFile> {
     return this.request<CodeFile>(`/codes/${id}${lite ? '?lite=true' : ''}`);
+  }
+
+  /** Басты беттегі «Жобалар»: өз жобаларым + мүше болып қосылған жобалар */
+  async getMyProjects(): Promise<CodeFile[]> {
+    const response = await this.request<{ codes: CodeFile[] }>('/codes/mine');
+    return response.codes;
+  }
+
+  async setProjectStar(id: string, starred: boolean): Promise<{ id: string; starred: boolean }> {
+    return this.request<{ id: string; starred: boolean }>(`/codes/${id}/star`, { method: starred ? 'POST' : 'DELETE' });
+  }
+
+  /* Жоба мүшелері: қосылу сұранысы → иесі қабылдайды/бас тартады */
+  /** Ашық GitHub репозиторийінің ZIP архиві (сервер арқылы — codeload CORS бермейді) */
+  async downloadGithubArchive(url: string): Promise<{ zip: File; name: string; subdir: string }> {
+    const endpoint = `${this.baseUrl}/github/archive?url=${encodeURIComponent(url)}`;
+    const send = (token: string | null) =>
+      fetch(endpoint, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+    let response = await send(this._getToken ? this._getToken() : null);
+    if (response.status === 401 && this._refreshToken) {
+      const newToken = await this._refreshToken();
+      if (newToken) response = await send(newToken);
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      // detail — github_* коды (backend/routes/github.py), аудармасы projectUpload.githubErrors-та
+      const error = new Error(typeof data.detail === 'string' ? data.detail : 'github_unavailable');
+      (error as any).status = response.status;
+      throw error;
+    }
+    const name = response.headers.get('X-Repo-Name') || 'project';
+    const subdir = decodeURIComponent(response.headers.get('X-Repo-Subdir') || '');
+    const zip = new File([await response.blob()], `${name}.zip`, { type: 'application/zip' });
+    return { zip, name, subdir };
+  }
+
+  /** GitHub профилі: жабық репоны жүктеу үшін OAuth арқылы қосылады (backend/routes/github.py) */
+  async getGithubStatus(): Promise<GithubStatus> {
+    return this.request<GithubStatus>('/github/status');
+  }
+
+  async getGithubConnectUrl(popup: boolean, returnTo: string): Promise<{ url: string }> {
+    const query = new URLSearchParams({ popup: popup ? 'true' : 'false', returnTo });
+    return this.request<{ url: string }>(`/github/connect?${query}`);
+  }
+
+  async completeGithubConnect(code: string, state: string): Promise<GithubStatus & { popup: boolean; returnTo: string }> {
+    return this.request('/github/callback', { method: 'POST', body: JSON.stringify({ code, state }) });
+  }
+
+  async disconnectGithub(): Promise<GithubStatus> {
+    return this.request<GithubStatus>('/github/connect', { method: 'DELETE' });
+  }
+
+  async getGithubRepos(): Promise<GithubRepo[]> {
+    const res = await this.request<{ repos: GithubRepo[] }>('/github/repos');
+    return res.repos;
+  }
+
+  async getProjectMembers(id: string): Promise<ProjectMembership> {
+    return this.request<ProjectMembership>(`/codes/${id}/members`);
+  }
+
+  async requestJoinProject(id: string): Promise<ProjectMembership> {
+    return this.request<ProjectMembership>(`/codes/${id}/join`, { method: 'POST' });
+  }
+
+  /** Өз сұранысын болдырмау немесе жобадан шығу */
+  async leaveProject(id: string): Promise<ProjectMembership> {
+    return this.request<ProjectMembership>(`/codes/${id}/join`, { method: 'DELETE' });
+  }
+
+  async acceptProjectMember(id: string, username: string): Promise<ProjectMembership> {
+    return this.request<ProjectMembership>(`/codes/${id}/members/${encodeURIComponent(username)}`, { method: 'POST' });
+  }
+
+  /** Сұранысқа бас тарту немесе мүшені шығару */
+  async removeProjectMember(id: string, username: string): Promise<ProjectMembership> {
+    return this.request<ProjectMembership>(`/codes/${id}/members/${encodeURIComponent(username)}`, { method: 'DELETE' });
   }
 
   async createCodeFile(file: Omit<CodeFile, 'id' | 'createdAt' | 'updatedAt'>): Promise<CodeFile> {
@@ -984,10 +1212,11 @@ class ApiService {
 
   // Authentication
   // Аккаунт бірден ашылмайды: email-ге 6 таңбалы код жіберіледі
-  async register(username: string, email: string, password: string, captchaToken?: string | null): Promise<{ verification_required: boolean; email: string }> {
+  /** Тіркелу: пошта + логин → поштаға код (құпия сөз жоқ) */
+  async register(username: string, email: string, captchaToken?: string | null): Promise<{ verification_required: boolean; email: string }> {
     return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password, captcha_token: captchaToken || undefined }),
+      body: JSON.stringify({ username, email, captcha_token: captchaToken || undefined }),
     });
   }
 
@@ -1012,17 +1241,75 @@ class ApiService {
     });
   }
 
-  async login(emailOrUsername: string, password: string, captchaToken?: string | null): Promise<any> {
-    const isEmail = emailOrUsername.includes('@');
+  /** Құпия сөзсіз кіру: пошта не логин → поштаға код (жауап: LoginChallenge) */
+  async login(emailOrUsername: string, captchaToken?: string | null): Promise<any> {
+    const value = emailOrUsername.trim();
+    const isEmail = value.includes('@');
     const captcha_token = captchaToken || undefined;
-    const body = isEmail
-      ? { email: emailOrUsername, password, captcha_token }
-      : { username: emailOrUsername, password, captcha_token };
+    const body = isEmail ? { email: value, captcha_token } : { username: value, captcha_token };
 
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify(body),
     });
+  }
+
+  // ── Поштаны ауыстыру (екі кодпен) ──
+  async getEmailChange(): Promise<{ pending: EmailChangePending | null }> {
+    return this.request('/user/email/change');
+  }
+
+  async startEmailChange(newEmail: string): Promise<EmailChangePending> {
+    return this.request('/user/email/change', { method: 'POST', body: JSON.stringify({ newEmail }) });
+  }
+
+  async resendEmailChange(): Promise<EmailChangePending> {
+    return this.request('/user/email/resend', { method: 'POST' });
+  }
+
+  async cancelEmailChange(): Promise<{ ok: boolean }> {
+    return this.request('/user/email/change', { method: 'DELETE' });
+  }
+
+  async confirmEmailChange(oldCode: string, newCode: string): Promise<{ id: string; username: string; email: string }> {
+    return this.request('/user/email/confirm', { method: 'POST', body: JSON.stringify({ oldCode, newCode }) });
+  }
+
+  async verifyLoginCode(challenge_id: string, code: string): Promise<any> {
+    return this.request('/auth/login/verify', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id, code }),
+    });
+  }
+
+  async resendLoginCode(challenge_id: string): Promise<{ message: string; expires_in: number; resend_in: number }> {
+    return this.request('/auth/login/resend', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id }),
+    });
+  }
+
+  // ── Әкімші: мониторинг ──
+  async getAdminMe(): Promise<{ isAdmin: boolean }> {
+    return this.request('/admin/me');
+  }
+
+  async getMonitoringOverview(): Promise<MonitoringOverview> {
+    return this.request('/admin/monitoring/overview');
+  }
+
+  async getMonitoringEvents(params: { kind?: string; severity?: string; userId?: string; ip?: string; beforeId?: number; limit?: number } = {}): Promise<{ events: MonitoringEvent[] }> {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return this.request(`/admin/monitoring/events${q.toString() ? `?${q}` : ''}`);
+  }
+
+  async adminUnlockUser(userId: string): Promise<{ ok: boolean }> {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/unlock`, { method: 'POST' });
+  }
+
+  async adminLogoutEverywhere(userId: string): Promise<{ ok: boolean }> {
+    return this.request(`/admin/users/${encodeURIComponent(userId)}/logout-everywhere`, { method: 'POST' });
   }
 
   async firebaseLogin(idToken: string): Promise<any> {
@@ -1059,28 +1346,6 @@ class ApiService {
     });
   }
 
-  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-  }
-
-  async forgotPassword(email: string): Promise<{ message: string }> {
-    return this.request('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  }
-
-  async resetPassword(token: string, new_password: string): Promise<{ message: string }> {
-    return this.request('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ token, new_password }),
-    });
-  }
-
-  // 2FA
   async setup2FA(): Promise<{ secret: string; uri: string }> {
     return this.request('/auth/2fa/setup', { method: 'POST' });
   }
@@ -1092,10 +1357,11 @@ class ApiService {
     });
   }
 
-  async disable2FA(password: string): Promise<{ message: string }> {
+  /** 2FA-ны өшіру: Authenticator-дағы ағымдағы 6 таңбалы код */
+  async disable2FA(code: string): Promise<{ message: string }> {
     return this.request('/auth/2fa/disable', {
       method: 'POST',
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ code }),
     });
   }
 
@@ -1108,6 +1374,35 @@ class ApiService {
 
   async deleteAccount(): Promise<{ message: string }> {
     return this.request('/user', { method: 'DELETE' });
+  }
+
+  // Терминалдан жүктеуге арналған CLI кілттері (backend/routes/cli.py)
+  async getCliTokens(): Promise<{ tokens: CliToken[] }> {
+    return this.request('/cli/tokens');
+  }
+
+  async createCliToken(name: string): Promise<CliToken & { token: string }> {
+    // site — CLI жүктегеннен кейін жобаның осы сайттағы сілтемесін шығарады
+    return this.request('/cli/tokens', {
+      method: 'POST',
+      body: JSON.stringify({ name, site: window.location.origin }),
+    });
+  }
+
+  // codo login (device flow): /cli/login?code=… бетіндегі «Рұқсат беру»
+  async getCliLogin(code: string): Promise<{ code: string; deviceName: string; approved: boolean }> {
+    return this.request(`/cli/login/${encodeURIComponent(code)}`);
+  }
+
+  async approveCliLogin(code: string): Promise<{ deviceName: string }> {
+    return this.request('/cli/login/approve', {
+      method: 'POST',
+      body: JSON.stringify({ code, site: window.location.origin }),
+    });
+  }
+
+  async revokeCliToken(id: string): Promise<{ message: string }> {
+    return this.request(`/cli/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
   // Likes
@@ -1451,6 +1746,25 @@ class ApiService {
 
   async updateChatSettings(dmPrivacy: DmPrivacy): Promise<{ dmPrivacy: DmPrivacy }> {
     return this.request('/chat-settings', { method: 'PUT', body: JSON.stringify({ dmPrivacy }) });
+  }
+
+  /** Баптаулар → «Жобалар»: жаңа жобалар әдепкіде жабық па */
+  async getProjectSettings(): Promise<{ defaultPrivate: boolean }> {
+    return this.request('/project-settings');
+  }
+
+  async updateProjectSettings(defaultPrivate: boolean): Promise<{ defaultPrivate: boolean }> {
+    return this.request('/project-settings', { method: 'PUT', body: JSON.stringify({ defaultPrivate }) });
+  }
+
+  /** Өз жобаларымның бәрін бірден жабу / ашу */
+  async setAllProjectsVisibility(isPrivate: boolean): Promise<{ updated: number }> {
+    const result = await this.request<{ updated: number }>('/codes/mine/visibility', {
+      method: 'PUT',
+      body: JSON.stringify({ isPrivate }),
+    });
+    this.codesCache = null;
+    return result;
   }
 
   async getMessageRequests(): Promise<MessageRequest[]> {

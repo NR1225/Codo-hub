@@ -30,10 +30,24 @@ export function categoryFromSlug(slug: string | null): CategoryKey | null {
   return CATEGORIES.find((c) => c.key === slug)?.key ?? null;
 }
 
-// Таңдалған категория: алдымен тегтен, ескі жүктемелерде — сипаттама орнына
-// жазылған мәннен. Категория таңдалмаған код «Басқа» бөліміне түседі.
-export function getCategory(code: CodeFile): CategoryKey {
-  const tag = code.tags?.find((t) => t.startsWith(CATEGORY_TAG_PREFIX));
-  const value = tag ? tag.slice(CATEGORY_TAG_PREFIX.length) : code.description?.trim();
-  return (value && BY_VALUE.get(value)) || 'other';
+// Таңдалған категориялар (жоба бірнеше бағытта болуы мүмкін): алдымен тегтерден, ескі
+// жүктемелерде — сипаттама орнына жазылған мәннен. Категориясыз код «Басқа» бөліміне түседі.
+export function getCategories(code: CodeFile): CategoryKey[] {
+  const values = (code.tags ?? [])
+    .filter((t) => t.startsWith(CATEGORY_TAG_PREFIX))
+    .map((t) => t.slice(CATEGORY_TAG_PREFIX.length));
+  if (!values.length && code.description) values.push(code.description.trim());
+  const keys = [...new Set(values.map((v) => BY_VALUE.get(v)).filter((k): k is CategoryKey => !!k))];
+  return keys.length ? keys : ['other'];
+}
+
+export const getCategory = (code: CodeFile): CategoryKey => getCategories(code)[0];
+
+/* Жобаның тілдері: code.language — негізгісі, қалғандары `lang:<тіл>` тегі ретінде */
+export const LANGUAGE_TAG_PREFIX = 'lang:';
+
+export function getLanguages(code: CodeFile): string[] {
+  const extra = (code.tags ?? []).filter((t) => t.startsWith(LANGUAGE_TAG_PREFIX)).map((t) => t.slice(LANGUAGE_TAG_PREFIX.length));
+  const main = code.language?.trim();
+  return [...new Set([...(main ? [main] : []), ...extra])];
 }

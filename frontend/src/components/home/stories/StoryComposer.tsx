@@ -57,8 +57,7 @@ const StoryComposer: React.FC<Props> = ({ projects: initialProjects, onClose, on
   const loadProjects = async (): Promise<CodeFile[]> => {
     if (!user) return [];
     try {
-      const res = await apiService.getCodeFiles(undefined, 1000, 0, false);
-      const mine = res.codes.filter((c) => c.author === user.username && !c.folderId);
+      const mine = await apiService.getAllCodesBy(user.username);
       setProjects(mine);
       return mine;
     } catch {
@@ -235,7 +234,7 @@ const StoryComposer: React.FC<Props> = ({ projects: initialProjects, onClose, on
       <div className="sc__panel" onClick={(e) => e.stopPropagation()}>
         <header className="sc__head">
           <h2>{t('home.story.newTitle')}</h2>
-          <button type="button" className="sc__icon" onClick={close} aria-label={t('home.storyClose')}>
+          <button type="button" className="sc__icon x-close" onClick={close} aria-label={t('home.storyClose')}>
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>

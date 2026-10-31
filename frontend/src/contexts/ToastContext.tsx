@@ -1,18 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faExclamation, faInfo, faXmark, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faExclamation, faRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import './Toast.css';
-
-type ToastType = 'success' | 'error' | 'info';
-
-interface ToastItem {
-  id: number;
-  type: ToastType;
-  message: string;
-  leaving: boolean;
-}
 
 interface ToastApi {
   success: (message: string) => void;
@@ -36,40 +27,16 @@ const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 export const LOGOUT_ICON = faRightFromBracket;
 
-const TOAST_DURATION_MS = 4000;
-const TOAST_EXIT_MS = 200;
-const MAX_TOASTS = 4;
+const CONFIRM_EXIT_MS = 200;
 
-const ICONS = {
-  success: faCheck,
-  error: faExclamation,
-  info: faInfo,
-};
+// Оң жақ жоғарыдағы toast хабарламалары сайттың ешбір жерінде көрсетілмейді:
+// useToast() API-і сақталған (шақырған жерлер сынбасын), бірақ ештеңе шығармайды.
+const noop = () => {};
+const SILENT_TOAST: ToastApi = { success: noop, error: noop, info: noop };
 
-// Сайт ішіндегі хабарламалар — браузердің alert() / confirm() терезелерінің орнына.
-// Уақыт жолағының CSS анимациясы біткенде toast жабылады, сондықтан
-// тышқан үстінде тұрғанда (анимация паузада) ол жабылмайды.
+// Растау терезесі — браузердің confirm() терезесінің орнына.
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const nextId = useRef(0);
-
-  const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.map((x) => (x.id === id ? { ...x, leaving: true } : x)));
-    setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), TOAST_EXIT_MS);
-  }, []);
-
-  const show = useCallback((type: ToastType, message: string) => {
-    const id = nextId.current++;
-    setToasts((prev) => [...prev.slice(-(MAX_TOASTS - 1)), { id, type, message, leaving: false }]);
-  }, []);
-
-  const api = useRef<ToastApi>({
-    success: (m) => show('success', m),
-    error: (m) => show('error', m),
-    info: (m) => show('info', m),
-  }).current;
-
   // ── Растау терезесі: await confirm({...}) → true / false ──
   const [confirmState, setConfirmState] = useState<(ConfirmOptions & { leaving: boolean }) | null>(null);
   const confirmResolve = useRef<((value: boolean) => void) | null>(null);
@@ -87,7 +54,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     confirmResolve.current?.(result);
     confirmResolve.current = null;
     setConfirmState((prev) => (prev ? { ...prev, leaving: true } : prev));
-    setTimeout(() => setConfirmState(null), TOAST_EXIT_MS);
+    setTimeout(() => setConfirmState(null), CONFIRM_EXIT_MS);
   }, []);
 
   useEffect(() => {
@@ -100,14 +67,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => document.removeEventListener('keydown', onKey);
   }, [confirmState, closeConfirm]);
 
-  const titles: Record<ToastType, string> = {
-    success: t('common.success'),
-    error: t('common.error'),
-    info: t('common.info'),
-  };
-
   return (
-    <ToastContext.Provider value={api}>
+    <ToastContext.Provider value={SILENT_TOAST}>
       <ConfirmContext.Provider value={confirm}>
         {children}
 
@@ -153,36 +114,6 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           </div>
         )}
 
-        <div className="toast-container">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className={`toast toast-${toast.type}${toast.leaving ? ' toast-leaving' : ''}`}
-              role={toast.type === 'error' ? 'alert' : 'status'}
-              style={{ '--toast-duration': `${TOAST_DURATION_MS}ms` } as React.CSSProperties}
-            >
-              <span className="toast-icon">
-                <FontAwesomeIcon icon={ICONS[toast.type]} />
-              </span>
-              <div className="toast-body">
-                <div className="toast-title">{titles[toast.type]}</div>
-                <div className="toast-message">{toast.message}</div>
-              </div>
-              <button
-                type="button"
-                className="toast-close"
-                onClick={() => dismiss(toast.id)}
-                aria-label={t('common.close')}
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
-              <span
-                className="toast-progress"
-                onAnimationEnd={() => dismiss(toast.id)}
-              />
-            </div>
-          ))}
-        </div>
       </ConfirmContext.Provider>
     </ToastContext.Provider>
   );

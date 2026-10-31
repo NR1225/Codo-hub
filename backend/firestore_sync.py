@@ -37,6 +37,7 @@ def init_firestore():
             firebase_admin.initialize_app(cred)
             _firestore_db = firestore.client()
             print("Firestore initialized successfully")
+            purge_private_codes()
             return True
         else:
             print(f"Warning: Service account key not found at {service_account_path}")
@@ -49,11 +50,45 @@ def init_firestore():
         print(f"Error initializing Firestore: {e}")
         return False
 
+def _is_private(code: Dict[str, Any]) -> bool:
+    """Код жабық жобаға жата ма (жобаның өзі немесе оның ішкі файлы)"""
+    if code.get('isPrivate'):
+        return True
+    folder_id = code.get('folderId')
+    if not folder_id:
+        return False
+    from database import codes  # циклдік импорттан қашу үшін — осы жерде
+    project = next((c for c in codes if c.get('id') == folder_id), None)
+    return bool(project and project.get('isPrivate'))
+
+
+def purge_private_codes() -> int:
+    """Жабық жобалар мен олардың файлдарын Firestore-дан жою.
+    Firestore-ды клиент тікелей оқиды, сондықтан онда тек ашық деректер болуы керек"""
+    if not FIRESTORE_AVAILABLE or _firestore_db is None:
+        return 0
+    from database import codes
+    private_ids = [str(c['id']) for c in codes if c.get('id') and _is_private(c)]
+    try:
+        for start in range(0, len(private_ids), 400):
+            batch = _firestore_db.batch()
+            for code_id in private_ids[start:start + 400]:
+                batch.delete(_firestore_db.collection('codes').document(code_id))
+            batch.commit()
+    except Exception as e:
+        print(f"Error purging private codes from Firestore: {e}")
+    return len(private_ids)
+
+
 def sync_code_to_firestore(code: Dict[str, Any]) -> bool:
-    """Кодты Firestore-ға синхрондау"""
+    """Кодты Firestore-ға синхрондау. Жабық жобаның деректері Firestore-ға жазылмайды —
+    бұрын жазылған болса, жойылады"""
     if not FIRESTORE_AVAILABLE or _firestore_db is None:
         return False
-    
+
+    if _is_private(code):
+        return delete_code_from_firestore(code['id'])
+
     try:
         code_ref = _firestore_db.collection('codes').document(code['id'])
         # isFolder қасиетін дұрыс анықтау - әртүрлі форматын қолдау

@@ -1,10 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CodeFile } from '../utils/api';
-import { apiService } from '../utils/api';
-import { subscribeToCodes, unsubscribe } from '../utils/realtimeService';
-import { isFirestoreBlocked } from '../utils/firebase';
+import { useCodesFeed, useLoadMoreSentinel } from '../hooks/useCodesFeed';
 import { useAuth } from '../contexts/AuthContext';
 import {
   PlusIcon,
@@ -27,8 +24,6 @@ import {
   SortOption,
   ViewMode,
   capitalize,
-  compareCodes,
-  isNetworkError,
   readViewMode,
   saveViewMode,
 } from '../components/codes/codeUtils';
@@ -38,12 +33,8 @@ import './CodesPage.css';
    сол жақта сүзгілер панелі, оң жақта кодтар панелі. Бет өзі айналмайды —
    тек ішкі тізімдер айналады. */
 
-const PAGE_LIMIT = 50;
-const FULL_LIMIT = 1000;
-
-// Модуль деңгейіндегі кэш: бетке қайта оралғанда loading флешы көрінбеуі үшін
-let codesCachedCodes: CodeFile[] | null = null;
-let codesCachedTotal = 0;
+// Іздеу өрісінде әр әріпке сұрау жібермеу үшін
+const SEARCH_DEBOUNCE_MS = 300;
 
 /* ---------- Тіл таңдау картасы ---------- */
 
@@ -186,19 +177,20 @@ const CodesPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [codes, setCodes] = useState<CodeFile[]>(codesCachedCodes ?? []);
-  const [loading, setLoading] = useState(codesCachedCodes === null);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(codesCachedTotal);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [view, setView] = useState<ViewMode>(readViewMode);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const fullLoadedRef = useRef(false);
 
   // Іздеу мен тіл сүзгісі URL-да — сілтемемен бөлісуге болады
   const searchQuery = searchParams.get('search') || '';
   const filterLanguage = searchParams.get('lang') || '';
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery.trim());
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const updateParam = (key: string, value: string) => {
     setSearchParams(
@@ -212,89 +204,12 @@ const CodesPage: React.FC = () => {
     );
   };
 
-  const loadCodes = useCallback(async (limit: number = PAGE_LIMIT, retryCount: number = 0): Promise<CodeFile[] | null> => {
-    const MAX_RETRIES = 2;
-    try {
-      const response = await apiService.getCodeFiles(undefined, limit, 0, false);
-      setCodes(response.codes);
-      setTotalCount(response.total);
-      codesCachedCodes = response.codes;
-      codesCachedTotal = response.total;
-      if (limit >= FULL_LIMIT) fullLoadedRef.current = true;
-      setError(null);
-      setLoading(false);
-      return response.codes;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      if (isNetworkError(message) && retryCount < MAX_RETRIES) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
-        return loadCodes(limit, retryCount + 1);
-      }
-      setError(message || t('home.error'));
-      setLoading(false);
-      return null;
-    }
-  // t тек қате мәтіні үшін — тәуелділікке қоспаймыз
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    let unsubscribeListener: (() => void) | null = null;
-
-    const initialize = async () => {
-      const loaded = await loadCodes(searchQuery || filterLanguage ? FULL_LIMIT : PAGE_LIMIT);
-      if (!isMounted) return;
-
-      // Real-time listener (тек Firestore блокталмаған болса)
-      if (!isFirestoreBlocked()) {
-        try {
-          unsubscribeListener = subscribeToCodes(
-            null,
-            (updatedCodes) => {
-              if (isMounted && !loaded?.length && updatedCodes.length > 0) setCodes(updatedCodes);
-            },
-            () => {}
-          );
-        } catch {
-          // API деректері пайдаланылады
-        }
-      }
-    };
-
-    initialize();
-
-    const handleCodesUpdated = () => {
-      apiService.invalidateCodesCache();
-      loadCodes(fullLoadedRef.current ? FULL_LIMIT : PAGE_LIMIT);
-    };
-    window.addEventListener('codesUpdated', handleCodesUpdated);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener('codesUpdated', handleCodesUpdated);
-      if (unsubscribeListener) {
-        unsubscribeListener();
-        unsubscribe('codes-all');
-      }
-    };
-  // Тек бірінші рет жүктейміз
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadCodes]);
-
-  // Іздеу/сүзгі басталғанда — дұрыс нәтиже үшін барлық кодтарды бір рет жүктейміз
-  useEffect(() => {
-    if (!(searchQuery || filterLanguage) || fullLoadedRef.current) return;
-    if (totalCount > 0 && codes.length >= totalCount) {
-      fullLoadedRef.current = true;
-      return;
-    }
-    const timer = setTimeout(() => {
-      fullLoadedRef.current = true;
-      loadCodes(FULL_LIMIT);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, filterLanguage, codes.length, totalCount, loadCodes]);
+  // Сүзгі мен сұрыптау серверде; бір сұрауда 30 жоба, қалғаны айналдырған сайын
+  const { codes, hasMore, languages, languagesTotal, loading, loadingMore, error, reload, loadMore } = useCodesFeed(
+    { search: debouncedSearch, lang: filterLanguage, sort: sortBy },
+    t('home.error')
+  );
+  const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading, codes.length);
 
   useEffect(() => saveViewMode(view), [view]);
 
@@ -312,42 +227,6 @@ const CodesPage: React.FC = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-
-  // Тілдер — қолданылу жиілігі бойынша
-  const languageCounts = useMemo(() => {
-    const counts = new Map<string, { label: string; count: number }>();
-    codes.forEach((code) => {
-      const label = code.language?.trim();
-      if (!label) return;
-      const key = label.toLowerCase();
-      const entry = counts.get(key);
-      if (entry) entry.count += 1;
-      else counts.set(key, { label, count: 1 });
-    });
-    return Array.from(counts.values()).sort(
-      (a, b) => b.count - a.count || a.label.toLowerCase().localeCompare(b.label.toLowerCase())
-    );
-  }, [codes]);
-
-  const results = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    const lang = filterLanguage.toLowerCase().trim();
-
-    const filtered = codes.filter((code) => {
-      if (lang && (code.language || '').toLowerCase().trim() !== lang) return false;
-      if (!q) return true;
-      return (
-        code.title?.toLowerCase().includes(q) ||
-        code.description?.toLowerCase().includes(q) ||
-        code.author?.toLowerCase().includes(q) ||
-        code.language?.toLowerCase().includes(q) ||
-        code.tags?.some((tag) => tag.toLowerCase().includes(q)) ||
-        (!code.isFolder && code.content?.toLowerCase().includes(q))
-      );
-    });
-
-    return filtered.sort(compareCodes(sortBy));
-  }, [codes, searchQuery, filterLanguage, sortBy]);
 
   const hasActiveFilters = Boolean(searchQuery || filterLanguage);
   const isInitialLoading = loading && codes.length === 0;
@@ -395,9 +274,9 @@ const CodesPage: React.FC = () => {
 
           <div className="cdx-side__scroll">
             <LanguagePicker
-              options={languageCounts}
+              options={languages}
               value={filterLanguage}
-              total={codes.length}
+              total={languagesTotal}
               loading={isInitialLoading}
               onChange={(lang) => updateParam('lang', lang)}
             />
@@ -453,7 +332,7 @@ const CodesPage: React.FC = () => {
             {error && (
               <div className="cdx-error" role="alert">
                 <span>{error}</span>
-                <button type="button" onClick={() => loadCodes(fullLoadedRef.current ? FULL_LIMIT : PAGE_LIMIT)}>
+                <button type="button" onClick={reload}>
                   <RefreshIcon />
                   {t('home.retry')}
                 </button>
@@ -466,7 +345,7 @@ const CodesPage: React.FC = () => {
                   <div key={i} className={`cdx-skel cdx-skel--${view}`} />
                 ))}
               </div>
-            ) : results.length === 0 ? (
+            ) : codes.length === 0 ? (
               !error && (
                 <div className="cdx-empty">
                   <span className="cdx-empty__icon">
@@ -487,11 +366,16 @@ const CodesPage: React.FC = () => {
                 </div>
               )
             ) : (
-              <div className={`cdx-grid cdx-grid--${view} ${loading ? 'is-refreshing' : ''}`}>
-                {results.map((code, i) => (
-                  <CodeTile key={code.id} code={code} index={i} view={view} />
-                ))}
-              </div>
+              <>
+                <div className={`cdx-grid cdx-grid--${view} ${loading ? 'is-refreshing' : ''}`}>
+                  {codes.map((code, i) => (
+                    <CodeTile key={code.id} code={code} index={i} view={view} />
+                  ))}
+                </div>
+                <div ref={sentinelRef} className="cdx-more">
+                  {loadingMore && <span className="cdx-more__spinner" role="status" aria-label={t('home.loading')} />}
+                </div>
+              </>
             )}
           </div>
         </main>

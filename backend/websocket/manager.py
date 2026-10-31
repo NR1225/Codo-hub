@@ -28,6 +28,9 @@ class ConnectionManager:
     async def send_personal_message(self, message: dict, user_id: str):
         """Send a message to a specific user via WebSocket"""
         if user_id in self.active_connections:
+            # Файл сілтемелері әр алушыға өз қолтаңбасымен (utils/media_access.py)
+            from utils.media_access import sign_payload
+            message = sign_payload(message, str(user_id))
             disconnected = set()
             for connection in self.active_connections[user_id]:
                 try:

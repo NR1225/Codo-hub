@@ -7,12 +7,15 @@ import mimetypes
 import time
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.formparsers import MultiPartException
-from config import MAX_PROJECT_FILES, MAX_MANIFEST_BYTES
+from config import MAX_PROJECT_FILES, MAX_MANIFEST_BYTES, CODES_PAGE_LIMIT
 from models import CodeCreate, CodeUpdate, CommentCreate, CommentUpdate, ViewRequest, DeleteMultipleRequest
 from services.code_service import CodeService
-from utils.upload_rules import classify_upload_path, SKIP_MESSAGES
-from utils.auth import get_current_user
+from utils.upload_rules import classify_upload_path, is_skipped, SKIP_MESSAGES
+from utils.protected_files import protect_file
+from utils.auth import get_current_user, get_optional_user, get_upload_user
 from db import User
+from pydantic import BaseModel
+from services.project_settings import get_default_private, set_default_private, resolve_private
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -20,29 +23,90 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
 
+def _visible_code(code_id: str, user: Optional[User]) -> dict:
+    """Код/жоба осы адамға көріне ме: жабық жобаны бөтен адам «жоқ» деп көреді (404)"""
+    code = CodeService.find_code_by_id(code_id)
+    if not code or not CodeService.can_view(code, user.username if user else None):
+        raise HTTPException(status_code=404, detail="Code file not found")
+    return code
+
+
 @router.get("/codes")
-@limiter.limit("30/minute")
+@limiter.limit("120/minute")
 async def get_codes(
     request: Request,
     folderId: Optional[str] = Query(None),
     limit: Optional[int] = Query(None, ge=1, le=1000),
     offset: Optional[int] = Query(0, ge=0),
-    includeContent: Optional[bool] = Query(False)
+    includeContent: Optional[bool] = Query(False),
+    author: Optional[str] = Query(None, max_length=100),
+    search: Optional[str] = Query(None, max_length=200),
+    lang: Optional[str] = Query(None, max_length=50),
+    category: Optional[str] = Query(None, max_length=50),
+    sort: Optional[str] = Query("newest", pattern="^(newest|oldest|rating|title|author)$"),
+    viewer: Optional[User] = Depends(get_optional_user),
 ):
-    """Get codes, optionally filtered by folder with pagination support"""
-    return CodeService.get_codes(folderId, limit=limit, offset=offset, include_content=includeContent)
+    """Get codes, optionally filtered by folder with pagination support.
+    Жобалар тізімі (folderId жоқ) бетпе-бет: бір сұрауда ең көбі CODES_PAGE_LIMIT,
+    сүзгі мен сұрыптау серверде. Жобаның файлдары (folderId) — шексіз.
+    Қорғалған файлдардың түпнұсқасы тек рұқсаты бар адамға (viewer) ашылады"""
+    if not folderId:
+        limit = min(limit or CODES_PAGE_LIMIT, CODES_PAGE_LIMIT)
+    else:
+        _visible_code(folderId, viewer)
+    return CodeService.get_codes(
+        folderId, limit=limit, offset=offset, include_content=includeContent,
+        viewer=viewer.username if viewer else None,
+        author=author, search=search, lang=lang, category=category, sort=sort,
+    )
+
+
+@router.get("/codes/mine")
+@limiter.limit("60/minute")
+async def get_my_projects(request: Request, user: User = Depends(get_current_user)):
+    """Басты беттегі «Жобалар»: өз жобаларым + мүше болып қосылған жобалар (starred белгісімен)"""
+    return {'codes': CodeService.my_projects(user.username)}
+
+
+class ProjectSettingsBody(BaseModel):
+    defaultPrivate: bool
+
+
+class ProjectsVisibilityBody(BaseModel):
+    isPrivate: bool
+
+
+@router.get("/project-settings")
+@limiter.limit("60/minute")
+async def get_project_settings(request: Request, user: User = Depends(get_current_user)):
+    """Баптаулар → «Жобалар»: жаңа жобалар әдепкіде жабық па"""
+    return {"defaultPrivate": get_default_private(user.id)}
+
+
+@router.put("/project-settings")
+@limiter.limit("20/minute")
+async def update_project_settings(request: Request, body: ProjectSettingsBody, user: User = Depends(get_current_user)):
+    return {"defaultPrivate": set_default_private(user.id, body.defaultPrivate)}
+
+
+@router.put("/codes/mine/visibility")
+@limiter.limit("10/minute")
+async def set_my_projects_visibility(request: Request, body: ProjectsVisibilityBody, user: User = Depends(get_current_user)):
+    """Өз жобаларымның бәрін бірден жабу / ашу"""
+    return {"updated": CodeService.set_projects_visibility(user.username, body.isPrivate)}
 
 
 @router.get("/codes/{code_id}")
 @limiter.limit("60/minute")
-async def get_code(request: Request, code_id: str, lite: bool = Query(False)):
+async def get_code(
+    request: Request, code_id: str, lite: bool = Query(False),
+    viewer: Optional[User] = Depends(get_optional_user),
+):
     """Get a code by ID. lite=true — папка болса, ауыр content/folderStructure жіберілмейді"""
-    code = CodeService.find_code_by_id(code_id)
-    if not code:
-        raise HTTPException(status_code=404, detail="Code file not found")
+    code = _visible_code(code_id, viewer)
     if lite and code.get('isFolder'):
         return CodeService.to_lite(code)
-    return code
+    return CodeService.for_viewer(code, viewer.username if viewer else None)
 
 
 @router.post("/codes")
@@ -55,9 +119,10 @@ async def create_code(request: Request, code_data: CodeCreate, user: User = Depe
         # author is always the authenticated user (prevents attribution spoofing
         # and the ownership checks on edit/delete being set to someone else).
         code_dict['author'] = user.username
-        # Жалғыз файл да папкадағыдай ережемен: тек код, пакет/кэш/құпия/бинарлы емес
+        code_dict['isPrivate'] = resolve_private(code_dict.get('isPrivate'), user.id)
+        # Жалғыз файл да папкадағыдай ережемен: кэш/қоқыс пен .exe өтпейді, құпия файл қорғалады
         kind = classify_upload_path(code_dict.get('title') or '')
-        if kind:
+        if is_skipped(kind):
             raise ValueError(SKIP_MESSAGES[kind])
         return CodeService.create_code(code_dict)
     except ValueError as e:
@@ -81,75 +146,124 @@ def _structure_skipped(key: str, value) -> bool:
         return False  # түбірлік папканың өзі
     if isinstance(value, dict) and value.get('type') == 'folder':
         return classify_upload_path(f"{inner}/_") == 'junk'
-    return classify_upload_path(inner) is not None
+    return is_skipped(classify_upload_path(inner))
 
 
 # Сурет кеңейтімдері — content-ті data-URL (base64) ретінде сақтау үшін
 _IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico'}
 
 
+async def _read_upload(request: Request):
+    """Жүктеу формасы: manifest JSON + шикі файлдар (manifest.files ретімен).
+    Қайтарады: (manifest_data, [(entry, upload)], өткізілген қоқыс саны).
+    Форма қолмен оқылады: Starlette-тің әдепкі шегі (1000 файл, 1 МБ өріс) үлкен жобаға жетпейді.
+    """
+    try:
+        form = await request.form(
+            max_files=MAX_PROJECT_FILES, max_fields=10, max_part_size=MAX_MANIFEST_BYTES
+        )
+    except MultiPartException as e:
+        raise HTTPException(status_code=400, detail=f"{e.message} (бір бөлікте ең көбі {MAX_PROJECT_FILES} файл)")
+    manifest = form.get('manifest')
+    files = [f for f in form.getlist('files') if isinstance(f, StarletteUploadFile)]
+    if not isinstance(manifest, str):
+        raise HTTPException(status_code=400, detail="manifest жоқ")
+    try:
+        manifest_data = json.loads(manifest)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="manifest JSON дұрыс емес")
+
+    file_entries = manifest_data.get('files', [])
+    if not file_entries:
+        raise HTTPException(status_code=400, detail="Папка бос")
+    if len(files) != len(file_entries):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Файлдар саны сәйкес келмейді: manifest={len(file_entries)}, "
+                  f"жіберілген={len(files)}"
+        )
+
+    # Тек кэш/қоқыс (node_modules, __pycache__…) пен .exe/.dll өтпейді; құпия, база және тест деректері
+    # жүктеледі, бірақ қорғалады (utils/protected_files.py).
+    # Тексеріс түбірлік папкасыз жолмен (жоба «build» деп аталуы мүмкін)
+    pairs = []
+    junk_skipped = 0
+    for entry, upload in zip(file_entries, files):
+        path = entry.get('path') or upload.filename or entry.get('name', 'file')
+        if is_skipped(classify_upload_path(_inner_path(path))):
+            junk_skipped += 1
+        else:
+            pairs.append((entry, upload))
+    return manifest_data, pairs, junk_skipped
+
+
+async def _files_data(pairs, manifest_data: dict, username: str) -> List[dict]:
+    """Әр файл үшін контент дайындау (сервердің өзі оқиды — frontend оқымайды)"""
+    files_data = []
+    for entry, upload in pairs:
+        raw = await upload.read()
+        if raw is None:
+            raw = b''
+        path = entry.get('path') or upload.filename or entry.get('name', 'file')
+        name = entry.get('name') or upload.filename or path.split('/')[-1]
+        is_image = entry.get('isImage', False)
+        protected = protect_file(_inner_path(path), raw, is_image)
+
+        if protected.get('content') is not None:
+            content = protected['content']
+        elif is_image:
+            ext = '.' + (path.rsplit('.', 1)[-1].lower()
+                         if '.' in path else '')
+            mime = mimetypes.guess_type(name)[0] or 'image/png'
+            if ext in _IMAGE_EXTENSIONS and mime == 'application/octet-stream':
+                mime = 'image/' + ext.lstrip('.')
+            b64 = base64.b64encode(raw).decode('ascii')
+            content = f"data:{mime};base64,{b64}"
+        else:
+            content = raw.decode('utf-8', errors='replace')
+
+        files_data.append({
+            **{k: v for k, v in protected.items() if k != 'content'},
+            'title': name,
+            'content': content,
+            'language': entry.get('language') or 'other',
+            'author': username,
+            'description': manifest_data.get('description'),
+            'tags': ['folder-file'],
+            'folderPath': path,
+        })
+    return files_data
+
+
+def _upload_error(e: Exception):
+    if isinstance(e, HTTPException):
+        raise e
+    if isinstance(e, ValueError):
+        raise HTTPException(status_code=400, detail=str(e))
+    import logging
+    logging.getLogger("codo_hub").error(f"Folder upload error: {e}")
+    raise HTTPException(status_code=500, detail="Қате орын алды! Сервер қатесі.")
+
+
 @router.post("/codes/folder")
 @limiter.limit("30/minute")
-async def create_folder(request: Request, user: User = Depends(get_current_user)):
-    """Бүтін папканы бір сұраумен жүктеу.
+async def create_folder(request: Request, user: User = Depends(get_upload_user)):
+    """Жобаны жүктеу (бірінші бөлігі).
 
-    Frontend бір multipart сұрау жібереді:
+    Frontend (немесе терминалдағы codo CLI, cli/codo.py) multipart сұрау жібереді:
       - manifest: JSON {folderName, title, description, tags, language,
         structure, files: [{path, name, language, isImage, size}]}
       - files: шикі File тізімі (manifest.files ретімен сәйкес келеді)
 
-    Бет әр файл үшін жеке сұрау жасамайды (және файл мазмұнын оқымайды) —
-    контейнер + барлық ішкі файлдарды сервер құрып шығарады.
-    Форма қолмен оқылады: Starlette-тің әдепкі шегі (1000 файл, 1 МБ өріс) үлкен жобаға жетпейді.
+    Жоба көлеміне шек жоқ: Cloud Run бір сұрауды ~32 МБ-пен шектейтіндіктен, үлкен жоба
+    бөліктерге бөлінеді — бірінші бөлік жобаны құрады (structure — бүкіл жобаның), қалғандары
+    POST /codes/{id}/files арқылы қосылады.
     """
     started = time.perf_counter()
     try:
-        try:
-            form = await request.form(
-                max_files=MAX_PROJECT_FILES, max_fields=10, max_part_size=MAX_MANIFEST_BYTES
-            )
-        except MultiPartException as e:
-            raise HTTPException(status_code=400, detail=f"{e.message} (шегі: {MAX_PROJECT_FILES} файл)")
-        manifest = form.get('manifest')
-        files = [f for f in form.getlist('files') if isinstance(f, StarletteUploadFile)]
-        if not isinstance(manifest, str):
-            raise HTTPException(status_code=400, detail="manifest жоқ")
-        try:
-            manifest_data = json.loads(manifest)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="manifest JSON дұрыс емес")
-
-        file_entries = manifest_data.get('files', [])
-        if not file_entries:
-            raise HTTPException(status_code=400, detail="Папка бос")
-
-        if len(files) != len(file_entries):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Файлдар саны сәйкес келмейді: manifest={len(file_entries)}, "
-                      f"жіберілген={len(files)}"
-            )
-
-        # Кэш/қоқыс (node_modules, __pycache__…) үнсіз, құпия (.env) мен бинарлы файлдар —
-        # тізіммен өткізіледі. Тексеріс түбірлік папкасыз жолмен (жоба «build» деп аталуы мүмкін)
-        pairs = []
-        skipped: List[str] = []
-        junk_skipped = 0
-        for entry, upload in zip(file_entries, files):
-            path = entry.get('path') or upload.filename or entry.get('name', 'file')
-            kind = classify_upload_path(_inner_path(path))
-            if kind == 'junk':
-                junk_skipped += 1
-            elif kind:
-                skipped.append(path)
-            else:
-                pairs.append((entry, upload))
+        manifest_data, pairs, junk_skipped = await _read_upload(request)
         if not pairs:
-            raise HTTPException(
-                status_code=400,
-                detail="Жүктейтін файл қалмады: бәрі кэш, құпия немесе бинарлы файлдар"
-                       + (f" ({', '.join(skipped[:10])})" if skipped else ""),
-            )
+            raise HTTPException(status_code=400, detail="Жүктейтін файл қалмады: бәрі кэш/қоқыс немесе орындалатын файлдар")
 
         structure = {
             key: value for key, value in (manifest_data.get('structure') or {}).items()
@@ -162,7 +276,9 @@ async def create_folder(request: Request, user: User = Depends(get_current_user)
             'fileCount': len(pairs),
         }, ensure_ascii=False, indent=2)
 
+        commit = manifest_data.get('commit')
         folder_data = {
+            'commits': [_commit_record(commit, user.username)] if isinstance(commit, dict) else [],
             'title': manifest_data.get('title') or manifest_data.get('folderName') or 'folder',
             'content': folder_content,
             'language': manifest_data.get('language') or 'folder',
@@ -170,52 +286,95 @@ async def create_folder(request: Request, user: User = Depends(get_current_user)
             'description': manifest_data.get('description'),
             'tags': manifest_data.get('tags') or ['folder'],
             'folderStructure': structure,
+            'isPrivate': resolve_private(manifest_data.get('isPrivate'), user.id),
         }
 
-        # Әр файл үшін контент дайындау (сервердің өзі оқиды — frontend оқымайды)
-        files_data = []
-        for entry, upload in pairs:
-            raw = await upload.read()
-            if raw is None:
-                raw = b''
-            path = entry.get('path') or upload.filename or entry.get('name', 'file')
-            name = entry.get('name') or upload.filename or path.split('/')[-1]
-            is_image = entry.get('isImage', False)
-
-            if is_image:
-                ext = '.' + (path.rsplit('.', 1)[-1].lower()
-                             if '.' in path else '')
-                mime = mimetypes.guess_type(name)[0] or 'image/png'
-                if ext in _IMAGE_EXTENSIONS and mime == 'application/octet-stream':
-                    mime = 'image/' + ext.lstrip('.')
-                b64 = base64.b64encode(raw).decode('ascii')
-                content = f"data:{mime};base64,{b64}"
-            else:
-                content = raw.decode('utf-8', errors='replace')
-
-            files_data.append({
-                'title': name,
-                'content': content,
-                'language': entry.get('language') or 'other',
-                'author': user.username,
-                'description': manifest_data.get('description'),
-                'tags': ['folder-file'],
-                'folderPath': path,
-            })
-
+        files_data = await _files_data(pairs, manifest_data, user.username)
         result = CodeService.create_folder_batch(folder_data, files_data)
-        result['skipped'] = skipped
+        result['protected'] = sum(1 for f in files_data if f.get('protection'))
         result['junkSkipped'] = junk_skipped
         result['serverMs'] = round((time.perf_counter() - started) * 1000)
         return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except HTTPException:
-        raise
     except Exception as e:
-        import logging
-        logging.getLogger("codo_hub").error(f"Folder upload error: {e}")
-        raise HTTPException(status_code=500, detail="Қате орын алды! Сервер қатесі.")
+        _upload_error(e)
+
+
+def _commit_record(commit: dict, username: str) -> dict:
+    """codo CLI коммитінің қысқаша жазбасы (жобаның тарихында сақталады)"""
+    def count(key: str) -> int:
+        value = commit.get(key)
+        return value if isinstance(value, int) and value >= 0 else 0
+    return {
+        'id': str(commit.get('id') or '')[:40],
+        'message': str(commit.get('message') or '').strip()[:500] or 'commit',
+        'author': username,
+        'added': count('added'),
+        'changed': count('changed'),
+        'removed': count('removed'),
+    }
+
+
+@router.post("/codes/{folder_id}/commit")
+@limiter.limit("60/minute")
+async def commit_folder(request: Request, folder_id: str, user: User = Depends(get_upload_user)):
+    """codo push: бар жобаны коммитпен жаңарту (тек иесі). Форма /codes/folder-дікімен бірдей, плюс
+    manifest.paths (коммиттегі барлық жол), manifest.replace (бүкіл push-тағы өзгерген жолдар),
+    manifest.commit {id, message, added, changed, removed}. Үлкен push-тың қалғаны — /codes/{id}/files"""
+    started = time.perf_counter()
+    try:
+        folder = CodeService.find_code_by_id(folder_id)
+        if not folder or not folder.get('isFolder'):
+            raise HTTPException(status_code=404, detail="Project not found")
+        if folder.get('author') != user.username:
+            raise HTTPException(status_code=403, detail="Тек жоба иесі коммит жібере алады")
+        try:
+            form_manifest, pairs, junk_skipped = await _read_upload(request)
+        except HTTPException as e:
+            # Тек өшіру болған коммит — файлсыз (manifest.files бос) келеді
+            if e.detail != "Папка бос":
+                raise
+            form = await request.form(max_fields=10, max_part_size=MAX_MANIFEST_BYTES)
+            form_manifest, pairs, junk_skipped = json.loads(form.get('manifest') or '{}'), [], 0
+        paths = [p for p in form_manifest.get('paths') or [] if isinstance(p, str)]
+        if not paths:
+            raise HTTPException(status_code=400, detail="Коммитте файл жоқ")
+        replace = [p for p in form_manifest.get('replace') or [] if isinstance(p, str)]
+        structure = {
+            key: value for key, value in (form_manifest.get('structure') or {}).items()
+            if not _structure_skipped(key, value)
+        }
+        commit = _commit_record(form_manifest.get('commit') or {}, user.username)
+        files_data = await _files_data(pairs, {**form_manifest, 'description': folder.get('description')}, user.username)
+        result = CodeService.commit_folder(folder_id, paths, replace, files_data, structure, commit)
+        result['protected'] = sum(1 for f in files_data if f.get('protection'))
+        result['junkSkipped'] = junk_skipped
+        result['serverMs'] = round((time.perf_counter() - started) * 1000)
+        return result
+    except Exception as e:
+        _upload_error(e)
+
+
+@router.post("/codes/{folder_id}/files")
+@limiter.limit("240/minute")
+async def append_folder_files(request: Request, folder_id: str, user: User = Depends(get_upload_user)):
+    """Үлкен жобаның келесі бөлігі: файлдарды бар жобаға қосу (тек жоба иесі).
+    Форма /codes/folder-дікімен бірдей (manifest.files + files)"""
+    started = time.perf_counter()
+    try:
+        folder = CodeService.find_code_by_id(folder_id)
+        if not folder or not folder.get('isFolder'):
+            raise HTTPException(status_code=404, detail="Project not found")
+        if folder.get('author') != user.username:
+            raise HTTPException(status_code=403, detail="Тек жоба иесі файл қоса алады")
+        manifest_data, pairs, junk_skipped = await _read_upload(request)
+        files_data = await _files_data(pairs, {**manifest_data, 'description': folder.get('description')}, user.username)
+        result = CodeService.append_folder_files(folder_id, files_data)
+        result['protected'] = sum(1 for f in files_data if f.get('protection'))
+        result['junkSkipped'] = junk_skipped
+        result['serverMs'] = round((time.perf_counter() - started) * 1000)
+        return result
+    except Exception as e:
+        _upload_error(e)
 
 
 @router.put("/codes/{code_id}")
@@ -229,9 +388,10 @@ async def update_code(request: Request, code_id: str, code_data: CodeUpdate, use
         if existing_code.get('author') != user.username:
             raise HTTPException(status_code=403, detail="You can only edit your own codes")
         code_dict = {k: v for k, v in code_data.model_dump().items() if v is not None}
-        return CodeService.update_code(code_id, code_dict)
+        CodeService.update_code(code_id, code_dict)
+        return CodeService.for_viewer(CodeService.find_code_by_id(code_id), user.username)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/codes/{code_id}")
@@ -272,6 +432,7 @@ async def delete_multiple_codes(request: Request, delete_request: DeleteMultiple
 @limiter.limit("30/minute")
 async def like_code(request: Request, code_id: str, user: User = Depends(get_current_user)):
     """Like a code"""
+    _visible_code(code_id, user)
     try:
         return CodeService.like_code(code_id, user.id)
     except ValueError as e:
@@ -282,6 +443,7 @@ async def like_code(request: Request, code_id: str, user: User = Depends(get_cur
 @limiter.limit("30/minute")
 async def unlike_code(request: Request, code_id: str, user: User = Depends(get_current_user)):
     """Unlike a code"""
+    _visible_code(code_id, user)
     try:
         return CodeService.unlike_code(code_id, user.id)
     except ValueError as e:
@@ -290,8 +452,12 @@ async def unlike_code(request: Request, code_id: str, user: User = Depends(get_c
 
 @router.post("/codes/{code_id}/view")
 @limiter.limit("60/minute")
-async def view_code(request: Request, code_id: str, view_request: ViewRequest):
+async def view_code(
+    request: Request, code_id: str, view_request: ViewRequest,
+    viewer: Optional[User] = Depends(get_optional_user),
+):
     """Increment view count for a code"""
+    _visible_code(code_id, viewer)
     try:
         return CodeService.view_code(code_id, view_request.userId)
     except ValueError as e:
@@ -302,6 +468,7 @@ async def view_code(request: Request, code_id: str, view_request: ViewRequest):
 @limiter.limit("10/minute")
 async def add_comment(request: Request, code_id: str, comment_data: CommentCreate, user: User = Depends(get_current_user)):
     """Add a comment to a code"""
+    _visible_code(code_id, user)
     try:
         return CodeService.add_comment(code_id, user.username, comment_data.content, comment_data.parentId)
     except ValueError as e:
@@ -350,7 +517,69 @@ async def delete_comment(request: Request, code_id: str, comment_id: str, user: 
 @limiter.limit("30/minute")
 async def like_comment(request: Request, code_id: str, comment_id: str, user: User = Depends(get_current_user)):
     """Like/unlike a comment"""
+    _visible_code(code_id, user)
     try:
         return CodeService.like_comment(code_id, comment_id, user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+# ---------- Жоба мүшелері (тест деректерін көре алатындар) ----------
+
+def _membership_call(fn, *args):
+    try:
+        return fn(*args)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/codes/{code_id}/members")
+@limiter.limit("60/minute")
+async def get_members(request: Request, code_id: str, user: User = Depends(get_current_user)):
+    """Мүшелер және менің күйім (owner/member/pending/none); сұраныстар — тек иесіне"""
+    _visible_code(code_id, user)
+    return _membership_call(CodeService.membership, code_id, user.username)
+
+
+@router.post("/codes/{code_id}/join")
+@limiter.limit("10/minute")
+async def request_join(request: Request, code_id: str, user: User = Depends(get_current_user)):
+    """Жобаға қосылуға сұраныс жіберу — иесі қабылдағанша ештеңе ашылмайды.
+    Жабық жобаға бөтен адам сұраныс жібере алмайды (оны көрмейді)"""
+    _visible_code(code_id, user)
+    return _membership_call(CodeService.request_join, code_id, user.username)
+
+
+@router.delete("/codes/{code_id}/join")
+@limiter.limit("20/minute")
+async def leave_project(request: Request, code_id: str, user: User = Depends(get_current_user)):
+    """Сұранысты болдырмау немесе жобадан шығу"""
+    return _membership_call(CodeService.leave_project, code_id, user.username)
+
+
+@router.post("/codes/{code_id}/members/{username}")
+@limiter.limit("30/minute")
+async def accept_member(request: Request, code_id: str, username: str, user: User = Depends(get_current_user)):
+    """Иесі сұранысты қабылдайды"""
+    return _membership_call(CodeService.accept_member, code_id, user.username, username)
+
+
+@router.delete("/codes/{code_id}/members/{username}")
+@limiter.limit("30/minute")
+async def remove_member(request: Request, code_id: str, username: str, user: User = Depends(get_current_user)):
+    """Иесі сұранысты қабылдамайды немесе мүшені шығарады"""
+    return _membership_call(CodeService.remove_member, code_id, user.username, username)
+
+
+@router.post("/codes/{code_id}/star")
+@limiter.limit("60/minute")
+async def star_project(request: Request, code_id: str, user: User = Depends(get_current_user)):
+    """Жобаға жұлдыз қою — басты беттегі тізімнің басында тұрады"""
+    return _membership_call(CodeService.set_star, code_id, user.username, True)
+
+
+@router.delete("/codes/{code_id}/star")
+@limiter.limit("60/minute")
+async def unstar_project(request: Request, code_id: str, user: User = Depends(get_current_user)):
+    return _membership_call(CodeService.set_star, code_id, user.username, False)

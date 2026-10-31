@@ -1,4 +1,12 @@
-/* Профильдегі «Пікірлер» — .profile-page палитрасында */
+/* Профильдегі «Рейтинг» — .profile-page палитрасында */
+
+/* Күй түстері (status palette): тек белгі + жазумен бірге қолданылады */
+.pop, .prf-nav {
+  --rate-good: #0ca30c;
+  --rate-mid: #fab219;
+  --rate-bad: #d03b3b;
+  --rate-none: color-mix(in srgb, var(--text-secondary) 55%, transparent);
+}
 
 .pop {
   display: flex;
@@ -62,8 +70,8 @@
   animation-delay: calc(var(--d, 0) * 35ms);
 }
 
-.pop__item.is-praise { border-left-color: #22c55e; }
-.pop__item.is-complaint { border-left-color: #f59e0b; }
+.pop__item.is-praise { border-left-color: var(--rate-good); }
+.pop__item.is-complaint { border-left-color: var(--rate-bad); }
 
 .pop__item--skeleton {
   min-height: 120px;
@@ -112,8 +120,8 @@
   font-weight: 700;
 }
 
-.pop__badge.is-praise { background: rgba(34, 197, 94, 0.14); color: #4ade80; }
-.pop__badge.is-complaint { background: rgba(245, 158, 11, 0.14); color: #fbbf24; }
+.pop__badge.is-praise { background: color-mix(in srgb, var(--rate-good) 16%, transparent); color: var(--text-primary); }
+.pop__badge.is-complaint { background: color-mix(in srgb, var(--rate-bad) 16%, transparent); color: var(--text-primary); }
 
 .pop__text {
   margin: 0;
@@ -189,52 +197,44 @@
 
 .pop__more { align-self: center; }
 
-/* Профиль панеліндегі қысқаша қорытынды */
-.prf-opinions {
+/* Рейтинг картасы */
+.pop__rating {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 12px 0;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
   border: 1px solid var(--cdx-line, var(--border-color));
-  border-radius: 12px;
-  background: none;
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  border-left: 4px solid var(--rate-none);
+  border-radius: 14px;
 }
-
-.prf-opinions:hover { border-color: var(--cdx-line-strong, var(--border-color)); background: var(--bg-secondary); }
-.prf-opinions__label { flex: 1; color: var(--text-secondary); }
-.prf-opinions__praise { color: #4ade80; }
-.prf-opinions__complaint { color: #fbbf24; }
-
-/* Кодтар / Пікірлер табтары */
-.prf-tabs { display: flex; gap: 4px; min-width: 0; }
-
-.prf-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition: color 0.15s ease, background-color 0.15s ease;
+.pop__rating.is-good { border-left-color: var(--rate-good); background: color-mix(in srgb, var(--rate-good) 7%, transparent); }
+.pop__rating.is-mid { border-left-color: var(--rate-mid); background: color-mix(in srgb, var(--rate-mid) 8%, transparent); }
+.pop__rating.is-bad { border-left-color: var(--rate-bad); background: color-mix(in srgb, var(--rate-bad) 8%, transparent); }
+.pop__rating-main { display: flex; align-items: center; gap: 12px; }
+.pop__rating-icon {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 50%;
+  font-size: 17px; font-weight: 700; color: #fff;
+  background: var(--rate-none);
 }
-
-.prf-tab:hover { color: var(--text-primary); }
-.prf-tab.is-on { color: var(--text-primary); background: var(--mono-1c1c1c); }
+.pop__rating.is-good .pop__rating-icon { background: var(--rate-good); }
+.pop__rating.is-mid .pop__rating-icon { background: var(--rate-mid); color: #0b0b0b; }
+.pop__rating.is-bad .pop__rating-icon { background: var(--rate-bad); }
+.pop__rating-value { font-size: 1.9rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-primary); line-height: 1; }
+.pop__rating-text { display: flex; flex-direction: column; min-width: 0; }
+.pop__rating-label { font-weight: 700; color: var(--text-primary); }
+.pop__rating-hint { font-size: 0.8rem; color: var(--text-secondary); }
+.pop__meter { display: flex; gap: 2px; height: 10px; border-radius: 999px; overflow: hidden; }
+.pop__meter > span { min-width: 4px; flex-basis: 0; }
+.pop__meter-good { background: var(--rate-good); border-radius: 4px; }
+.pop__meter-bad { background: var(--rate-bad); border-radius: 4px; }
+.pop__meter-empty { flex: 1; background: var(--rate-none); opacity: 0.4; border-radius: 4px; }
+.pop__meter-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--text-secondary); }
+.pop__meter-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.pop__meter-legend b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.pop__dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.pop__dot.is-good { background: var(--rate-good); }
+.pop__dot.is-bad { background: var(--rate-bad); }
 
 @keyframes popIn { from { opacity: 0; transform: translateY(6px); } }
 @keyframes popShimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
@@ -242,7 +242,6 @@
 @media (max-width: 640px) {
   .pop { padding: 12px; }
   .pop__list { grid-template-columns: 1fr; }
-  .prf-tab { font-size: 0.95rem; padding: 6px 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

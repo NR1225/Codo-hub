@@ -35,6 +35,9 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Codo Hub")
 RESET_PASSWORD_URL = os.getenv("RESET_PASSWORD_URL", "http://localhost:5173/reset-password")
+# Сайттың (frontend) адресі — `codo login` браузерде осы сайттың /cli/login бетін ашады.
+# Берілмесе — CORS_ORIGINS-тегі біріншісі (жергілікті әзірлеуде http://localhost:5173)
+SITE_URL = (os.getenv("SITE_URL") or os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")[0]).strip().rstrip("/")
 
 # ── Vibecoding terminal (PTY) hardening ──
 # The terminal hands an authenticated user a real shell on the server, so it is
@@ -60,6 +63,13 @@ TERMINAL_RLIMIT_MEM_MB = int(os.getenv("TERMINAL_RLIMIT_MEM_MB", "512"))
 TERMINAL_RLIMIT_NPROC = int(os.getenv("TERMINAL_RLIMIT_NPROC", "64"))
 TERMINAL_RLIMIT_FSIZE_MB = int(os.getenv("TERMINAL_RLIMIT_FSIZE_MB", "100"))
 
+# ── Ортақ пакеттер (services/shared_packages.py) ──
+# Жоба қолданатын npm / Python пакеттері серверде бір рет орнатылып, барлық жобаға ортақ болады.
+# Осынша күн ешбір жоба қолданбаған жиынтық «ұйықтатылады» (дискіден өшіріледі, кэш қалады). 0 — ешқашан.
+SHARED_PACKAGES_IDLE_DAYS = float(os.getenv("SHARED_PACKAGES_IDLE_DAYS", "14"))
+# Python пакеттерін (requirements.txt немесе import-тар бойынша) автоматты орнату
+SHARED_PACKAGES_AUTO_PYTHON = os.getenv("SHARED_PACKAGES_AUTO_PYTHON", "true").lower() == "true"
+
 # ── Бүркіт (Google Gemini) ──
 # Әр қолданушы өз кілтін енгізеді (базада шифрланып сақталады). Сервердің ортақ
 # кілті (GEMINI_API_KEY) тек BURKIT_SHARED_KEY_USER_IDS тізіміндегі аккаунттарға
@@ -77,6 +87,24 @@ BURKIT_SHARED_KEY_USER_IDS = {
 MODERATOR_USER_IDS = {
     uid.strip() for uid in os.getenv("MODERATOR_USER_IDS", "").split(",") if uid.strip()
 }
+# Мониторинг панелін (/admin/monitoring) көре алатын әкімшілер (user id, үтірмен)
+ADMIN_USER_IDS = {
+    uid.strip() for uid in os.getenv("ADMIN_USER_IDS", "").split(",") if uid.strip()
+}
+# Шабуыл белгісі байқалғанда хат баратын пошта (бос болса — хат жіберілмейді)
+ADMIN_ALERT_EMAIL = os.getenv("ADMIN_ALERT_EMAIL", "").strip()
+# Тест аккаунттары (username не email, үтірмен): кез келген 6 таңбалы кодпен кіреді.
+# Тек ALLOW_TEST_ACCOUNT_CODES=true болғанда және HTTPS production-да (COOKIE_SECURE=true) ЕМЕС кезде.
+# Әкімшілерге (ADMIN_USER_IDS) ешқашан жұмыс істемейді
+TEST_ACCOUNTS = {
+    x.strip().lower() for x in os.getenv("TEST_ACCOUNTS", "").split(",") if x.strip()
+}
+ALLOW_TEST_ACCOUNT_CODES = (
+    os.getenv("ALLOW_TEST_ACCOUNT_CODES", "false").lower() == "true"
+    and os.getenv("COOKIE_SECURE", "false").lower() != "true"
+)
+# Мониторинг журналы қанша күн сақталады
+SECURITY_EVENTS_RETENTION_DAYS = int(os.getenv("SECURITY_EVENTS_RETENTION_DAYS", "30"))
 # Қолданушы кілттерін шифрлайтын құпия. Бос болса — JWT_SECRET-тен алынады
 # (онда JWT_SECRET ауысса, сақталған кілттерді қайта енгізу керек болады).
 BURKIT_ENCRYPTION_KEY = os.getenv("BURKIT_ENCRYPTION_KEY", "") or JWT_SECRET_KEY
@@ -101,6 +129,16 @@ MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
 # frontend/src/utils/projectSource.ts MAX_PROJECT_FILES-пен бірдей
 MAX_PROJECT_FILES = 5000
 MAX_MANIFEST_BYTES = 10 * 1024 * 1024
+# GET /codes: жобалар тізімі бір сұрауда ең көбі осынша беріледі (қалғаны offset-пен, бетпе-бет).
+# Жобаның ішкі файлдары (folderId) бұл шекке жатпайды — жоба бүтін ашылуы керек
+CODES_PAGE_LIMIT = 30
+# GitHub-тан жобаны сілтеме арқылы жүктеу: архив шегі мен (міндетті емес) токен — rate limit 60→5000/сағ
+GITHUB_ARCHIVE_MAX_BYTES = int(os.getenv("GITHUB_ARCHIVE_MAX_BYTES", str(150 * 1024 * 1024)))
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+# GitHub OAuth App (github.com/settings/developers): жабық репо үшін профильді қосу.
+# Authorization callback URL = SITE_URL + /github/callback
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 DANGEROUS_EXTENSIONS = [
     '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.jar',
     '.app', '.deb', '.pkg', '.rpm', '.msi', '.dmg', '.sh', '.ps1',

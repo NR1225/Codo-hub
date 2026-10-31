@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../contexts/ToastContext';
 import {
-  ArrowUpIcon,
   CloseIcon,
   LayersIcon,
   PlusIcon,
@@ -15,6 +14,7 @@ import { CreatePollModal, useVoiceRecorder, VoiceRecorderBar } from './chat/Chat
 import Popover from './chat/Popover';
 import { WOLF_STICKERS, stickerSrc } from './home/stories/storyUtils';
 import './MessageInput.css';
+import SendIcon from './SendIcon';
 
 interface MessageInputProps {
   onSendMessage: (content: string, type?: string, attachments?: any[], metadata?: any) => void;
@@ -570,7 +570,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   title={t('messageInput.send')}
                   aria-label={t('messageInput.send')}
                 >
-                  <ArrowUpIcon />
+                  <SendIcon />
                 </button>
               ) : (
                 <button

@@ -10,7 +10,7 @@ import {
   faCloudSun,
   faUser,
   faBook,
-  faShieldHalved
+  faShieldHalved, faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../../utils/api';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -31,10 +31,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Модераторға — «Шағымдар» беті (бір рет сұраймыз)
   const [isModerator, setIsModerator] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     if (!isOpen || !localStorage.getItem('user')) return;
     let alive = true;
     apiService.getModerationMe().then((r) => alive && setIsModerator(r.isModerator)).catch(() => {});
+    apiService.getAdminMe().then((r) => alive && setIsAdmin(r.isAdmin)).catch(() => {});
     return () => { alive = false; };
   }, [isOpen]);
 
@@ -114,6 +116,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
     { path: '/notes', label: t('notes.title'), icon: <FontAwesomeIcon icon={faBook} /> },
     { path: '/settings', label: t('sidebar.settings'), icon: <FontAwesomeIcon icon={faCog} /> },
     ...(isModerator ? [{ path: '/moderation', label: t('moderation.title'), icon: <FontAwesomeIcon icon={faShieldHalved} /> }] : []),
+    ...(isAdmin ? [{ path: '/admin/monitoring', label: t('monitoring.menu'), icon: <FontAwesomeIcon icon={faChartLine} /> }] : []),
   ];
 
   const isLoggedIn = !!localStorage.getItem('user');

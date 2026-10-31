@@ -1480,3 +1480,262 @@
   transform: translateX(-3px);
 }
 
+
+/* ---------- Терминал (codo CLI) ---------- */
+
+.stg-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stg-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stg-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 6px 12px;
+  border-radius: 10px;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+}
+
+.stg-cmd__text {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--stg-mono-font);
+  font-size: 0.82rem;
+  color: var(--mono-d9d9d9);
+}
+
+.stg-text--muted {
+  font-size: 0.82rem;
+  color: var(--stg-muted);
+}
+
+.stg-tokens {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stg-token {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+}
+
+.stg-token__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stg-token__name {
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stg-inline .stg-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- codo login беті (/cli/login) ---------- */
+
+.stg-steps code {
+  font-family: var(--stg-mono-font);
+}
+
+/* ---------- «Чат» қойындысы: маған кім жаза алады ---------- */
+
+.stg-chat__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.2em;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--stg-muted);
+}
+
+.stg-chat__status.is-saved { color: var(--stg-success); }
+.stg-chat__status.is-error { color: var(--stg-danger); }
+
+/* Кең экранда 3 плитка қатар, тарырақта — 1 баған тізім */
+.stg-chat__options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stg-chat__option {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--stg-radius);
+  background: var(--mono-0c0c0c);
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s var(--stg-ease);
+}
+
+.stg-chat__option:hover:not(:disabled) {
+  background: var(--stg-hover);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong);
+}
+
+.stg-chat__option:active:not(:disabled) { transform: scale(0.985); }
+
+.stg-chat__option:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.stg-chat__option:disabled { cursor: progress; opacity: 0.55; }
+
+.stg-chat__option.is-on {
+  background: var(--stg-raise);
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.stg-chat__top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.stg-chat__icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--stg-raise);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong);
+  color: var(--mono-e5e5e5);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.stg-chat__option.is-on .stg-chat__icon {
+  background: var(--home-accent);
+  color: var(--home-on-accent);
+  box-shadow: none;
+}
+
+.stg-chat__radio {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--stg-line-strong);
+  border-radius: 50%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stg-chat__option.is-on .stg-chat__radio {
+  border-color: var(--home-accent);
+  box-shadow: inset 0 0 0 3px var(--stg-raise), inset 0 0 0 9px var(--home-accent);
+}
+
+.stg-chat__label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.stg-chat__hint {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.stg-chat__info .stg-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stg-chat__info-icon {
+  margin-top: 0.25em;
+  flex-shrink: 0;
+  color: var(--stg-muted);
+}
+
+.stg-chat__link {
+  align-self: stretch;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.stg-chat__link .stg-row__arrow { margin-left: auto; }
+
+@media (max-width: 1100px) {
+  .stg-chat__options {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  /* Бір бағанда — көлденең жол: белгіше, мәтін, радио */
+  .stg-chat__option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'icon label radio'
+      'icon hint  radio';
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 2px;
+    padding: 12px 14px;
+  }
+
+  .stg-chat__top { display: contents; }
+  .stg-chat__icon { grid-area: icon; }
+  .stg-chat__radio { grid-area: radio; }
+  .stg-chat__label { grid-area: label; align-self: end; }
+  .stg-chat__hint { grid-area: hint; align-self: start; }
+}
+
+@media (max-width: 380px) {
+  .stg-chat__option {
+    padding: 12px;
+    column-gap: 10px;
+  }
+
+  .stg-chat__icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+

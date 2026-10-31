@@ -8,6 +8,7 @@ from services.friend_service import FriendService
 from services.group_service import GroupService, _public_users
 from services.message_extras import forward_origin
 from services.message_service import MessageService
+from services.upload_service import copy_attachments_to, dm_scope, group_scope
 from services.user_lookup import find_public_user
 
 
@@ -34,6 +35,9 @@ async def forward_message(user_id: str, body) -> Dict[str, Any]:
         results: List[Dict[str, Any]] = []
         for target in body.targets:
             try:
+                # Файл жаңа чаттың папкасына көшіріледі — бастапқы чатқа рұқсат ашылмайды
+                scope = dm_scope(user_id, target.id) if target.kind == "dm" else group_scope(target.id)
+                target_attachments = copy_attachments_to(attachments, scope) if attachments else []
                 if target.kind == "dm":
                     msg = await MessageService.create_message(
                         from_user_id=user_id,
@@ -41,13 +45,13 @@ async def forward_message(user_id: str, body) -> Dict[str, Any]:
                         content=content,
                         are_friends=True,
                         message_type=message_type,
-                        attachments=attachments,
+                        attachments=target_attachments,
                         metadata=metadata,
                         extra={**extra, **FriendService.delivery_extra(user_id, target.id)},
                     )
                 else:
                     msg = await GroupService.send_message(
-                        db, target.id, user_id, content, message_type, attachments, metadata, extra
+                        db, target.id, user_id, content, message_type, target_attachments, metadata, extra
                     )
                 results.append({"kind": target.kind, "id": target.id, "ok": True, "messageId": msg["id"]})
             except HTTPException as e:

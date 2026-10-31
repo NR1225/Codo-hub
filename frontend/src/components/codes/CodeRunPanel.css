@@ -91,6 +91,45 @@
   height: 100%;
 }
 
+/* Терминалда іске қосылған сервер — жоба осы бетте, терминал астында қалады */
+.vc-run__server {
+  flex: 1 1 62%;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--mono-2e2e2e);
+}
+
+.vc-run__server-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--mono-1c1c1c);
+}
+
+.vc-run__term-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vc-run__term-wrap.is-docked {
+  flex: 0 0 38%;
+  min-height: 140px;
+}
+
+.vc-run__term-wrap.is-docked .vc-run__terminal {
+  border-radius: 0 0 var(--vc-radius) var(--vc-radius);
+}
+
+.vc-run-panel__actions .vc-icon-btn.is-active {
+  color: var(--vc-text);
+  background: var(--vc-surface);
+}
+
 .vc-run-panel__login {
   margin: auto;
   display: flex;

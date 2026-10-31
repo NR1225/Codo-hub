@@ -211,10 +211,26 @@ def serve(code: Dict[str, Any], path: str, file_param: Optional[str] = None) -> 
     return data, mime
 
 
-def terminal_files(code: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Терминал папкасына жазылатын мәтінді файлдар (суреттер мен бинарлы файлдарсыз)"""
-    out = []
+def terminal_files(code: Dict[str, Any], viewer: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Терминал папкасына жазылатын файлдар (суреттер мен бинарлы файлдарсыз).
+
+    Терминал — қолданушының өз папкасы, сондықтан қорғалған файлдың түпнұсқасы (.env, нақты
+    .sqlite база, тест деректері) рұқсаты барға (иесі; тест деректерін — мүшелер) жазылады.
+    Қалғандарына — жария нұсқасы (бос үлгі / бос база құрылымы).
+    """
+    from services.code_service import CodeService
+    from utils.protected_files import restore_original
+
+    out: List[Dict[str, Any]] = []
     for path, child in project_files(code).items():
+        if child.get("privateContent") and CodeService.can_see_private(child, viewer):
+            original = restore_original(child)
+            if isinstance(original, bytes):
+                out.append({"path": path, "bytes": original})
+                continue
+            if original is not None:
+                out.append({"path": path, "content": original})
+                continue
         content = child.get("content") or ""
         if content.startswith("data:") and ";base64," in content[:200]:
             continue

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../../utils/api';
+import type { LoginChallenge } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSiteConfig } from '../../contexts/SiteConfigContext';
 import { signInWithGoogle } from '../../utils/firebase';
@@ -10,6 +11,8 @@ import { imageStorage } from '../../utils/imageStorage';
 interface GoogleSignInButtonProps {
   /** Аккаунтта 2FA қосулы болса — temp token-мен код сұрау керек */
   onRequires2FA: (tempToken: string) => void;
+  /** Google арқылы кірсе де поштаға код сұралады */
+  onRequiresEmailCode: (challenge: LoginChallenge) => void;
   onError: (message: string | null) => void;
 }
 
@@ -25,7 +28,7 @@ const GoogleIcon: React.FC = () => (
   </svg>
 );
 
-const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ onRequires2FA, onError }) => {
+const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ onRequires2FA, onRequiresEmailCode, onError }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -42,6 +45,10 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ onRequires2FA, 
       const idToken = await signInWithGoogle();
       const response = await apiService.firebaseLogin(idToken);
 
+      if (response.requires_email_code) {
+        onRequiresEmailCode(response as LoginChallenge);
+        return;
+      }
       if (response.requires_2fa) {
         onRequires2FA(response.temp_token);
         return;

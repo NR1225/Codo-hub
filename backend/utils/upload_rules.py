@@ -1,17 +1,22 @@
 """Жобалар бетіне (кодтар) жүктелетін файлдардың ережесі.
 
-Код мәтін ретінде сақталып, мәтін ретінде көрсетіледі (ешқашан орындалмайды), сондықтан
-.py, .js, .html сияқты код файлдары өтеді. Өтпейтіндері:
-  - junk    — кэш, тәуелділіктер, жүйе қоқысы (node_modules, __pycache__, .git, .DS_Store…): үнсіз өткізіледі
-  - secret  — құпия файлдар (.env, кілттер, сертификаттар): қолданушыға айтылып, өткізіледі
-  - blocked — бинарлы/орындалатын файлдар (.exe, .dll…): қолданушыға айтылып, өткізіледі
+Жобаның бәрі жүктеледі, тек кэш/қоқыс өтпейді. Түрлері:
+  - junk     — кэш, тәуелділіктер, жүйе қоқысы (node_modules, __pycache__, .git, .DS_Store…): жүктелмейді
+  - secret   — құпия файлдар (.env, кілттер, сертификаттар): жүктеледі, бірақ мазмұны тек жүктеген
+               адамға көрінеді, басқаларға мәндері бос үлгісі (utils/protected_files.py)
+  - database — деректер базасы (.db, .sqlite): басқаларға тек бос құрылымы көрінеді
+  - executable — орындалатын/орнатылатын файлдар (.exe, .dll, .apk…): жүктелмейді — сайт арқылы
+               вирус таратылмауы үшін
+  - binary   — басқа бинарлы файлдар (.wasm, .class…): бұзылмауы үшін base64 ретінде сақталады
 
 frontend/src/utils/uploadRules.ts — дәл осы ереже (браузер қоқысты серверге жібермеуі үшін).
 Чат тіркемелерінің ережесі бөлек: config.DANGEROUS_EXTENSIONS (олар нақты файл болып беріледі).
 """
 from typing import Literal, Optional
 
-UploadSkip = Literal["junk", "secret", "blocked"]
+UploadKind = Literal["junk", "executable", "secret", "database", "binary"]
+# Ескі атауы
+UploadSkip = UploadKind
 
 # Ішіндегінің бәрі қоқыс болатын папкалар
 JUNK_DIRS = {
@@ -24,6 +29,7 @@ JUNK_DIRS = {
     "vendor", "site-packages", ".eggs", ".pnpm-store", ".yarn", "pods", "deriveddata",
     ".vs", ".vscode", ".terraform", ".serverless", ".docusaurus", ".sass-cache",
     "htmlcov", ".hypothesis", "__macosx",
+    ".codo",  # codo CLI-дің жергілікті коммит тарихы (.git сияқты)
 }
 # Аты осылармен аяқталатын папкалар да қоқыс (Python пакет метадеректері)
 JUNK_DIR_SUFFIXES = (".egg-info", ".dist-info")
@@ -57,12 +63,17 @@ SECRET_FILES = {
 ENV_TEMPLATE_SUFFIXES = {"example", "sample", "template", "dist", "defaults"}
 SECRET_EXTENSIONS = {".pem", ".key", ".p12", ".pfx", ".keystore", ".jks", ".kdbx"}
 
-# Бинарлы немесе орындалатын файлдар — мәтін ретінде мағынасы жоқ, қауіпті болуы мүмкін
-BLOCKED_EXTENSIONS = {
-    ".exe", ".bat", ".cmd", ".com", ".pif", ".scr", ".vbs", ".jar", ".msi", ".dmg", ".app",
-    ".deb", ".rpm", ".pkg", ".apk", ".bin", ".dll", ".so", ".dylib", ".sys", ".drv", ".ocx",
-    ".cpl", ".class", ".o", ".obj", ".a", ".lib", ".db", ".sqlite", ".sqlite3",
+# Деректер базасы — басқаларға тек бос құрылымы (кестелері) көрінеді
+DATABASE_EXTENSIONS = {".db", ".sqlite", ".sqlite3", ".db3"}
+
+# Орындалатын/орнатылатын файлдар — жүктелмейді (басқалар жүктеп алып ашуы мүмкін)
+EXECUTABLE_EXTENSIONS = {
+    ".exe", ".com", ".pif", ".scr", ".jar", ".msi", ".dmg", ".app",
+    ".deb", ".rpm", ".pkg", ".apk", ".dll", ".so", ".dylib", ".sys", ".drv", ".ocx", ".cpl",
 }
+
+# Басқа бинарлы файлдар — мәтін емес, сондықтан base64 ретінде (бұзылмай) сақталады
+BINARY_EXTENSIONS = {".bin", ".class", ".o", ".obj", ".a", ".lib", ".wasm"}
 
 
 def _ext(name: str) -> str:
@@ -70,8 +81,8 @@ def _ext(name: str) -> str:
     return name[dot:] if dot > 0 else ""
 
 
-def classify_upload_path(path: str) -> Optional[UploadSkip]:
-    """Файл жолы бойынша: None — өтеді, әйтпесе неге өткізілетіні"""
+def classify_upload_path(path: str) -> Optional[UploadKind]:
+    """Файл жолы бойынша: None — кәдімгі код, junk — жүктелмейді, қалғандары — қорғалып жүктеледі"""
     parts = [p for p in path.replace("\\", "/").split("/") if p]
     if not parts:
         return None
@@ -86,13 +97,24 @@ def classify_upload_path(path: str) -> Optional[UploadSkip]:
         return "secret"
     if name.startswith(".env.") and name[5:] not in ENV_TEMPLATE_SUFFIXES:
         return "secret"
-    if ext in BLOCKED_EXTENSIONS:
-        return "blocked"
+    if ext in EXECUTABLE_EXTENSIONS:
+        return "executable"
+    if ext in DATABASE_EXTENSIONS:
+        return "database"
+    if ext in BINARY_EXTENSIONS:
+        return "binary"
     return None
+
+
+# Жүктелмейтін түрлер; қалғандары (secret, database, binary) қорғалып жүктеледі
+SKIPPED_KINDS = ("junk", "executable")
+
+
+def is_skipped(kind: Optional[str]) -> bool:
+    return kind in SKIPPED_KINDS
 
 
 SKIP_MESSAGES = {
     "junk": "Кэш/қоқыс файлы жүктелмейді",
-    "secret": "Құпия файл (.env, кілт) жүктелмейді",
-    "blocked": "Бинарлы немесе орындалатын файл жүктелмейді",
+    "executable": "Орындалатын файл (.exe, .dll, .apk…) жүктелмейді",
 }

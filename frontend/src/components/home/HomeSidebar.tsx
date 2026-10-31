@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { FolderIcon, PanelIcon, PlusIcon, SearchIcon } from './icons';
+import { FolderIcon, PanelIcon, PlusIcon, SearchIcon, StarIcon } from './icons';
 import { monogram } from './monogram';
 import './HomeSidebar.css';
 
@@ -14,6 +14,12 @@ export interface SidebarItem {
   title: string;
   /** Папка-жоба — әріптің орнына папка белгішесі */
   isFolder?: boolean;
+  /** Басқаның жобасы — мүше болып қосылғанмын */
+  joined?: boolean;
+  /** Жұлдыз қойылған — тізімнің басында тұрады */
+  starred?: boolean;
+  /** Жоқ болса — жұлдыз батырмасы көрсетілмейді */
+  onToggleStar?: () => void;
   onOpen: () => void;
 }
 
@@ -161,24 +167,47 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
             ) : items.length === 0 ? (
               <p className="hsb__empty">{emptyText}</p>
             ) : (
-              items.map((item, i) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className="hsb__row hsb__item"
-                  onClick={item.onOpen}
-                  data-tip={item.title}
-                  // Кезекпен анимация үшін реттік нөмір
-                  style={{ '--d': 4 + Math.min(i, 10) } as React.CSSProperties}
-                >
-                  <span className="hsb__slot">
-                    <span className="hsb__mono" aria-hidden="true">
-                      {item.isFolder ? <FolderIcon size={15} /> : monogram(item.title)}
-                    </span>
-                  </span>
-                  <span className="hsb__label">{item.title}</span>
-                </button>
-              ))
+              items.map((item, i) => {
+                const tipText = item.joined ? `${item.title} · ${t('home.joinedProject')}` : item.title;
+                const starLabel = item.starred ? t('home.unstarProject') : t('home.starProject');
+                return (
+                  <div
+                    key={item.key}
+                    className={`hsb__entry ${item.starred ? 'is-starred' : ''}`}
+                    // Кезекпен анимация үшін реттік нөмір
+                    style={{ '--d': 4 + Math.min(i, 10) } as React.CSSProperties}
+                  >
+                    <button type="button" className="hsb__row hsb__item" onClick={item.onOpen} data-tip={tipText}>
+                      <span className="hsb__slot">
+                        <span className="hsb__mono" aria-hidden="true">
+                          {item.isFolder ? <FolderIcon size={15} /> : monogram(item.title)}
+                        </span>
+                        {item.starred && (
+                          <span className="hsb__star-badge" aria-hidden="true">
+                            <StarIcon filled size={9} />
+                          </span>
+                        )}
+                      </span>
+                      <span className="hsb__label">
+                        {item.title}
+                        {item.joined && <span className="hsb__tag">{t('home.joinedProject')}</span>}
+                      </span>
+                    </button>
+                    {item.onToggleStar && (
+                      <button
+                        type="button"
+                        className="hsb__star"
+                        onClick={item.onToggleStar}
+                        aria-pressed={!!item.starred}
+                        aria-label={`${starLabel}: ${item.title}`}
+                        title={starLabel}
+                      >
+                        <StarIcon filled={item.starred} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })
             )}
           </nav>
         </div>

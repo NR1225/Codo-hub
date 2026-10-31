@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import { User } from '../../utils/api';
 import { apiService } from '../../utils/api';
 import { imageStorage } from '../../utils/imageStorage';
@@ -35,8 +35,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatar || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [isPasswordSectionVisible, setIsPasswordSectionVisible] = useState(false);
   const [bioSaving, setBioSaving] = useState(false);
   const [originalBio, setOriginalBio] = useState<string>(user.bio || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,8 +74,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
         setOriginalBio(user.bio || '');
         setAvatarPreview(avatarToUse || null);
         setError(null);
-        setPasswordError(null);
-        setIsPasswordSectionVisible(false);
         setBioSaving(false);
       };
       
@@ -286,53 +282,9 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setPasswordError(null);
     setLoading(true);
 
     try {
-      // Check if password change is requested
-      const isPasswordChange = formData.newPassword.trim() !== '' || formData.confirmPassword.trim() !== '';
-      
-      if (isPasswordChange) {
-        // Validate password fields
-        if (!formData.currentPassword) {
-          setPasswordError(t('editProfile.enterCurrentPassword'));
-          setLoading(false);
-          return;
-        }
-
-        if (!formData.newPassword) {
-          setPasswordError(t('editProfile.enterNewPassword'));
-          setLoading(false);
-          return;
-        }
-
-        if (formData.newPassword.length < 6) {
-          setPasswordError(t('editProfile.passwordMinLength'));
-          setLoading(false);
-          return;
-        }
-
-        if (formData.newPassword !== formData.confirmPassword) {
-          setPasswordError(t('editProfile.passwordsDoNotMatch'));
-          setLoading(false);
-          return;
-        }
-
-        // Change password
-        try {
-          await apiService.changePassword(
-            formData.currentPassword,
-            formData.newPassword
-          );
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : t('editProfile.passwordChangeError');
-          setPasswordError(errorMessage);
-          setLoading(false);
-          return;
-        }
-      }
-
       // Update profile
       const updateData: Partial<User> & { userId?: string; currentEmail?: string } = {
         username: formData.username,
@@ -585,62 +537,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </div>
               )}
             </div>
-
-          <div className="form-group password-change-section">
-            <div className="password-section-header">
-              <button
-                type="button"
-                className="btn-toggle-password-section"
-                onClick={() => setIsPasswordSectionVisible(!isPasswordSectionVisible)}
-                title={isPasswordSectionVisible ? t('editProfile.hide') : t('editProfile.show')}
-              >
-                <span>{t('editProfile.changePassword')}</span>
-                <FontAwesomeIcon 
-                  icon={faChevronDown} 
-                  className={`chevron-icon ${isPasswordSectionVisible ? 'rotated' : ''}`}
-                />
-              </button>
-            </div>
-            {isPasswordSectionVisible && (
-              <div className="password-section-content">
-            <div className="form-group">
-              <input
-                id="currentPassword"
-                type="password"
-                value={formData.currentPassword}
-                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                placeholder={t('editProfile.currentPasswordPlaceholder')}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <input
-                id="newPassword"
-                type="password"
-                value={formData.newPassword}
-                onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                placeholder={t('editProfile.newPasswordPlaceholder')}
-                minLength={8}
-              />
-            </div>
-            <div className="form-group">
-              <input
-                id="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                placeholder={t('editProfile.confirmPasswordPlaceholder')}
-                minLength={8}
-              />
-            </div>
-            {passwordError && (
-              <div className="form-error">
-                {passwordError}
-              </div>
-            )}
-              </div>
-            )}
-          </div>
 
           {error && (
             <div className="form-error">

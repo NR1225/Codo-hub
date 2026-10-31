@@ -2,7 +2,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
@@ -94,23 +94,58 @@ def resolve_access_user(token: str, db: Session) -> User:
     return user
 
 
+def _remember_viewer(request: Optional[Request], user: Optional[User]) -> None:
+    """Жауаптағы файл сілтемелеріне кімнің атынан қол қою керегін есте сақтау
+    (utils/signed_route.py — SignedMediaRoute)"""
+    if request is not None and user is not None:
+        request.state.viewer_id = str(user.id)
+
+
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    return resolve_access_user(token, db)
+    user = resolve_access_user(token, db)
+    _remember_viewer(request, user)
+    return user
 
 
 async def get_optional_user(
+    request: Request,
     token: Optional[str] = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
     if token is None:
         return None
     try:
-        return resolve_access_user(token, db)
+        user = resolve_access_user(token, db)
     except HTTPException:
         return None
+    _remember_viewer(request, user)
+    return user
+
+
+async def get_upload_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    """Жоба жүктеу маршруттары үшін: сайттағы access JWT немесе терминалдың CLI кілті (codo_…).
+    CLI кілті тек осы dependency бар маршруттарда жарайды"""
+    from services.cli_token_service import CliTokenService
+
+    if CliTokenService.is_cli_token(token):
+        resolved = CliTokenService.resolve(db, token)
+        if resolved is None:
+            raise HTTPException(
+                status_code=401,
+                detail="CLI кілті жарамсыз немесе өшірілген",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        user, row = resolved
+        user.cli_site = row.site  # /cli/whoami үшін: CLI жобаның сайттағы сілтемесін шығарады
+        return user
+    return resolve_access_user(token, db)
 
 
 async def verify_user_access(

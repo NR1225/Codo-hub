@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { apiService } from '../utils/api';
 import { setItemSafe } from '../utils/safeStorage';
+import { imageStorage } from '../utils/imageStorage';
 
 interface User {
   id: string;
@@ -37,6 +38,10 @@ const RETRY_INTERVAL_MS = 30 * 1000;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUserState] = useState<User | null>(null);
+  // localStorage-та аватар орнына 'stored' белгісі тұрады (квота үшін), суреттің өзі imageStorage-та.
+  // Компоненттер URL алуы үшін белгіні осында бір рет нақты суретке ауыстырамыз
+  const [storedAvatar, setStoredAvatar] = useState<string | null>(null);
+  const [avatarVersion, setAvatarVersion] = useState(0);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,15 +190,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItemSafe('accessToken', tokens.access_token);
   }, []);
 
-  const setUser = useCallback((userData: User) => {
-    setItemSafe('user', JSON.stringify(userData));
-    setUserState(userData);
+  useEffect(() => {
+    if (!user?.id || user.avatar !== 'stored') {
+      setStoredAvatar(null);
+      return;
+    }
+    let cancelled = false;
+    imageStorage.getImage(`avatar-${user.id}`)
+      .catch(() => null)
+      .then((img) => { if (!cancelled) setStoredAvatar(img); });
+    return () => { cancelled = true; };
+  }, [user?.id, user?.avatar, avatarVersion]);
+
+  // Профиль өңделгенде (EditProfileModal) localStorage мен imageStorage жаңарады — соларды қайта оқимыз
+  useEffect(() => {
+    const onProfileUpdated = () => {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) setUserState(JSON.parse(stored));
+      } catch { /* ignore */ }
+      setAvatarVersion((v) => v + 1);
+    };
+    window.addEventListener('userProfileUpdated', onProfileUpdated);
+    return () => window.removeEventListener('userProfileUpdated', onProfileUpdated);
   }, []);
+
+  const setUser = useCallback((userData: User) => {
+    // Шешілген data: URL қайта келсе — localStorage-қа үлкен суретті емес, белгіні жазамыз
+    const forStorage = userData.avatar?.startsWith('data:') && userData.id
+      ? { ...userData, avatar: 'stored' }
+      : userData;
+    if (forStorage !== userData) {
+      setStoredAvatar(userData.avatar as string);
+      setItemSafe('user', JSON.stringify(forStorage));
+      // Сурет сақталып біткен соң ғана күйді жаңартамыз — әйтпесе эффект ескі суретті оқып алады
+      imageStorage.saveImage(`avatar-${userData.id}`, userData.avatar as string)
+        .catch(() => {})
+        .finally(() => setUserState(forStorage));
+      return;
+    }
+    setItemSafe('user', JSON.stringify(forStorage));
+    setUserState(forStorage);
+    setAvatarVersion((v) => v + 1);
+  }, []);
+
+  const resolvedUser = useMemo(() => {
+    if (!user) return null;
+    if (user.avatar !== 'stored') return user;
+    const avatar = storedAvatar ?? undefined;
+    return { ...user, avatar };
+  }, [user, storedAvatar]);
 
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
   const value: AuthContextType = {
-    user,
+    user: resolvedUser,
     isAuthenticated: !isLoading && !!user && !!accessToken,
     isLoading,
     accessToken,

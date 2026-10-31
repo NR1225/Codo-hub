@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CodeFile } from '../utils/api';
-import { apiService } from '../utils/api';
+import { useCodesFeed, useLoadMoreSentinel } from '../hooks/useCodesFeed';
 import {
   ArrowLeftIcon,
   DatabaseIcon,
@@ -21,14 +20,12 @@ import {
 import CodeTile from '../components/codes/CodeTile';
 import SortMenu from '../components/codes/SortMenu';
 import ViewToggle from '../components/codes/ViewToggle';
-import { SortOption, ViewMode, compareCodes, isNetworkError, readViewMode, saveViewMode } from '../components/codes/codeUtils';
-import { CategoryKey, CATEGORIES, categoryFromSlug, getCategory } from '../utils/codeCategories';
+import { SortOption, ViewMode, readViewMode, saveViewMode } from '../components/codes/codeUtils';
+import { CategoryKey, CATEGORIES, categoryFromSlug } from '../utils/codeCategories';
 import './CodesPage.css';
 
 /* Кодтар тізімі — бұрынғы модал терезенің орнына бөлек бет.
    Кодтар беті сияқты: сол жақта бөлімдер, оң жақта таңдалған бөлімнің кодтары. */
-
-const ALL_LIMIT = 1000;
 
 const CATEGORY_ICONS: Record<CategoryKey, React.ReactNode> = {
   ai: <SparkleIcon />,
@@ -42,15 +39,9 @@ const CATEGORY_ICONS: Record<CategoryKey, React.ReactNode> = {
   other: <FolderIcon />,
 };
 
-// Бетке қайта оралғанда жүктелу флешы болмауы үшін
-let listCachedCodes: CodeFile[] | null = null;
-
 const CodesListPage: React.FC = () => {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [codes, setCodes] = useState<CodeFile[]>(listCachedCodes ?? []);
-  const [loading, setLoading] = useState(listCachedCodes === null);
-  const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [view, setView] = useState<ViewMode>(readViewMode);
 
@@ -61,44 +52,14 @@ const CodesListPage: React.FC = () => {
     setSearchParams(key ? { section: key } : {}, { replace: true });
   };
 
-  const loadCodes = useCallback(async (retryCount: number = 0): Promise<void> => {
-    const MAX_RETRIES = 2;
-    try {
-      const response = await apiService.getCodeFiles(undefined, ALL_LIMIT, 0, false);
-      setCodes(response.codes);
-      listCachedCodes = response.codes;
-      setError(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      if (isNetworkError(message) && retryCount < MAX_RETRIES) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
-        return loadCodes(retryCount + 1);
-      }
-      setError(message || t('home.error'));
-    } finally {
-      setLoading(false);
-    }
-  // t тек қате мәтіні үшін — тәуелділікке қоспаймыз
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadCodes();
-    const handleCodesUpdated = () => {
-      apiService.invalidateCodesCache();
-      loadCodes();
-    };
-    window.addEventListener('codesUpdated', handleCodesUpdated);
-    return () => window.removeEventListener('codesUpdated', handleCodesUpdated);
-  }, [loadCodes]);
+  // Бөлім мен сұрыптау серверде; бір сұрауда 30 жоба, қалғаны айналдырған сайын
+  const { codes, hasMore, loading, loadingMore, error, reload, loadMore } = useCodesFeed(
+    { category: active ?? undefined, sort: sortBy },
+    t('home.error')
+  );
+  const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading, codes.length);
 
   useEffect(() => saveViewMode(view), [view]);
-
-  // Жүктеу кезінде таңдалған категория бойынша
-  const results = useMemo(() => {
-    const list = active ? codes.filter((code) => getCategory(code) === active) : codes;
-    return [...list].sort(compareCodes(sortBy));
-  }, [active, codes, sortBy]);
 
   const isInitialLoading = loading && codes.length === 0;
   const activeCategory = CATEGORIES.find((c) => c.key === active);
@@ -171,7 +132,7 @@ const CodesListPage: React.FC = () => {
             {error && (
               <div className="cdx-error" role="alert">
                 <span>{error}</span>
-                <button type="button" onClick={() => loadCodes()}>
+                <button type="button" onClick={reload}>
                   <RefreshIcon />
                   {t('home.retry')}
                 </button>
@@ -184,7 +145,7 @@ const CodesListPage: React.FC = () => {
                   <div key={i} className={`cdx-skel cdx-skel--${view}`} />
                 ))}
               </div>
-            ) : results.length === 0 ? (
+            ) : codes.length === 0 ? (
               !error && (
                 <div className="cdx-empty">
                   <span className="cdx-empty__icon">
@@ -201,11 +162,16 @@ const CodesListPage: React.FC = () => {
               )
             ) : (
               // key — бөлім ауысқанда карталар анимациясы қайта ойнауы үшін
-              <div key={active ?? 'all'} className={`cdx-grid cdx-grid--${view}`}>
-                {results.map((code, i) => (
-                  <CodeTile key={code.id} code={code} index={i} view={view} />
-                ))}
-              </div>
+              <>
+                <div key={active ?? 'all'} className={`cdx-grid cdx-grid--${view} ${loading ? 'is-refreshing' : ''}`}>
+                  {codes.map((code, i) => (
+                    <CodeTile key={code.id} code={code} index={i} view={view} />
+                  ))}
+                </div>
+                <div ref={sentinelRef} className="cdx-more">
+                  {loadingMore && <span className="cdx-more__spinner" role="status" aria-label={t('home.loading')} />}
+                </div>
+              </>
             )}
           </div>
         </main>

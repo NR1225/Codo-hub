@@ -2,7 +2,7 @@ import { CodeFile } from '../../utils/api';
 
 /* Кодтар беті мен Кодтар тізімі бетіне ортақ көмекші функциялар */
 
-export type SortOption = 'newest' | 'oldest' | 'title' | 'author';
+export type SortOption = 'newest' | 'oldest' | 'rating' | 'title' | 'author';
 export type ViewMode = 'grid' | 'list';
 
 export const VIEW_STORAGE_KEY = 'kh-codes-view';
@@ -11,6 +11,7 @@ const SNIPPET_LINES = 7;
 export const SORT_OPTIONS: { value: SortOption; labelKey: string }[] = [
   { value: 'newest', labelKey: 'home.newest' },
   { value: 'oldest', labelKey: 'home.oldest' },
+  { value: 'rating', labelKey: 'home.topRated' },
   { value: 'title', labelKey: 'home.byTitle' },
   { value: 'author', labelKey: 'home.byAuthor' },
 ];
@@ -38,6 +39,13 @@ export function compareCodes(sortBy: SortOption) {
     switch (sortBy) {
       case 'oldest':
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case 'rating':
+        // Лайк саны көбі бірінші; тең болса — қаралымы көбі, одан кейін жаңасы
+        return (
+          (b.likes?.length ?? 0) - (a.likes?.length ?? 0) ||
+          (b.views ?? 0) - (a.views ?? 0) ||
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       case 'title':
         return (a.title || '').localeCompare(b.title || '');
       case 'author':

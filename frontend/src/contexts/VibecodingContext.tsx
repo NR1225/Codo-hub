@@ -47,6 +47,11 @@ export interface EditorSettings {
   bracketPairColorization: boolean;
 }
 
+export interface ProjectTabState {
+  openFileIds: string[];
+  activeFileId: string | null;
+}
+
 interface VibecodingState {
   projects: Project[];
   activeProjectId: string | null;
@@ -57,6 +62,10 @@ interface VibecodingState {
   rightPanelVisible: boolean;
   bottomPanelVisible: boolean;
   editorSettings: EditorSettings;
+  /** Хедер астындағы табтарда ашық тұрған жобалар (ретімен) */
+  openProjectIds?: string[];
+  /** Әр жобаның ашық файлдары — табтар арасында ауысқанда қалпына келеді */
+  projectTabs?: Record<string, ProjectTabState>;
   /** localStorage-тағы жобалар кімдікі (сервермен синхрондалған қолданушы) */
   ownerId?: string;
 }
@@ -67,6 +76,8 @@ type VibecodingAction =
   | { type: 'CREATE_PROJECT'; payload: { name: string; id?: string } }
   | { type: 'DELETE_PROJECT'; payload: { projectId: string } }
   | { type: 'SWITCH_PROJECT'; payload: { projectId: string } }
+  | { type: 'CLOSE_PROJECT_TAB'; payload: { projectId: string } }
+  | { type: 'REORDER_PROJECT_TABS'; payload: { projectIds: string[] } }
   | { type: 'RENAME_PROJECT'; payload: { projectId: string; name: string } }
   | { type: 'CREATE_FILE'; payload: { name: string; path: string; content?: string } }
   | { type: 'DELETE_FILE'; payload: { fileId: string } }
@@ -175,6 +186,48 @@ function createDefaultProject(): Project {
   };
 }
 
+// ─── Жоба табтары ────────────────────────────────────────────────────
+
+/** Ашық жоба табтары: тек бар жобалар, белсенді жоба әрқашан ішінде */
+export function projectTabIds(state: Pick<VibecodingState, 'projects' | 'activeProjectId' | 'openProjectIds'>): string[] {
+  const exists = new Set(state.projects.map(p => p.id));
+  const ids = (state.openProjectIds ?? []).filter((id, i, arr) => exists.has(id) && arr.indexOf(id) === i);
+  if (state.activeProjectId && exists.has(state.activeProjectId) && !ids.includes(state.activeProjectId)) {
+    ids.push(state.activeProjectId);
+  }
+  return ids;
+}
+
+/** Белсенді жобаның ашық файлдарын есте сақтап, басқа жобаға ауысу (табы да ашылады) */
+function activateProject(state: VibecodingState, projectId: string | null): VibecodingState {
+  const projectTabs = { ...(state.projectTabs ?? {}) };
+  if (state.activeProjectId) {
+    projectTabs[state.activeProjectId] = { openFileIds: state.openFileIds, activeFileId: state.activeFileId };
+  }
+  const project = state.projects.find(p => p.id === projectId);
+  const saved = projectId ? projectTabs[projectId] : undefined;
+  const fileExists = (id: string) => !!project?.files.some(f => f.id === id);
+  const openFileIds = (saved?.openFileIds ?? []).filter(fileExists);
+  const activeFileId = saved?.activeFileId && fileExists(saved.activeFileId)
+    ? saved.activeFileId
+    : openFileIds[openFileIds.length - 1] ?? null;
+  const tabs = projectTabIds(state);
+  return {
+    ...state,
+    projectTabs,
+    activeProjectId: projectId,
+    openProjectIds: projectId && !tabs.includes(projectId) ? [...tabs, projectId] : tabs,
+    openFileIds,
+    activeFileId,
+  };
+}
+
+function withoutProjectTab(state: VibecodingState, projectId: string) {
+  const projectTabs = { ...(state.projectTabs ?? {}) };
+  delete projectTabs[projectId];
+  return { projectTabs, openProjectIds: projectTabIds(state).filter(id => id !== projectId) };
+}
+
 // ─── Reducer ─────────────────────────────────────────────────────────
 
 function vibecodingReducer(state: VibecodingState, action: VibecodingAction): VibecodingState {
@@ -187,35 +240,40 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
         updatedAt: new Date().toISOString(),
         files: [],
       };
-      return {
-        ...state,
-        projects: [...state.projects, newProject],
-        activeProjectId: newProject.id,
-        openFileIds: [],
-        activeFileId: null,
-      };
+      return activateProject({ ...state, projects: [...state.projects, newProject] }, newProject.id);
     }
 
     case 'DELETE_PROJECT': {
-      const remaining = state.projects.filter(p => p.id !== action.payload.projectId);
-      return {
-        ...state,
-        projects: remaining,
-        activeProjectId: state.activeProjectId === action.payload.projectId
-          ? (remaining[0]?.id || null)
-          : state.activeProjectId,
-        openFileIds: state.activeProjectId === action.payload.projectId ? [] : state.openFileIds,
-        activeFileId: state.activeProjectId === action.payload.projectId ? null : state.activeFileId,
-      };
+      const { projectId } = action.payload;
+      const tabs = projectTabIds(state);
+      const remaining = state.projects.filter(p => p.id !== projectId);
+      const next = { ...state, ...withoutProjectTab(state, projectId), projects: remaining };
+      if (state.activeProjectId !== projectId) return next;
+      // Көрші таб, ол жоқ болса — кез келген жоба
+      const idx = tabs.indexOf(projectId);
+      const neighbor = tabs[idx + 1] ?? tabs[idx - 1] ?? remaining[0]?.id ?? null;
+      return activateProject({ ...next, activeProjectId: null, openFileIds: [], activeFileId: null }, neighbor);
     }
 
     case 'SWITCH_PROJECT': {
-      return {
-        ...state,
-        activeProjectId: action.payload.projectId,
-        openFileIds: [],
-        activeFileId: null,
-      };
+      if (state.activeProjectId === action.payload.projectId) return state;
+      return activateProject(state, action.payload.projectId);
+    }
+
+    // Табты жабу жобаны жоймайды — тек жолақтан алынады
+    case 'CLOSE_PROJECT_TAB': {
+      const { projectId } = action.payload;
+      const tabs = projectTabIds(state);
+      if (tabs.length <= 1 || !tabs.includes(projectId)) return state;
+      if (state.activeProjectId !== projectId) return { ...state, openProjectIds: tabs.filter(id => id !== projectId) };
+      const idx = tabs.indexOf(projectId);
+      const neighbor = tabs[idx + 1] ?? tabs[idx - 1];
+      const switched = activateProject(state, neighbor);
+      return { ...switched, openProjectIds: projectTabIds(switched).filter(id => id !== projectId) };
+    }
+
+    case 'REORDER_PROJECT_TABS': {
+      return { ...state, openProjectIds: action.payload.projectIds };
     }
 
     case 'RENAME_PROJECT': {
@@ -543,13 +601,12 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       const project = state.projects.find(p => p.id === projectId);
       if (!project) return state;
       const file = path ? project.files.find(f => f.path === path) : undefined;
-      const sameProject = state.activeProjectId === projectId;
-      const baseOpen = sameProject ? state.openFileIds : [];
+      const base = state.activeProjectId === projectId ? state : activateProject(state, projectId);
+      if (!file) return base;
       return {
-        ...state,
-        activeProjectId: projectId,
-        openFileIds: file && !baseOpen.includes(file.id) ? [...baseOpen, file.id] : baseOpen,
-        activeFileId: file ? file.id : sameProject ? state.activeFileId : null,
+        ...base,
+        openFileIds: base.openFileIds.includes(file.id) ? base.openFileIds : [...base.openFileIds, file.id],
+        activeFileId: file.id,
       };
     }
 
@@ -618,6 +675,7 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
         activeProjectId,
         openFileIds: keepActive ? state.openFileIds.filter(fileExists) : [],
         activeFileId: keepActive && state.activeFileId && fileExists(state.activeFileId) ? state.activeFileId : null,
+        openProjectIds: projectTabIds({ projects, activeProjectId, openProjectIds: state.openProjectIds }),
       };
     }
 
@@ -636,6 +694,7 @@ function describeAction(action: VibecodingAction, state: VibecodingState): { tex
     case 'CREATE_PROJECT': return { text: `Жаңа жоба жасалды: ${action.payload.name}` };
     case 'DELETE_PROJECT': return { text: `Жоба жойылды: ${projectName(action.payload.projectId)}` };
     case 'SWITCH_PROJECT': return { text: `Жобаға ауысты: ${projectName(action.payload.projectId)}` };
+    case 'CLOSE_PROJECT_TAB': return { text: `Жоба табы жабылды: ${projectName(action.payload.projectId)}` };
     case 'RENAME_PROJECT': return { text: `Жоба атауы өзгертілді: ${action.payload.name}` };
     case 'CREATE_FILE': return { text: `Файл жасалды: ${action.payload.path}` };
     case 'DELETE_FILE': return { text: `Файл жойылды: ${fileName(action.payload.fileId)}` };
@@ -779,6 +838,7 @@ function createInitialState(): VibecodingState {
   return {
     projects: [defaultProject],
     activeProjectId: defaultProject.id,
+    openProjectIds: [defaultProject.id],
     openFileIds: [defaultProject.files[0].id],
     activeFileId: defaultProject.files[0].id,
     panelSizes: DEFAULT_PANEL_SIZES,

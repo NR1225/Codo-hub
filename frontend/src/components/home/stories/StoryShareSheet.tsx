@@ -72,7 +72,7 @@ const StoryShareSheet: React.FC<Props> = ({ storyId, currentUserId, onClose, onD
             {t('home.story.shareTitle')}
             {selected.length > 0 && <em>{selected.length}</em>}
           </span>
-          <button type="button" className="sv__tool" onClick={onClose} aria-label={t('home.storyClose')}>
+          <button type="button" className="sv__tool x-close" onClick={onClose} aria-label={t('home.storyClose')}>
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>

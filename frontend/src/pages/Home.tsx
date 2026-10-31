@@ -19,6 +19,19 @@ let homeCachedCodes: CodeFile[] | null = null;
 
 const SIDEBAR_STORAGE_KEY = 'kh-home-sidebar-collapsed';
 
+// Vibecoding жобалары серверде тек иесінде — оларға қойылған жұлдыз браузерде сақталады
+const VIBE_STARS_KEY = 'kh-home-vibe-stars';
+
+function readVibeStars(userId?: string): string[] {
+  if (!userId) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${VIBE_STARS_KEY}:${userId}`) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 // Vibecoding беті жобаларды осы кілтпен localStorage-қа сақтайды
 const VIBECODING_STORAGE_KEY = 'vibecoding_state';
 
@@ -46,8 +59,8 @@ function readVibecodingProjects(userId?: string): VibecodingProjectSummary[] {
 }
 
 type SidebarProject =
-  | { kind: 'repo'; id: string; date: string; code: CodeFile }
-  | { kind: 'vibe'; id: string; date: string; project: VibecodingProjectSummary };
+  | { kind: 'repo'; id: string; date: string; starred: boolean; code: CodeFile }
+  | { kind: 'vibe'; id: string; date: string; starred: boolean; project: VibecodingProjectSummary };
 
 function readSidebarCollapsed(): boolean {
   try {
@@ -63,11 +76,38 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [codes, setCodes] = useState<CodeFile[]>(homeCachedCodes ?? []);
-  const [loading, setLoading] = useState(homeCachedCodes === null);
   const [error, setError] = useState<string | null>(null);
   const [projectQuery, setProjectQuery] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
   const [vibeProjects, setVibeProjects] = useState<VibecodingProjectSummary[]>(() => readVibecodingProjects(user?.id));
+  // Sidebar: өз жобаларым + қосылған жобалар (жалпы лентадағы 50 кодқа тәуелсіз)
+  const [myProjects, setMyProjects] = useState<CodeFile[]>([]);
+  const [myProjectsLoading, setMyProjectsLoading] = useState(!!user);
+  const [vibeStars, setVibeStars] = useState<string[]>(() => readVibeStars(user?.id));
+
+  const loadMyProjects = useCallback(() => {
+    if (!user) {
+      setMyProjects([]);
+      setMyProjectsLoading(false);
+      return;
+    }
+    apiService
+      .getMyProjects()
+      .then(setMyProjects)
+      .catch(() => {
+        // Ескі сервер: жалпы тізімнен тек өз жобаларым
+        setMyProjects(homeCachedCodes?.filter((c) => !c.folderId && c.author === user.username) ?? []);
+      })
+      .finally(() => setMyProjectsLoading(false));
+  }, [user]);
+
+  useEffect(() => {
+    loadMyProjects();
+    window.addEventListener('codesUpdated', loadMyProjects);
+    return () => window.removeEventListener('codesUpdated', loadMyProjects);
+  }, [loadMyProjects]);
+
+  useEffect(() => setVibeStars(readVibeStars(user?.id)), [user?.id]);
 
   // Vibecoding жобалары серверден (тек өзімдікі); сервер қолжетімсіз болса — браузердегі көшірме.
   // Бүркіт жоба жасаса/өшірсе (VIBE_PROJECTS_EVENT) — тізім қайта жүктеледі
@@ -136,11 +176,10 @@ const Home: React.FC = () => {
     const MAX_RETRIES = 2;
 
     try {
-      const response = await apiService.getCodeFiles(undefined, 50, 0, false);
+      const response = await apiService.getCodesPage();
       setCodes(response.codes);
       homeCachedCodes = response.codes;
       setError(null);
-      setLoading(false);
       return response.codes;
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
@@ -150,7 +189,6 @@ const Home: React.FC = () => {
         return loadCodes(retryCount + 1);
       }
       setError(message || t('home.error'));
-      setLoading(false);
       return null;
     }
   // t is only used for error messages and rarely changes — suppress dep warning
@@ -201,29 +239,47 @@ const Home: React.FC = () => {
     };
   }, [loadCodes]);
 
-  // Sidebar — тек қолданушының өз репозиторийлері: өзі қосқан жобалар
-  // және Vibecoding бетінде жасағандары. Ең жаңасы жоғарыда.
+  // Sidebar — тек қолданушының өз жобалары, мүше болып қосылған жобалары
+  // және Vibecoding бетінде жасағандары. Жұлдыз қойылғандар — ең жоғарыда, қалғаны — ең жаңасы жоғарыда.
   const projects = useMemo<SidebarProject[]>(() => {
     if (!user) return [];
     const q = projectQuery.toLowerCase().trim();
-    const repos: SidebarProject[] = codes
-      .filter(
-        (code) =>
-          !code.folderId &&
-          code.author === user.username &&
-          (!q || code.title?.toLowerCase().includes(q) || code.language?.toLowerCase().includes(q))
-      )
-      .map((code) => ({ kind: 'repo', id: code.id, date: code.createdAt, code }));
-    const repoIds = new Set(repos.map((r) => `repo-${r.id}`));
+    const repos: SidebarProject[] = myProjects
+      .filter((code) => !q || code.title?.toLowerCase().includes(q) || code.language?.toLowerCase().includes(q))
+      .map((code) => ({ kind: 'repo', id: code.id, date: code.createdAt, starred: !!code.starred, code }));
+    const repoIds = new Set(myProjects.map((c) => `repo-${c.id}`));
     const vibes: SidebarProject[] = vibeProjects
       // Жүктелген жобаның Vibecoding-тегі көшірмесі — қайталамау үшін жасырамыз
       .filter((p) => !repoIds.has(p.id))
       .filter((p) => !q || p.name.toLowerCase().includes(q) || 'vibecoding'.includes(q))
-      .map((p) => ({ kind: 'vibe', id: p.id, date: p.updatedAt, project: p }));
+      .map((p) => ({ kind: 'vibe', id: p.id, date: p.updatedAt, starred: vibeStars.includes(p.id), project: p }));
     return [...repos, ...vibes].sort(
-      (a, b) => (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0)
+      (a, b) =>
+        Number(b.starred) - Number(a.starred) ||
+        (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0)
     );
-  }, [codes, vibeProjects, projectQuery, user]);
+  }, [myProjects, vibeProjects, vibeStars, projectQuery, user]);
+
+  const toggleStar = (item: SidebarProject) => {
+    const next = !item.starred;
+    if (item.kind === 'vibe') {
+      setVibeStars((prev) => {
+        const updated = next ? [...prev, item.id] : prev.filter((id) => id !== item.id);
+        try {
+          localStorage.setItem(`${VIBE_STARS_KEY}:${user?.id}`, JSON.stringify(updated));
+        } catch {
+          // localStorage қолжетімсіз — тек осы сеансқа
+        }
+        return updated;
+      });
+      return;
+    }
+    // Бірден көрсетеміз; сервер қабылдамаса — кері қайтарамыз
+    const setStar = (value: boolean) =>
+      setMyProjects((prev) => prev.map((c) => (c.id === item.id ? { ...c, starred: value } : c)));
+    setStar(next);
+    apiService.setProjectStar(item.id, next).catch(() => setStar(!next));
+  };
 
   // Жоба басылғанда — бірден Vibecoding бетінде ашылады
   const openProject = (item: SidebarProject) => {
@@ -245,9 +301,12 @@ const Home: React.FC = () => {
             key: `${item.kind}-${item.id}`,
             title: item.kind === 'repo' ? item.code.title : item.project.name,
             isFolder: item.kind === 'vibe' || !!item.code.isFolder,
+            joined: item.kind === 'repo' && item.code.role === 'member',
+            starred: item.starred,
+            onToggleStar: () => toggleStar(item),
             onOpen: () => openProject(item),
           }))}
-          loading={loading && codes.length === 0}
+          loading={myProjectsLoading && myProjects.length === 0}
           error={error}
           onRetry={() => loadCodes()}
           query={projectQuery}

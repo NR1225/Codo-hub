@@ -305,7 +305,7 @@
 }
 
 .hsb__row--primary {
-  background: var(--home-accent);
+  background: #b6b6b8;
   color: var(--home-on-accent);
 }
 
@@ -386,6 +386,83 @@
   color: var(--text-primary);
 }
 
+/* Жоба жолы + оң жақтағы жұлдыз батырмасы (button ішіне button салуға болмайды) */
+.hsb__entry {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hsb__entry .hsb__item .hsb__label {
+  padding-right: 36px;
+}
+
+.hsb__tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(var(--mono-ink), 0.07);
+  color: var(--hsb-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.hsb__star {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--hsb-muted);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.hsb__entry:hover .hsb__star,
+.hsb__star:focus-visible,
+.hsb__entry.is-starred .hsb__star {
+  opacity: 1;
+}
+
+.hsb__star:hover {
+  background: rgba(var(--mono-ink), 0.08);
+  color: var(--text-primary);
+}
+
+.hsb__star:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--home-accent);
+}
+
+.hsb__entry.is-starred .hsb__star {
+  color: #f5b301;
+}
+
+/* Белгіше бұрышындағы кішкентай жұлдыз — жабық күйде көрінеді */
+.hsb__slot {
+  position: relative;
+}
+
+.hsb__star-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  color: #f5b301;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
 /* Жоба белгішесі — атауының бірінші әрпі */
 .hsb__mono {
   width: 28px;
@@ -400,12 +477,6 @@
   font-weight: 800;
   line-height: 1;
   transition: background 0.15s ease, color 0.15s ease, transform 0.2s var(--hsb-ease);
-}
-
-.hsb__item:hover .hsb__mono,
-.hsb__item:focus-visible .hsb__mono {
-  background: var(--home-accent);
-  color: var(--home-on-accent);
 }
 
 .hsb__skeleton {
@@ -526,6 +597,14 @@
     box-shadow: none;
     color: inherit;
     font-size: 0.92rem;
+  }
+
+  .hsb.is-collapsed .hsb__star {
+    display: none;
+  }
+
+  .hsb.is-collapsed .hsb__star-badge {
+    opacity: 1;
   }
 
   /* Аралықтар бірдей — 6px */

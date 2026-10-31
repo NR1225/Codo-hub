@@ -295,7 +295,7 @@ const StoryViewer: React.FC<Props> = ({
                   <FontAwesomeIcon icon={faTrashCan} />
                 </button>
               )}
-              <button type="button" className="sv__tool" onClick={onClose} aria-label={t('home.storyClose')}>
+              <button type="button" className="sv__tool x-close" onClick={onClose} aria-label={t('home.storyClose')}>
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>

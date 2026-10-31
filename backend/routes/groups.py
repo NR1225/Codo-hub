@@ -13,10 +13,12 @@ from models import MessageEdit, PinToggle, PollVote, ReactionToggle
 from services.group_service import MAX_GROUP_MEMBERS, GroupService, _public_users
 from services.message_extras import build_poll_metadata, build_sticker_metadata, reply_snapshot
 from services.project_card import build_project_metadata
-from services.upload_service import save_chat_attachment
+from services.upload_service import group_scope, save_chat_attachment, strip_client_attachments
 from utils.auth import get_current_user
+from utils.signed_route import SignedMediaRoute
 
-router = APIRouter()
+# Жауаптағы файл сілтемелері қарап отырған адамға қол қойылып беріледі
+router = APIRouter(route_class=SignedMediaRoute)
 limiter = Limiter(key_func=get_remote_address)
 
 MESSAGE_TYPES = r"^(text|image|audio|video|file|sticker|emoji|location|project|poll)$"
@@ -172,7 +174,7 @@ async def send_message(
         GroupService.require_member(db, group_id, user.id)
         metadata = build_project_metadata(db, user.id, data.metadata)
     extra = _reply_extra(db, group_id, user.id, data.replyToId)
-    return await GroupService.send_message(db, group_id, user.id, content, data.type, data.attachments, metadata, extra)
+    return await GroupService.send_message(db, group_id, user.id, content, data.type, strip_client_attachments(data.attachments), metadata, extra)
 
 
 @router.post("/groups/{group_id}/messages/upload")
@@ -193,7 +195,7 @@ async def upload_message_file(
     # Алдымен мүшелікті тексереміз — мүше болмаса файл сақталмайды
     GroupService.require_member(db, group_id, user.id)
     extra = _reply_extra(db, group_id, user.id, replyToId)
-    attachment = await save_chat_attachment(file, messageType)
+    attachment = await save_chat_attachment(file, messageType, group_scope(group_id))
 
     metadata_dict: Dict[str, Any] = {}
     if metadata:

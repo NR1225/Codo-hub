@@ -6,6 +6,7 @@ from models import UserUpdate
 from database import codes, friends, messages, friend_requests, save_users, save_codes, save_friends, save_messages, save_friend_requests
 from db import get_db, User
 from utils.auth import get_current_user
+from services.cli_token_service import CliTokenService
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -176,14 +177,11 @@ async def update_user(
                 raise ValueError("Username already in use by another user")
             current_user.username = user_data.username.strip()
 
-        if user_data.email is not None and user_data.email.strip():
-            existing = db.query(User).filter(
-                User.email == user_data.email.strip().lower(),
-                User.id != current_user.id,
-            ).first()
-            if existing:
-                raise ValueError("Email already in use by another user")
-            current_user.email = user_data.email.strip().lower()
+        # Пошта мұнда ауыспайды: кіру тек email кодымен, сондықтан ауыстыру екі кодпен расталады
+        # (/user/email/change → /user/email/confirm). Сол поштаны қайта жіберсе — еленбейді
+        if user_data.email is not None and user_data.email.strip() \
+                and user_data.email.strip().lower() != (current_user.email or "").lower():
+            raise HTTPException(status_code=400, detail="Email change requires confirmation codes")
 
         if user_data.avatar is not None:
             if user_data.avatar == '':
@@ -209,6 +207,8 @@ async def update_user(
             "avatar": current_user.avatar,
             "bio": current_user.bio,
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -266,6 +266,7 @@ async def delete_user(
         save_codes()
 
         # Now delete from SQL database
+        CliTokenService.revoke_all(db, user_id_to_delete)
         db.delete(current_user)
         db.commit()
 
@@ -273,3 +274,51 @@ async def delete_user(
     except Exception as e:
         print(f'Error deleting account: {e}')
         raise HTTPException(status_code=500, detail="Internal server error while deleting account")
+
+# ── Поштаны ауыстыру: код ескі поштаға да, жаңа поштаға да (services/email_change.py) ──
+
+from pydantic import BaseModel, Field  # noqa: E402
+from services import email_change  # noqa: E402
+
+
+class EmailChangeStart(BaseModel):
+    newEmail: str = Field(min_length=3, max_length=255)
+
+
+class EmailChangeConfirm(BaseModel):
+    oldCode: str = Field(pattern=r"^\d{6}$")
+    newCode: str = Field(pattern=r"^\d{6}$")
+
+
+@router.get("/user/email/change")
+@limiter.limit("30/minute")
+async def email_change_status(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"pending": email_change.pending(db, current_user)}
+
+
+@router.post("/user/email/change")
+@limiter.limit("5/minute")
+async def email_change_start(request: Request, body: EmailChangeStart,
+                             current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return email_change.start(db, request, current_user, body.newEmail)
+
+
+@router.post("/user/email/resend")
+@limiter.limit("3/minute")
+async def email_change_resend(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return email_change.resend(db, request, current_user)
+
+
+@router.delete("/user/email/change")
+@limiter.limit("20/minute")
+async def email_change_cancel(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    email_change.cancel(db, current_user)
+    return {"ok": True}
+
+
+@router.post("/user/email/confirm")
+@limiter.limit("10/minute")
+async def email_change_confirm(request: Request, body: EmailChangeConfirm,
+                               current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = email_change.confirm(db, request, current_user, body.oldCode, body.newCode)
+    return {"id": user.id, "username": user.username, "email": user.email, "avatar": user.avatar, "bio": user.bio}

@@ -1,6 +1,6 @@
 import { FILE_TYPES } from './constants';
 import i18n from '../i18n/config';
-import { classifyUploadPath, innerPath } from './uploadRules';
+import { classifyUploadPath, innerPath, isSkipped } from './uploadRules';
 
 export interface FileInfo {
   name: string;
@@ -310,14 +310,10 @@ export const buildFolderManifest = (
 
   for (const file of fileArray) {
     const path = filePath(file);
-    // Кэш/қоқыс пен құпия файлдар структураға да, сұрауға да кірмейді (uploadRules.ts)
-    const skip = classifyUploadPath(innerPath(path));
-    if (skip === 'junk') {
+    // Тек кэш/қоқыс пен .exe структураға да, сұрауға да кірмейді (uploadRules.ts);
+    // құпия, база, тест деректері жіберіледі — оларды сервер қорғайды
+    if (isSkipped(classifyUploadPath(innerPath(path)))) {
       junkSkipped++;
-      continue;
-    }
-    if (skip) {
-      skipped.push(path);
       continue;
     }
     selected.push(file);

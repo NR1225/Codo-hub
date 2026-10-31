@@ -515,7 +515,7 @@ export const CreatePollModal: React.FC<{
       <form className="cht-modal cht-pollmodal" role="dialog" aria-modal="true" aria-labelledby="cht-poll-title" onSubmit={submit}>
         <div className="cht-modal__head">
           <h2 id="cht-poll-title">{t('chat.poll.create')}</h2>
-          <button type="button" className="cht-icon-btn" onClick={onClose} aria-label={t('common.close')}>
+          <button type="button" className="cht-icon-btn x-close" onClick={onClose} aria-label={t('common.close')}>
             <CloseIcon size={16} />
           </button>
         </div>

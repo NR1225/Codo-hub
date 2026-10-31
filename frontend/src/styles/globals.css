@@ -232,6 +232,20 @@ button {
   line-height: inherit;
 }
 
+/* X (жабу) батырмалары — артында карта/фон жоқ, тек белгіше; ховерде түсі ғана өзгереді */
+button[class*="close"],
+button[class*="close"]:hover,
+button[class*="close"]:active,
+button[class*="close"]:focus,
+button.x-close,
+button.x-close:hover,
+button.x-close:active,
+button.x-close:focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 /* Exceptions for buttons that should not be 75% width */
 button.profile-menu-button,
 button.view-btn,

@@ -120,7 +120,8 @@ export const mediaSrc = (url: string) => {
 };
 
 export const avatarSrc = (avatar?: string | null) => {
-  if (!avatar) return null;
+  // 'stored' — сурет сервер емес, браузердің imageStorage-ында тұр деген белгі, URL емес
+  if (!avatar || avatar === 'stored') return null;
   return mediaSrc(avatar);
 };
 

@@ -3,13 +3,8 @@
    сосын scanProject оны uploadRules бойынша сүзіп, жүктеу алдындағы шолуды құрады. */
 
 import ignore, { Ignore } from 'ignore';
-import { classifyUploadPath, innerPath, UploadSkip } from './uploadRules';
+import { classifyUploadPath, innerPath, isSkipped, protectionOf, ProtectionKind } from './uploadRules';
 import { withPath, filePath, isImageFile } from './fileHandler';
-
-// Cloud Run бір сұрауды ~32 МБ-пен шектейді — жоба бір multipart сұраумен кетеді
-export const MAX_PROJECT_BYTES = 30 * 1024 * 1024;
-// backend config.MAX_PROJECT_FILES-пен бірдей
-export const MAX_PROJECT_FILES = 5000;
 
 /** Ашылмай/кірілмей өткізілген қоқыс: папка (сүйреп әкелгенде) немесе ZIP ішіндегі файл */
 interface PrunedJunk {
@@ -37,8 +32,8 @@ export interface ProjectScan {
   junkFiles: number;
   junkBytes: number;
   junkSources: { name: string; bytes: number }[];
-  /** Құпия/бинарлы — қолданушыға аттарымен көрсетіледі */
-  skipped: { path: string; kind: UploadSkip }[];
+  /** Жүктеледі, бірақ қорғалады: құпия мен базаны тек иесі, тест деректерін — жоба мүшелері көреді */
+  protectedFiles: { path: string; kind: ProtectionKind }[];
   languages: LanguageShare[];
   mainLanguage: string;
 }
@@ -86,6 +81,59 @@ async function walk(entry: Entry, path: string, out: CollectedProject): Promise<
   await Promise.all(children.map((child) => walk(child, `${path}/${child.name}`, out)));
 }
 
+/* ---------- Папка таңдағыш (File System Access API) ----------
+   webkitdirectory бүкіл папканы (node_modules-пен бірге, ондаған мың файл) оқып, браузер
+   «N файлды жүктеу керек пе?» деп сұрайды. showDirectoryPicker-де қоқыс папкасына кірмейміз. */
+
+interface DirHandle {
+  kind: 'directory';
+  name: string;
+  values(): AsyncIterable<DirHandle | FileHandle>;
+}
+
+interface FileHandle {
+  kind: 'file';
+  name: string;
+  getFile(): Promise<File>;
+}
+
+type DirectoryPicker = (options?: { mode?: 'read'; id?: string }) => Promise<DirHandle>;
+
+/** Chrome/Edge — бар; Firefox/Safari — жоқ (сонда webkitdirectory қолданылады) */
+export const canPickDirectory = () =>
+  typeof window !== 'undefined' && typeof (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function';
+
+/** Папка таңдату. Қолданушы бас тартса — null */
+export async function pickDirectory(): Promise<DirHandle | null> {
+  const picker = (window as unknown as { showDirectoryPicker: DirectoryPicker }).showDirectoryPicker;
+  try {
+    return await picker({ mode: 'read', id: 'codo-project' });
+  } catch (err) {
+    if ((err as DOMException)?.name === 'AbortError') return null;
+    throw err;
+  }
+}
+
+async function walkHandle(handle: DirHandle | FileHandle, path: string, out: CollectedProject): Promise<void> {
+  if (handle.kind === 'file') {
+    out.files.push(withPath(await handle.getFile(), path));
+    return;
+  }
+  if (path.includes('/') && classifyUploadPath(`${innerPath(path)}/_`) === 'junk') {
+    out.pruned.push({ path, bytes: 0, isDir: true });
+    return;
+  }
+  const children: (DirHandle | FileHandle)[] = [];
+  for await (const child of handle.values()) children.push(child);
+  await Promise.all(children.map((child) => walkHandle(child, `${path}/${child.name}`, out)));
+}
+
+export async function collectFromHandle(dir: DirHandle): Promise<CollectedProject> {
+  const out: CollectedProject = { files: [], pruned: [] };
+  await walkHandle(dir, dir.name, out);
+  return out;
+}
+
 /** Сүйреп әкелінген элементтер. Жалғыз .zip болса — null (оны collectFromZip өңдейді) */
 export async function collectFromDrop(dt: DataTransfer): Promise<CollectedProject | null> {
   // Entry-лерді await-ке дейін алу керек: оқиғадан кейін DataTransfer тазаланады
@@ -105,22 +153,35 @@ export async function collectFromDrop(dt: DataTransfer): Promise<CollectedProjec
   return out;
 }
 
+export interface ZipOptions {
+  /** Жалғыз түбірлік папканың орнына осы ат (GitHub архивіндегі «owner-repo-sha» → «repo») */
+  rootName?: string;
+  /** Тек осы ішкі папка жүктеледі (түбірсіз жол, мысалы «packages/core») */
+  subdir?: string;
+}
+
 /** ZIP архиві: қоқыс файлдары ашылмайды, тек саналады */
-export async function collectFromZip(zipFile: File): Promise<CollectedProject> {
+export async function collectFromZip(zipFile: File, options: ZipOptions = {}): Promise<CollectedProject> {
   const { default: JSZip } = await import('jszip');
   const zip = await JSZip.loadAsync(await zipFile.arrayBuffer());
-  const entries = Object.values(zip.files).filter((e) => !e.dir);
+  let entries = Object.values(zip.files).filter((e) => !e.dir);
 
   // Архивтің ішінде жалғыз түбірлік папка болса — сол жобаның аты, әйтпесе архивтің аты
   const tops = new Set(entries.map((e) => e.name.split('/')[0]));
   const singleRoot = tops.size === 1 && entries.every((e) => e.name.includes('/'));
-  const root = zipFile.name.replace(/\.zip$/i, '') || 'project';
+  const root = options.rootName || zipFile.name.replace(/\.zip$/i, '') || 'project';
+
+  // Түбірден кейінгі жол: ішкі папка сүзгісі мен атауды ауыстыру осыған сүйенеді
+  const rel = (name: string) => (singleRoot ? name.slice(name.indexOf('/') + 1) : name);
+  const subdir = options.subdir?.replace(/^\/+|\/+$/g, '');
+  if (subdir) entries = entries.filter((e) => rel(e.name).startsWith(`${subdir}/`));
 
   const out: CollectedProject = { files: [], pruned: [] };
   await Promise.all(
     entries.map(async (entry) => {
-      const path = singleRoot ? entry.name : `${root}/${entry.name}`;
-      if (classifyUploadPath(innerPath(path)) === 'junk') {
+      const inner = subdir ? rel(entry.name).slice(subdir.length + 1) : rel(entry.name);
+      const path = singleRoot && !options.rootName && !subdir ? entry.name : `${root}/${inner}`;
+      if (isSkipped(classifyUploadPath(innerPath(path)))) {
         const size = (entry as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize ?? 0;
         out.pruned.push({ path, bytes: size, isDir: false });
         return;
@@ -181,12 +242,21 @@ const gitIgnored = (inner: string, rules: { dir: string; ig: Ignore }[]) => {
   return ignored;
 };
 
+/** Файл .gitignore-дағы папканың ішінде ме (backend/data/backups/x.db → backend/data/backups/) */
+const inIgnoredDir = (inner: string, rules: { dir: string; ig: Ignore }[]) => {
+  const parts = inner.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (gitIgnored(`${parts.slice(0, i).join('/')}/`, rules)) return true;
+  }
+  return false;
+};
+
 /** Шыққан файлдарды ережемен сүзу + жоба шолуы (тілдер, қоқыс, құпия).
     Жобаның .gitignore-ы да ескеріледі: онда көрсетілген деректер, жүктемелер т.б. жүктелмейді */
 export async function scanProject({ files, pruned }: CollectedProject): Promise<ProjectScan> {
   const name = (files[0] ? filePath(files[0]) : pruned[0]?.path ?? 'project').split('/')[0] || 'project';
   const kept: File[] = [];
-  const skipped: ProjectScan['skipped'] = [];
+  const protectedFiles: ProjectScan['protectedFiles'] = [];
   const junkBy = new Map<string, number>();
   let bytes = 0;
   let junkFiles = 0;
@@ -211,16 +281,20 @@ export async function scanProject({ files, pruned }: CollectedProject): Promise<
     const path = filePath(file);
     const inner = innerPath(path);
     const kind = classifyUploadPath(inner);
-    if (kind === 'junk') {
+    // .env, база, тест деректері әдетте .gitignore-да тұрады — бірақ олар қорғалып жүктеледі.
+    // Тек файлдың өзі ignore болса: .gitignore-дағы папканың ішіндегісі (сақтық көшірмелер,
+    // терминал папкалары т.б.) жобаның бөлігі емес, қорғалған болса да жүктелмейді
+    const ignoredDir = gitignores.length > 0 && inIgnoredDir(inner, gitignores);
+    const protection = isSkipped(kind) || ignoredDir ? null : protectionOf(inner);
+    if (isSkipped(kind)) {
       junkFiles++;
       addJunk(inner, file.size);
-    } else if (gitignores.length && gitIgnored(inner, gitignores)) {
+    } else if (!protection && gitignores.length && gitIgnored(inner, gitignores)) {
       junkFiles++;
       junkBy.set('.gitignore', (junkBy.get('.gitignore') ?? 0) + file.size);
       junkBytes += file.size;
-    } else if (kind) {
-      skipped.push({ path, kind });
     } else {
+      if (protection) protectedFiles.push({ path, kind: protection });
       kept.push(file);
       bytes += file.size;
     }
@@ -258,7 +332,7 @@ export async function scanProject({ files, pruned }: CollectedProject): Promise<
     junkSources: [...junkBy.entries()]
       .map(([source, size]) => ({ name: source, bytes: size }))
       .sort((a, b) => b.bytes - a.bytes),
-    skipped,
+    protectedFiles,
     languages,
     mainLanguage: main?.name ?? 'Other',
   };

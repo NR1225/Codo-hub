@@ -1,0 +1,407 @@
+/* `codo login` рұқсат беті — баптаулар палитрасында (Settings.css токендері), ортада бір карточка. */
+
+.settings-page.cli-login {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 40px 16px;
+  overflow: hidden;
+}
+
+/* Артқы жұмсақ жарық + нүктелі тор */
+.cli-login__glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(520px 320px at 50% 28%, rgba(var(--mono-ink), 0.07), transparent 70%),
+    radial-gradient(circle at 1px 1px, rgba(var(--mono-ink), 0.06) 1px, transparent 0) 0 0 / 22px 22px;
+  mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 75%);
+}
+
+.cli-login__card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 28px 26px;
+  box-sizing: border-box;
+  border: 1px solid var(--stg-line);
+  border-radius: 22px;
+  background: linear-gradient(180deg, var(--mono-151515) 0%, var(--mono-0e0e0e) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(var(--mono-ink), 0.05),
+    0 30px 80px -30px rgba(0, 0, 0, calc(0.95 * var(--mono-shadow)));
+  animation: cli-login-in 0.5s var(--stg-ease) both;
+}
+
+/* ---------- Терминал ↔ аккаунт ---------- */
+
+.cli-login__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cli-login__node {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong), 0 8px 24px -10px rgba(0, 0, 0, 0.8);
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.cli-login__node--user {
+  border-radius: 50%;
+}
+
+.cli-login__node img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cli-login__wire {
+  position: relative;
+  width: 112px;
+  height: 2px;
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(90deg, var(--stg-line-strong) 0 6px, transparent 6px 11px);
+}
+
+.cli-login__wire-dot {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--home-accent);
+  box-shadow: 0 0 10px rgba(var(--mono-ink), 0.6);
+  animation: cli-login-flow 1.8s ease-in-out infinite;
+}
+
+.cli-login__badge {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mono-161616);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong);
+  color: var(--stg-muted);
+  font-size: 0.8rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.cli-login__card--done .cli-login__badge {
+  background: var(--stg-success);
+  color: var(--mono-0a0a0a);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--stg-success) 18%, transparent);
+  animation: cli-login-pop 0.45s var(--stg-spring) both;
+}
+
+.cli-login__card--error .cli-login__badge {
+  background: var(--stg-danger);
+  color: var(--mono-0a0a0a);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--stg-danger) 18%, transparent);
+}
+
+.cli-login__card--done .cli-login__wire,
+.cli-login__card--error .cli-login__wire {
+  background: var(--stg-line-strong);
+}
+
+.cli-login__card--done .cli-login__wire-dot,
+.cli-login__card--error .cli-login__wire-dot {
+  display: none;
+}
+
+.cli-login__card--done .cli-login__wire {
+  background: color-mix(in srgb, var(--stg-success) 60%, transparent);
+}
+
+/* ---------- Мәтін ---------- */
+
+.cli-login__head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.cli-login__title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.cli-login__lead {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.cli-login__lead--error {
+  color: var(--stg-danger);
+}
+
+.cli-login__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--stg-muted);
+}
+
+/* ---------- Код ---------- */
+
+.cli-login__block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.cli-login__code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cli-login__char {
+  width: 38px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong), inset 0 -2px 0 rgba(var(--mono-ink), 0.05);
+  font-family: var(--stg-mono-font);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  animation: cli-login-char 0.4s var(--stg-spring) both;
+}
+
+.cli-login__dash {
+  width: 12px;
+  height: 2px;
+  margin: 0 4px;
+  border-radius: 2px;
+  background: var(--stg-muted);
+}
+
+/* ---------- Құрылғы / аккаунт ---------- */
+
+.cli-login__meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+  overflow: hidden;
+}
+
+.cli-login__meta > div {
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.cli-login__meta > div + div {
+  border-left: 1px solid var(--stg-line);
+}
+
+.cli-login__meta dt {
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--stg-muted);
+}
+
+.cli-login__meta dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--stg-mono-font);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+/* ---------- Рұқсаттар ---------- */
+
+.cli-login__perms {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cli-login__perm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
+.cli-login__perm svg {
+  width: 14px;
+  flex: none;
+}
+
+.cli-login__perm--yes svg { color: var(--stg-success); }
+.cli-login__perm--no svg { color: var(--stg-muted); }
+
+/* ---------- Әрекеттер ---------- */
+
+.cli-login__actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.cli-login__approve {
+  width: 100%;
+  height: 46px;
+}
+
+.cli-login__card--error .cli-login__actions {
+  grid-template-columns: 1fr;
+}
+
+.cli-login__warning {
+  margin: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--stg-warning) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stg-warning) 22%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.cli-login__warning svg {
+  margin-top: 3px;
+  flex: none;
+  color: var(--stg-warning);
+}
+
+/* ---------- Дайын: терминал үзіндісі ---------- */
+
+.cli-login__terminal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--stg-line-strong);
+  font-family: var(--stg-mono-font);
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.cli-login__prompt {
+  color: var(--stg-success);
+}
+
+.cli-login__caret {
+  width: 8px;
+  height: 1.1em;
+  background: var(--text-primary);
+  animation: cli-login-blink 1s steps(1) infinite;
+}
+
+/* ---------- Жүктелу ---------- */
+
+.cli-login__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cli-login__skeleton span {
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, var(--mono-161616) 0%, var(--mono-262626) 50%, var(--mono-161616) 100%);
+  background-size: 200% 100%;
+  animation: cli-login-shimmer 1.2s linear infinite;
+}
+
+.cli-login__skeleton span:nth-child(1) { height: 48px; border-radius: 12px; }
+.cli-login__skeleton span:nth-child(3) { width: 60%; }
+
+/* ---------- Анимациялар ---------- */
+
+@keyframes cli-login-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes cli-login-flow {
+  0% { left: 0; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: calc(100% - 6px); opacity: 0; }
+}
+
+@keyframes cli-login-pop {
+  from { transform: scale(0.4); }
+  to { transform: scale(1); }
+}
+
+@keyframes cli-login-char {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes cli-login-blink {
+  50% { opacity: 0; }
+}
+
+@keyframes cli-login-shimmer {
+  to { background-position: -200% 0; }
+}
+
+@media (max-width: 480px) {
+  .cli-login__card { padding: 26px 18px 20px; }
+  .cli-login__wire { width: 72px; }
+  .cli-login__char { width: 32px; height: 42px; font-size: 1.15rem; }
+  .cli-login__meta { grid-template-columns: 1fr; }
+  .cli-login__meta > div + div { border-left: 0; border-top: 1px solid var(--stg-line); }
+  .cli-login__actions { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cli-login__card,
+  .cli-login__char,
+  .cli-login__wire-dot,
+  .cli-login__caret,
+  .cli-login__skeleton span,
+  .cli-login__card--done .cli-login__badge { animation: none; }
+}

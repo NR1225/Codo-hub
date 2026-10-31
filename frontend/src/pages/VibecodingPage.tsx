@@ -6,6 +6,7 @@ import { apiService } from '../utils/api';
 import { SearchIcon, CommandIcon, PanelLeftIcon, PanelBottomIcon, PanelRightIcon, PlayIcon } from '../components/vibecoding/icons';
 import IDELayout from '../components/vibecoding/IDELayout';
 import CommandPalette from '../components/vibecoding/CommandPalette';
+import ProjectTabsBar from '../components/vibecoding/ProjectTabsBar';
 import './VibecodingPage.css';
 import '../components/vibecoding/VibecodingPanels.css';
 
@@ -199,6 +200,9 @@ const VibecodingPageInner: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Жоба табтары — бірнеше жобада қатар жұмыс істеу */}
+        <ProjectTabsBar />
 
         {/* IDE Layout (editor + panels + terminal + status bar) */}
         <IDELayout />

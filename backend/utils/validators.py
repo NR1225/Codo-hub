@@ -2,7 +2,7 @@
 import re
 import unicodedata
 from config import MAX_CONTENT_LENGTH
-from utils.upload_rules import classify_upload_path, SKIP_MESSAGES
+from utils.upload_rules import classify_upload_path, is_skipped, SKIP_MESSAGES
 
 
 def validate_email(email: str) -> str:
@@ -18,10 +18,10 @@ def validate_email(email: str) -> str:
 
 
 def validate_file_on_server(title: str, content: str, path: str | None = None):
-    """Жобалар бетіне жүктелетін файлды тексеру. Код мәтін ретінде сақталады, сондықтан өтеді;
-    кэш/қоқыс, құпия (.env, кілттер) және бинарлы файлдар өтпейді (utils/upload_rules.py)."""
-    skip =classify_upload_path(path or title)
-    if skip:
+    """Жобалар бетіне жүктелетін файлды тексеру: тек кэш/қоқыс пен .exe өтпейді (utils/upload_rules.py).
+    Құпия, база және тест деректері өтеді — оларды utils/protected_files.py қорғайды."""
+    skip = classify_upload_path(path or title)
+    if is_skipped(skip):
         return {'valid': False, 'error': f'{SKIP_MESSAGES[skip]}: {path or title}', 'skip': skip}
 
     # Check content size

@@ -51,6 +51,11 @@ class User(Base):
     burkit_api_key = Column(Text, nullable=True)  # Бүркіттің Gemini кілті — шифрланған (utils/secret_box)
     # Кім жаза алады: open — бәрі тікелей чатқа, closed — бейтаныстар «сұрауға», friends — тек достар
     dm_privacy = Column(String(12), nullable=True)
+    # Баптаулар → «Жобалар»: жаңа жобалар әдепкіде жабық болып жүктеледі
+    projects_private = Column(Boolean, nullable=True)
+    # GitHub OAuth: жабық репоны жүктеу үшін — токен шифрланған (utils/secret_box)
+    github_token = Column(Text, nullable=True)
+    github_login = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -62,6 +67,7 @@ def init_db():
     _ensure_vibecoding_columns()
     _ensure_group_message_columns()
     _ensure_story_columns()
+    _ensure_cli_token_columns()
     _drop_obsolete_tables()
     print(f"Database initialized at {DB_PATH}")
 
@@ -99,6 +105,12 @@ def _ensure_user_columns():
             conn.execute(text("ALTER TABLE users ADD COLUMN burkit_api_key TEXT"))
         if "dm_privacy" not in existing:
             conn.execute(text("ALTER TABLE users ADD COLUMN dm_privacy VARCHAR(12)"))
+        if "projects_private" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN projects_private BOOLEAN"))
+        if "github_token" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN github_token TEXT"))
+        if "github_login" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN github_login VARCHAR(100)"))
 
 
 def _ensure_vibecoding_columns():
@@ -121,6 +133,19 @@ def _ensure_vibecoding_columns():
             conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS ix_vibecoding_projects_share_token ON vibecoding_projects (share_token)"
             ))
+
+
+def _ensure_cli_token_columns():
+    """`cli_tokens` кестесіне кейін қосылған бағандар (идемпотентті)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "cli_tokens" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("cli_tokens")}
+    if "site" not in existing:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE cli_tokens ADD COLUMN site VARCHAR(200)"))
 
 
 def _ensure_story_columns():
@@ -182,11 +207,17 @@ def _ensure_group_message_columns():
 
 
 def _drop_obsolete_tables():
-    """Қолданылмайтын кестелерді өшіру (SMS тіркелу алынып тасталды)."""
+    """Қолданылмайтын кестелерді өшіру (SMS тіркелу, құпия сөзді қалпына келтіру алынып тасталды).
+    Кіру енді тек email кодымен — ескі құпия сөз хэштері сақталмайды (қайталап іске қосса да зиянсыз)."""
     from sqlalchemy import text
 
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS sms_verifications"))
+        conn.execute(text("DROP TABLE IF EXISTS password_resets"))
+        cleared = conn.execute(text("UPDATE users SET password_hash = NULL WHERE password_hash IS NOT NULL")).rowcount
+        conn.execute(text("UPDATE pending_registrations SET password_hash = '' WHERE password_hash != ''"))
+        if cleared:
+            print(f"Cleared {cleared} legacy password hashes (sign-in is email-code only)")
 
 
 def get_db():
@@ -198,16 +229,19 @@ def get_db():
         db.close()
 
 
-class PasswordReset(Base):
-    """Password reset token storage"""
-    __tablename__ = "password_resets"
+class EmailChange(Base):
+    """Поштаны ауыстыру: код ескі поштаға да, жаңа поштаға да барады — екеуі де расталуы керек
+    (кіру тек поштамен, сондықтан сессияны ұрлаған адам аккаунтты өзіне алып кете алмауы керек)"""
+    __tablename__ = "email_changes"
 
-    id = Column(String(36), primary_key=True)
-    user_id = Column(String(12), nullable=False, index=True)
-    token = Column(String(255), unique=True, nullable=False, index=True)
+    user_id = Column(String(12), primary_key=True)
+    new_email = Column(String(255), nullable=False)
+    old_code_hash = Column(String(64), nullable=False)
+    new_code_hash = Column(String(64), nullable=False)
+    attempts = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
+    last_sent_at = Column(DateTime, nullable=False)
     expires_at = Column(DateTime, nullable=False)
-    used = Column(Boolean, default=False)
 
 
 class PendingRegistration(Base):
@@ -222,6 +256,51 @@ class PendingRegistration(Base):
     created_at = Column(DateTime, default=func.now())
     last_sent_at = Column(DateTime, nullable=False)
     expires_at = Column(DateTime, nullable=False)
+
+
+class TrustedDevice(Base):
+    """Бұрын кодпен кірген құрылғы (браузер). device_hash — HttpOnly cookie-дің SHA-256 хэші.
+    logins_since_code — осы құрылғыдан кодпен кірулер саны (бірінші рет кірсе — хатта «жаңа құрылғы»)"""
+    __tablename__ = "trusted_devices"
+
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(12), nullable=False, index=True)
+    device_hash = Column(String(64), nullable=False, index=True)
+    label = Column(String(200), nullable=True)
+    ip = Column(String(64), nullable=True)
+    logins_since_code = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    last_login_at = Column(DateTime, nullable=True)
+
+
+class LoginChallenge(Base):
+    """Құпия сөз дұрыс, бірақ кіру email кодын күтіп тұр"""
+    __tablename__ = "login_challenges"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(12), nullable=False, index=True)
+    device_hash = Column(String(64), nullable=False)
+    reason = Column(String(20), nullable=False)  # new_device | periodic
+    code_hash = Column(String(64), nullable=False)
+    attempts = Column(Integer, default=0)
+    ip = Column(String(64), nullable=True)
+    label = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    last_sent_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
+class SecurityEvent(Base):
+    """Мониторинг журналы: кіру, қате кіру, құлыптау, кодтар, 5xx қателер, т.б."""
+    __tablename__ = "security_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
+    kind = Column(String(40), nullable=False, index=True)
+    severity = Column(String(10), nullable=False, default="info")  # info | warn | error
+    user_id = Column(String(12), nullable=True, index=True)
+    ip = Column(String(64), nullable=True, index=True)
+    detail = Column(Text, nullable=True)
 
 
 class VibecodingProject(Base):
@@ -416,3 +495,32 @@ class NoteVault(Base):
     owner_id = Column(String(12), primary_key=True)
     folders = Column(Text, nullable=False, default="[]")  # JSON: ["Жобалар", "Жобалар/2026"]
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CliToken(Base):
+    """Терминалдан (codo CLI) жоба жүктеуге арналған жеке кілт. Кілттің өзі сақталмайды —
+    тек SHA-256 хэші; prefix — Баптауларда қай кілт екенін тану үшін (services/cli_token_service.py)"""
+    __tablename__ = "cli_tokens"
+
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(12), nullable=False, index=True)
+    name = Column(String(60), nullable=False)
+    prefix = Column(String(16), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    site = Column(String(200), nullable=True)  # кілт жасалған сайттың адресі — CLI жоба сілтемесін шығарады
+    created_at = Column(DateTime, default=func.now())
+    last_used_at = Column(DateTime, nullable=True)
+
+
+class CliLoginRequest(Base):
+    """`codo login`: терминал браузерді ашады, қолданушы сайтта «Рұқсат беру» басады (device flow).
+    id — терминалдағы құпияның хэші; user_code — экранда көрінетін қысқа код. 10 минуттан соң жарамсыз"""
+    __tablename__ = "cli_login_requests"
+
+    id = Column(String(64), primary_key=True)
+    user_code = Column(String(9), unique=True, nullable=False, index=True)
+    device_name = Column(String(60), nullable=False)
+    user_id = Column(String(12), nullable=True)  # рұқсат берілгенде толтырылады
+    site = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    expires_at = Column(DateTime, nullable=False, index=True)

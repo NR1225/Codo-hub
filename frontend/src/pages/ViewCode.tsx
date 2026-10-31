@@ -1,18 +1,19 @@
 ﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CodeFile, Comment } from '../utils/api';
+import { CodeFile, Comment, ProjectMembership } from '../utils/api';
 import { apiService } from '../utils/api';
 import { subscribeToCode, unsubscribe } from '../utils/realtimeService';
 import { useAuth } from '../contexts/AuthContext';
 import CodeEditor from '../components/CodeEditor';
 import CodeRunPanel from '../components/codes/CodeRunPanel';
 import { isImageFile } from '../utils/fileHandler';
+import { formatBytes } from '../utils/projectSource';
+import { CATEGORY_TAG_PREFIX, LANGUAGE_TAG_PREFIX, getLanguages } from '../utils/codeCategories';
 import { formatDate, formatDateTime } from '../utils/dateFormatter';
 import { monogram } from '../components/home/monogram';
 import {
   ArrowLeftIcon,
-  ArrowUpIcon,
   CheckIcon,
   ChevronIcon,
   ClockIcon,
@@ -28,10 +29,16 @@ import {
   HeartIcon,
   ImageIcon,
   MoreIcon,
+  ShieldIcon,
   PlayIcon,
   ReplyIcon,
   TrashIcon,
 } from '../components/home/icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFaceSmile } from '@fortawesome/free-regular-svg-icons';
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import StickerGlyph from '../components/home/stories/StickerGlyph';
+import { ALL_STICKERS, REACTIONS, WOLF_STICKERS } from '../components/home/stories/storyUtils';
 import './ViewCode.css';
 
 type CurrentUser = { id: string; username: string } | null;
@@ -51,8 +58,132 @@ function imageSrc(file: CodeFile): string {
   return `data:${mime[ext] || 'image/png'};base64,${content}`;
 }
 
+// Бинарлы файл (.exe, .wasm…) сервер base64 data URL ретінде сақтайды — мәтін ретінде көрсетілмейді
+const isBinaryContent = (file: CodeFile) => !isImageFile(file.title) && /^data:[^,;]*;base64,/.test(file.content || '');
+
+// Қорғалған файлдың хабарламасы: кімге не көрсетіліп тұр
+const PROTECTION_NOTICE: Record<NonNullable<CodeFile['protection']>, string> = {
+  secret: 'viewCode.lockedSecret',
+  database: 'viewCode.lockedDatabase',
+  testdata: 'viewCode.lockedTestdata',
+};
+
+/* ---------- Жоба мүшелері: тест деректерін тек иесі қабылдаған мүшелер көреді ---------- */
+
+const MembersPanel: React.FC<{ projectId: string; onChange: () => void }> = ({ projectId, onChange }) => {
+  const { t } = useTranslation();
+  const [info, setInfo] = useState<ProjectMembership | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiService.getProjectMembers(projectId)
+      .then((res) => { if (!cancelled) setInfo(res); })
+      .catch((err) => console.error('Failed to load members:', err));
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  const run = async (action: () => Promise<ProjectMembership>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await action();
+      const statusChanged = next.status !== info?.status;
+      setInfo(next);
+      if (statusChanged) onChange();
+    } catch (err) {
+      console.error('Membership action failed:', err);
+      setError(t('viewCode.membersError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!info) return null;
+
+  if (info.status !== 'owner') {
+    return (
+      <div className="vc-members">
+        {info.status === 'member' ? (
+          <>
+            <span className="vc-members__note"><ShieldIcon size={14} /> {t('viewCode.memberBadge')}</span>
+            <button type="button" className="vc-btn vc-btn--ghost vc-btn--sm" disabled={busy}
+              onClick={() => run(() => apiService.leaveProject(projectId))}>
+              {t('viewCode.leave')}
+            </button>
+          </>
+        ) : info.status === 'pending' ? (
+          <>
+            <span className="vc-members__note"><ClockIcon /> {t('viewCode.joinPending')}</span>
+            <button type="button" className="vc-btn vc-btn--ghost vc-btn--sm" disabled={busy}
+              onClick={() => run(() => apiService.leaveProject(projectId))}>
+              {t('viewCode.cancelRequest')}
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="vc-members__note"><ShieldIcon size={14} /> {t('viewCode.lockedTestdata')}</span>
+            <button type="button" className="vc-btn vc-btn--primary vc-btn--sm" disabled={busy}
+              onClick={() => run(() => apiService.requestJoinProject(projectId))}>
+              {t('viewCode.join')}
+            </button>
+          </>
+        )}
+        {error && <span className="vc-members__error">{error}</span>}
+      </div>
+    );
+  }
+
+  const requests = info.requests || [];
+  return (
+    <div className="vc-members is-owner">
+      <div className="vc-members__head">
+        <strong>{t('viewCode.membersTitle')}</strong>
+        <span className="vc-members__note">{t('viewCode.membersHint')}</span>
+      </div>
+      {requests.length > 0 && (
+        <div className="vc-members__group">
+          <span className="vc-members__label">{t('viewCode.requests')} · {requests.length}</span>
+          {requests.map((r) => (
+            <div key={r.username} className="vc-members__row">
+              <Link to={`/profile/${r.username}`} className="vc-members__name">@{r.username}</Link>
+              <button type="button" className="vc-btn vc-btn--primary vc-btn--sm" disabled={busy}
+                onClick={() => run(() => apiService.acceptProjectMember(projectId, r.username))}>
+                <CheckIcon /> {t('viewCode.accept')}
+              </button>
+              <button type="button" className="vc-btn vc-btn--ghost vc-btn--sm" disabled={busy}
+                onClick={() => run(() => apiService.removeProjectMember(projectId, r.username))}>
+                {t('viewCode.reject')}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="vc-members__group">
+        {info.members.length === 0 ? (
+          <span className="vc-members__note">{t('viewCode.noMembers')}</span>
+        ) : info.members.map((m) => (
+          <div key={m} className="vc-members__row">
+            <Link to={`/profile/${m}`} className="vc-members__name">@{m}</Link>
+            <button type="button" className="vc-btn vc-btn--ghost vc-btn--sm" disabled={busy}
+              onClick={() => run(() => apiService.removeProjectMember(projectId, m))}>
+              {t('viewCode.removeMember')}
+            </button>
+          </div>
+        ))}
+      </div>
+      {error && <span className="vc-members__error">{error}</span>}
+    </div>
+  );
+};
+
 // Пікір мәтіні + <img> тегтері. Тек http(s) және data:image сілтемелері рұқсат (XSS-тен қорғау)
 function renderCommentContent(content: string) {
+  // Тек стикерден тұратын пікір — үлкен стикер (Codo қасқыры не эмодзи)
+  if (ALL_STICKERS.includes(content.trim())) {
+    return <span className="vc-comment__sticker"><StickerGlyph value={content.trim()} /></span>;
+  }
   return content.split(/(<img[^>]*>)/).map((part, index) => {
     if (part.startsWith('<img')) {
       const src = part.match(/src="([^"]*)"/)?.[1];
@@ -148,7 +279,9 @@ const FileTree: React.FC<FileTreeProps> = ({ nodes, depth = 0, selectedId, colla
             title={node.path}
           >
             {node.file ? (
-              <span className="vc-tree__icon">{isImageFile(node.name) ? <ImageIcon size={15} /> : <FileIcon size={15} />}</span>
+              <span className="vc-tree__icon">
+                {node.file.protection ? <ShieldIcon size={15} /> : isImageFile(node.name) ? <ImageIcon size={15} /> : <FileIcon size={15} />}
+              </span>
             ) : (
               <span className={`vc-tree__chevron ${isOpen ? 'is-open' : ''}`}><ChevronIcon /></span>
             )}
@@ -261,7 +394,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <div className="vc-comment__quote">
             <ReplyIcon size={12} />
             <strong>{parent.author}</strong>
-            <span>{parent.content.replace(/<img[^>]*>/g, '🖼').slice(0, 80)}</span>
+            <span>{WOLF_STICKERS.includes(parent.content.trim()) ? '🐺' : parent.content.replace(/<img[^>]*>/g, '🖼').slice(0, 80)}</span>
           </div>
         )}
 
@@ -326,6 +459,8 @@ const ViewCode: React.FC = () => {
   const [loadingFiles, setLoadingFiles] = useState(false);
   // Папка файлдары content-сіз келеді — таңдалғанда ғана жүктеледі (id → content)
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  // Файл мазмұнымен бірге келетін белгі: true — маған жария (бос) нұсқасы көрсетілді
+  const [lockedFiles, setLockedFiles] = useState<Record<string, boolean>>({});
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
 
   const [mobileTab, setMobileTab] = useState<MobileTab>('code');
@@ -343,6 +478,9 @@ const ViewCode: React.FC = () => {
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
+  const [showStickers, setShowStickers] = useState(false);
+  const [stickerTab, setStickerTab] = useState<'emoji' | 'codo'>('emoji');
+  const [pendingSticker, setPendingSticker] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [avatars, setAvatars] = useState<Record<string, string>>({});
@@ -350,6 +488,7 @@ const ViewCode: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const stickersRef = useRef<HTMLFormElement>(null);
   const avatarsRequested = useRef<Set<string>>(new Set());
 
   const loadAvatars = useCallback((comments?: Comment[]) => {
@@ -423,6 +562,7 @@ const ViewCode: React.FC = () => {
         applyCode(data);
         setError(null);
         setFileContents({});
+        setLockedFiles({});
         if (data.isFolder) loadFolderFiles(id);
         else {
           setFolderFiles([]);
@@ -488,7 +628,11 @@ const ViewCode: React.FC = () => {
     if (!selectedId || selectedHasInlineContent || selectedContentLoaded) return;
     let cancelled = false;
     apiService.getCodeFile(selectedId)
-      .then((file) => { if (!cancelled) setFileContents((prev) => ({ ...prev, [selectedId]: file.content ?? '' })); })
+      .then((file) => {
+        if (cancelled) return;
+        setFileContents((prev) => ({ ...prev, [selectedId]: file.content ?? '' }));
+        setLockedFiles((prev) => ({ ...prev, [selectedId]: !!file.locked }));
+      })
       .catch((err) => {
         console.error('Failed to load file content:', err);
         if (!cancelled) setFileContents((prev) => ({ ...prev, [selectedId]: '' }));
@@ -501,8 +645,24 @@ const ViewCode: React.FC = () => {
   const activeFile = useMemo(() => {
     if (!code?.isFolder) return code;
     if (!selectedFile) return null;
-    return { ...selectedFile, content: selectedFile.content ?? fileContents[selectedFile.id] ?? '' };
-  }, [code, selectedFile, fileContents]);
+    return {
+      ...selectedFile,
+      content: selectedFile.content ?? fileContents[selectedFile.id] ?? '',
+      locked: selectedFile.locked ?? lockedFiles[selectedFile.id],
+    };
+  }, [code, selectedFile, fileContents, lockedFiles]);
+
+  // Мүшелік өзгерсе (қосылды/шықты) — қорғалған файлдар қайта жүктеледі
+  const hasTestData = code?.isFolder
+    ? folderFiles.some((f) => f.protection === 'testdata')
+    : code?.protection === 'testdata';
+  const handleMembershipChange = useCallback(() => {
+    setFileContents({});
+    setLockedFiles({});
+    if (code && !code.isFolder) {
+      apiService.getCodeFile(code.id).then(setCode).catch((err) => console.error('Failed to reload code:', err));
+    }
+  }, [code]);
 
   /* ----- Әрекеттер ----- */
 
@@ -546,7 +706,7 @@ const ViewCode: React.FC = () => {
       const zip = new JSZip();
       for (const file of files) {
         const filePath = file.folderPath || file.title;
-        if (isImageFile(file.title)) {
+        if (isImageFile(file.title) || isBinaryContent(file)) {
           const base64 = file.content.match(/base64,(.+)/)?.[1] ?? file.content;
           zip.file(filePath, base64, { base64: true });
         } else {
@@ -619,42 +779,89 @@ const ViewCode: React.FC = () => {
     }
   };
 
-  // Жаңа пікір немесе жауап — бір форма арқылы
-  const handleSubmitComment = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const content = commentText.trim();
-    if (!code || !currentUser || isSubmitting || !content) return;
-    const parent = replyTo;
-    const savedText = commentText;
+  // Стикер панелі: сыртын басқанда немесе Esc — жабылады
+  useEffect(() => {
+    if (!showStickers) return;
+    const onDown = (e: MouseEvent) => {
+      if (!stickersRef.current?.contains(e.target as Node)) setShowStickers(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowStickers(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showStickers]);
 
-    setIsSubmitting(true);
-    setCommentText('');
-    setReplyTo(null);
-
-    // Жай пікір бірден көрсетіледі (optimistic), жауап сервер жауабынан кейін
+  // Бір пікірді (не жауапты) серверге жіберу; жай пікір бірден көрсетіледі (optimistic)
+  const postComment = async (content: string, parent: Comment | null) => {
+    if (!code || !currentUser) return false;
     const temp: Comment | null = parent ? null : {
-      id: `temp-${Date.now()}`,
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       author: currentUser.username,
       content,
       createdAt: new Date().toISOString(),
       likes: [],
     };
     if (temp) setCode((prev) => (prev ? { ...prev, comments: [...(prev.comments || []), temp] } : prev));
-
     try {
       const updated = parent
         ? await apiService.addReply(code.id, parent.id, currentUser.username, content)
         : await apiService.addComment(code.id, currentUser.username, content);
       applyCode(updated);
+      return true;
     } catch (err) {
       console.error('Failed to add comment:', err);
       if (temp) setCode((prev) => (prev ? { ...prev, comments: (prev.comments || []).filter((c) => c.id !== temp.id) } : prev));
+      return false;
+    }
+  };
+
+  // Жаңа пікір немесе жауап — бір форма арқылы; таңдалған Codo стикері мәтіннен бұрын жеке пікір болып кетеді
+  const handleSubmitComment = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const text = commentText.trim();
+    const sticker = pendingSticker;
+    if (!code || !currentUser || isSubmitting || (!text && !sticker)) return;
+    const parent = replyTo;
+    const savedText = commentText;
+
+    setIsSubmitting(true);
+    setShowStickers(false);
+    setCommentText('');
+    setPendingSticker(null);
+    setReplyTo(null);
+
+    // Жіберілмегені жолға қайтарылады: стикер өтпесе — бәрі, мәтін өтпесе — тек мәтін
+    const stickerOk = !sticker || await postComment(sticker, parent);
+    const textOk = stickerOk && (!text || await postComment(text, parent));
+    if (!stickerOk) setPendingSticker(sticker);
+    if (!textOk) {
       setCommentText(savedText);
       setReplyTo(parent);
       alert(t(parent ? 'viewCode.errorAddReply' : 'viewCode.errorAddComment'));
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
+  };
+
+  // Эмодзи — жазу жолына курсор тұрған жерге қосылады; Codo стикері — жолға тіркеледі (жіберу басылғанда кетеді)
+  const pickSticker = (sticker: string) => {
+    if (WOLF_STICKERS.includes(sticker)) {
+      setPendingSticker(sticker);
+      setShowStickers(false);
+      composerRef.current?.focus();
+      return;
+    }
+    const el = composerRef.current;
+    const start = el?.selectionStart ?? commentText.length;
+    const end = el?.selectionEnd ?? commentText.length;
+    setCommentText(commentText.slice(0, start) + sticker + commentText.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const pos = start + sticker.length;
+      el.setSelectionRange(pos, pos);
+    });
   };
 
   const handleSaveComment = async (commentId: string) => {
@@ -736,7 +943,11 @@ const ViewCode: React.FC = () => {
     );
   }
 
-  const tags = (code.tags || []).filter((tag) => tag.toLowerCase() !== 'folder');
+  // Категория мен қосымша тіл тегтері — қызметтік, бөлек көрсетіледі
+  const tags = (code.tags || []).filter(
+    (tag) => tag.toLowerCase() !== 'folder' && !tag.startsWith(CATEGORY_TAG_PREFIX) && !tag.startsWith(LANGUAGE_TAG_PREFIX)
+  );
+  const codeLanguages = getLanguages(code);
   const longDescription = (code.description?.length || 0) > 160;
 
   return (
@@ -829,11 +1040,12 @@ const ViewCode: React.FC = () => {
               {isOwner ? t('viewCode.youLabel') : code.author}
             </Link>
             <span className="vc-chip"><ClockIcon /> {formatDate(code.updatedAt || code.createdAt, language, 'long')}</span>
-            {code.language && <span className="vc-chip vc-chip--lang"><CodeBracketsIcon /> {code.language}</span>}
+            {codeLanguages.map((lang) => <span key={lang} className="vc-chip vc-chip--lang"><CodeBracketsIcon /> {lang}</span>)}
             {code.isFolder && <span className="vc-chip"><FileIcon size={14} /> {folderFiles.length} {t('viewCode.file')}</span>}
             <span className="vc-chip"><EyeIcon /> {code.views || 0}</span>
             {tags.map((tag) => <span key={tag} className="vc-chip vc-chip--tag">#{tag}</span>)}
           </div>
+          {hasTestData && !code.folderId && <MembersPanel projectId={code.id} onChange={handleMembershipChange} />}
         </div>
       </header>
 
@@ -914,11 +1126,29 @@ const ViewCode: React.FC = () => {
               </button>
             )}
           </div>
+          {activeFile?.protection && !contentLoading && (
+            <div className={`vc-notice ${activeFile.locked ? 'is-locked' : ''}`}>
+              <ShieldIcon size={14} />
+              <span>
+                {activeFile.locked
+                  ? t(PROTECTION_NOTICE[activeFile.protection])
+                  : t(activeFile.visibility === 'members' ? 'viewCode.privateMembers' : 'viewCode.privateOwner')}
+              </span>
+            </div>
+          )}
           <div className="vc-panel__scroll vc-code__body">
             {!activeFile ? (
               <p className="vc-empty">{loadingFiles ? t('viewCode.loadingFiles') : t('viewCode.noFileSelected')}</p>
             ) : contentLoading ? (
               <p className="vc-empty">{t('common.loading')}</p>
+            ) : isBinaryContent(activeFile) ? (
+              <div className="vc-binary">
+                <FileIcon size={28} />
+                <p>{t('viewCode.binaryFile', { size: formatBytes(Math.floor(((activeFile.content.split(',')[1] || '').length * 3) / 4)) })}</p>
+                <a className="vc-btn vc-btn--ghost vc-btn--sm" href={activeFile.content} download={activeFile.title}>
+                  <DownloadIcon size={14} /> {t('viewCode.downloadFile')}
+                </a>
+              </div>
             ) : isImageFile(activeFile.title) ? (
               <div className="vc-image">
                 <img src={imageSrc(activeFile)} alt={activeFile.title} />
@@ -962,7 +1192,7 @@ const ViewCode: React.FC = () => {
           </div>
 
           {currentUser ? (
-            <form className="vc-composer" onSubmit={handleSubmitComment}>
+            <form className="vc-composer" onSubmit={handleSubmitComment} ref={stickersRef}>
               {replyTo && (
                 <div className="vc-composer__reply">
                   <ReplyIcon size={13} />
@@ -972,7 +1202,46 @@ const ViewCode: React.FC = () => {
                   </button>
                 </div>
               )}
+              {showStickers && (
+                <div className="vc-stickers-panel">
+                  <div className="vc-sticker-tabs" role="tablist">
+                    <button type="button" role="tab" aria-selected={stickerTab === 'emoji'}
+                      className={`vc-sticker-tab ${stickerTab === 'emoji' ? 'is-on' : ''}`} onClick={() => setStickerTab('emoji')}>
+                      😊 {t('home.story.stickerEmoji')}
+                    </button>
+                    <button type="button" role="tab" aria-selected={stickerTab === 'codo'}
+                      className={`vc-sticker-tab ${stickerTab === 'codo' ? 'is-on' : ''}`} onClick={() => setStickerTab('codo')}>
+                      <StickerGlyph value="wolf:smile" /> Codo
+                    </button>
+                  </div>
+                  <div className={`vc-sticker-grid ${stickerTab === 'codo' ? 'is-codo' : ''}`} role="group" aria-label={t('home.story.stickers')}>
+                    {(stickerTab === 'codo' ? WOLF_STICKERS : REACTIONS).map((s) => (
+                      <button key={s} type="button" className="vc-react" disabled={isSubmitting} onClick={() => pickSticker(s)}>
+                        <StickerGlyph value={s} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="vc-composer__row">
+                <button
+                  type="button"
+                  className={`vc-composer__icon ${showStickers ? 'is-open' : ''}`}
+                  onClick={() => setShowStickers((v) => !v)}
+                  aria-expanded={showStickers}
+                  aria-label={t('home.story.stickers')}
+                  title={t('home.story.stickers')}
+                >
+                  <FontAwesomeIcon icon={faFaceSmile} />
+                </button>
+                {pendingSticker && (
+                  <span className="vc-composer__sticker">
+                    <StickerGlyph value={pendingSticker} />
+                    <button type="button" onClick={() => setPendingSticker(null)} aria-label={t('common.cancel')} title={t('common.cancel')}>
+                      <CloseIcon size={10} />
+                    </button>
+                  </span>
+                )}
                 <textarea
                   ref={composerRef}
                   className="vc-composer__input"
@@ -986,15 +1255,17 @@ const ViewCode: React.FC = () => {
                     }
                     if (e.key === 'Escape' && replyTo) setReplyTo(null);
                   }}
+                  onFocus={() => setShowStickers(false)}
                   rows={1}
                 />
                 <button
                   type="submit"
                   className="vc-send"
-                  disabled={!commentText.trim() || isSubmitting}
+                  disabled={(!commentText.trim() && !pendingSticker) || isSubmitting}
                   aria-label={replyTo ? t('viewCode.addReply') : t('viewCode.addComment')}
+                  title={replyTo ? t('viewCode.addReply') : t('viewCode.addComment')}
                 >
-                  <ArrowUpIcon />
+                  <FontAwesomeIcon icon={faPaperPlane} />
                 </button>
               </div>
             </form>

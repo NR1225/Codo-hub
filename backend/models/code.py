@@ -14,6 +14,8 @@ class CodeCreate(BaseModel):
     folderPath: Optional[str] = None
     isFolder: Optional[bool] = False
     folderStructure: Optional[Any] = None
+    # Жабық жоба: тек иесі мен мүшелері көреді; None — иесінің баптауы (Баптаулар → «Жобалар»)
+    isPrivate: Optional[bool] = None
 
 
 class CodeUpdate(BaseModel):
@@ -22,6 +24,7 @@ class CodeUpdate(BaseModel):
     language: Optional[str] = Field(default=None, max_length=50)
     description: Optional[str] = Field(default=None, max_length=2000)
     tags: Optional[List[str]] = None
+    isPrivate: Optional[bool] = None
 
 
 class CommentCreate(BaseModel):

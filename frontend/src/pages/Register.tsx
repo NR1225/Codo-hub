@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
@@ -28,15 +26,11 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    password: '',
-    confirmPassword: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // Email кодымен растау қадамы
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -117,26 +111,6 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (formData.password !== formData.confirmPassword) {
-      setError(t('register.passwordMismatch'));
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError(t('register.passwordMinLength'));
-      return;
-    }
-
-    if (!/[A-ZА-ЯЁҰҒҚҢҺҮІ]/.test(formData.password)) {
-      setError(t('register.passwordUppercase'));
-      return;
-    }
-
-    if (!/[0-9]/.test(formData.password)) {
-      setError(t('register.passwordDigit'));
-      return;
-    }
-
     if (!formData.username.trim()) {
       setError(t('register.usernameRequired'));
       return;
@@ -161,7 +135,6 @@ const Register: React.FC = () => {
       const response = await apiService.register(
         formData.username,
         formData.email,
-        formData.password,
         captchaToken,
       );
       setPendingEmail(response.email);
@@ -399,49 +372,6 @@ const Register: React.FC = () => {
               />
             </div>
 
-            <div className="form-group password-group">
-              <div className="password-input-wrapper">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder={t('register.password')}
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? t('register.passwordHide') : t('register.passwordShow')}
-                >
-                  <FontAwesomeIcon icon={showPassword ? faEye : faEyeSlash} />
-                </button>
-              </div>
-            </div>
-
-            <div className="form-group password-group">
-              <div className="password-input-wrapper">
-                <input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder={t('register.confirmPassword')}
-                  required
-                />
-                <button
-                  type="button"
-                  className="password-toggle-btn"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label={showConfirmPassword ? t('register.passwordHide') : t('register.passwordShow')}
-                >
-                  <FontAwesomeIcon icon={showConfirmPassword ? faEye : faEyeSlash} />
-                </button>
-              </div>
-            </div>
-
             <Turnstile onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
             {error && (
@@ -459,6 +389,7 @@ const Register: React.FC = () => {
           {!pendingEmail && (
             <GoogleSignInButton
               onRequires2FA={(token) => navigate('/login', { state: { googleTempToken: token } })}
+              onRequiresEmailCode={(challenge) => navigate('/login', { state: { emailChallenge: challenge } })}
               onError={setError}
             />
           )}

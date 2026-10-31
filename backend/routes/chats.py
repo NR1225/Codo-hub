@@ -7,11 +7,13 @@ from services.friend_service import FriendService
 from services.message_service import MessageService
 from services import chat_prefs_service, presence_service
 from utils.auth import get_current_user, verify_user_access
+from utils.signed_route import SignedMediaRoute
 from db import User
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-router = APIRouter()
+# Жауаптағы файл сілтемелері қарап отырған адамға қол қойылып беріледі
+router = APIRouter(route_class=SignedMediaRoute)
 limiter = Limiter(key_func=get_remote_address)
 
 

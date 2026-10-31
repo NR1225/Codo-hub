@@ -51,6 +51,7 @@ from config import (
 )
 
 from services.terminal_workspace import user_root
+from services import shared_packages
 from services.shared_packages import NPM_CACHE
 
 logger = logging.getLogger("codo_hub.terminal")
@@ -341,6 +342,7 @@ class TerminalSession:
         self._reader_task: Optional[asyncio.Task] = None
         self._exit_code: Optional[int] = None
         self._closed = False
+        self._registered_cwd = False
 
     @property
     def mode(self) -> str:
@@ -357,6 +359,12 @@ class TerminalSession:
     async def start(self):
         """Start the shell process inside the sandbox."""
         env = _build_env(self.workspace, self.lang)
+        if self.cwd != self.workspace:
+            # Жобаның ортақ .venv-і бар болса — python / pip содан
+            shared_packages.terminal_env(self.cwd, env)
+            # Ашық тұрғанда оның пакет жиынтықтары ұйықтатылмайды / тазаланбайды
+            shared_packages.session_opened(self.cwd)
+            self._registered_cwd = True
         argv = _shell_command(self.lang)
         loop = asyncio.get_running_loop()
         try:
@@ -402,6 +410,9 @@ class TerminalSession:
             )
         except Exception as e:
             logger.error("Failed to start terminal %s: %s", self.session_id, e)
+            if self._registered_cwd:
+                self._registered_cwd = False
+                shared_packages.session_closed(self.cwd)
             raise
 
     # ── Output ──
@@ -524,6 +535,9 @@ class TerminalSession:
     async def kill(self):
         """Terminate the shell and its entire child tree."""
         self._closed = True
+        if self._registered_cwd:
+            self._registered_cwd = False
+            shared_packages.session_closed(self.cwd)
         if self._reader_task:
             self._reader_task.cancel()
             self._reader_task = None

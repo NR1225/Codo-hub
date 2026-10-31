@@ -33,7 +33,7 @@ const StoryViewersSheet: React.FC<Props> = ({ viewers, reactions, onClose }) => 
             {t('home.story.whoViewed')}
             {Array.isArray(viewers) && <em>{viewers.length}</em>}
           </span>
-          <button type="button" className="sv__tool" onClick={onClose} aria-label={t('home.storyClose')}>
+          <button type="button" className="sv__tool x-close" onClick={onClose} aria-label={t('home.storyClose')}>
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </header>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { processFile, FileInfo, buildFolderManifest, filePath } from '../utils/fileHandler';
-import { classifyUploadPath } from '../utils/uploadRules';
+import { classifyUploadPath, isSkipped } from '../utils/uploadRules';
 import { apiService } from '../utils/api';
 import { offlineStorage, PendingUpload } from '../utils/offlineStorage';
 import { API_BASE_URL } from '../utils/constants';
@@ -33,8 +33,32 @@ interface UseFileUploadReturn {
   uploading: boolean;
   error: string | null;
   uploadProgress: UploadProgress | null;
-  uploadFolder: (files: FileList | File[], metadata?: { title?: string; description?: string; tags?: string[]; language?: string }) => Promise<FolderUploadResult | null>;
+  uploadFolder: (files: FileList | File[], metadata?: { title?: string; description?: string; tags?: string[]; language?: string; isPrivate?: boolean }) => Promise<FolderUploadResult | null>;
   reset: () => void;
+}
+
+// Бір сұраудың шегі: Cloud Run ~32 МБ қабылдайды, multipart үшін қор қалдырамыз
+const BATCH_BYTES = 24 * 1024 * 1024;
+// backend config.MAX_PROJECT_FILES (5000) — бір сұраудағы файл шегі
+const BATCH_FILES = 1000;
+const BATCH_RETRIES = 2;
+
+/** Файлдарды ~24 МБ бөліктерге бөлу (ретімен). Бөліктен үлкен жалғыз файл — өз бөлігінде */
+function splitIntoBatches<T extends { file: File }>(items: T[]): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
+  let bytes = 0;
+  for (const item of items) {
+    if (current.length && (bytes + item.file.size > BATCH_BYTES || current.length >= BATCH_FILES)) {
+      batches.push(current);
+      current = [];
+      bytes = 0;
+    }
+    current.push(item);
+    bytes += item.file.size;
+  }
+  if (current.length) batches.push(current);
+  return batches;
 }
 
 // Check if online
@@ -111,7 +135,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
 
   const uploadFile = async (
     file: File,
-    metadata?: { title?: string; description?: string; tags?: string[]; language?: string }
+    metadata?: { title?: string; description?: string; tags?: string[]; language?: string; isPrivate?: boolean }
   ): Promise<void> => {
     setUploading(true);
     setError(null);
@@ -119,8 +143,8 @@ export const useFileUpload = (): UseFileUploadReturn => {
     setUploadProgress({ current: 0, total: 1, startTime });
 
     try {
-      // Тек код: пакет/кэш/құпия/бинарлы файл оқылмайды да, жіберілмейді де (uploadRules.ts)
-      if (classifyUploadPath(file.name)) {
+      // Кэш/қоқыс пен .exe жіберілмейді (uploadRules.ts); құпия файлды сервер қорғайды
+      if (isSkipped(classifyUploadPath(file.name))) {
         throw new Error(t('fileUpload.notCodeFile', { name: file.name }));
       }
 
@@ -142,6 +166,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
         author: currentUser.username || 'guest',
         description: metadata?.description,
         tags: metadata?.tags,
+        isPrivate: metadata?.isPrivate,
       });
       
       // Dispatch event to refresh codes list
@@ -158,7 +183,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
 
   const uploadFolder = async (
     files: FileList | File[],
-    metadata?: { title?: string; description?: string; tags?: string[]; language?: string }
+    metadata?: { title?: string; description?: string; tags?: string[]; language?: string; isPrivate?: boolean }
   ): Promise<FolderUploadResult | null> => {
     setUploading(true);
     setError(null);
@@ -208,6 +233,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
         description: metadata?.description,
         tags: metadata?.tags || ['folder'],
         language: metadata?.language || 'folder',
+        isPrivate: !!metadata?.isPrivate,
         structure: manifestInfo.structure,
         files: manifestInfo.files.map((f) => ({
           path: f.path,
@@ -218,61 +244,96 @@ export const useFileUpload = (): UseFileUploadReturn => {
         })),
       };
 
-      // Тек сүзгіден өткендері (кэш, .env т.б. жіберілмейді) — manifest.files-пен бір ретте
+      // Тек сүзгіден өткендері (кэш, .exe жіберілмейді) — manifest.files-пен бір ретте
       const fileArray = manifestInfo.selected;
+      const token = getAccessToken();
 
-      // Бір multipart сұрау: manifest JSON + шикі File-дар.
-      const formData = new FormData();
-      formData.append('manifest', JSON.stringify(manifest));
-      fileArray.forEach((file) => {
-        formData.append('files', file, filePath(file));
-      });
+      // Бір multipart сұрау: manifest JSON + шикі File-дар. XHR — нақты жүктеу прогрессы үшін.
+      const sendBatch = (url: string, batchManifest: object, batchFiles: File[], onProgress: (loaded: number) => void) =>
+        new Promise<any>((resolve, reject) => {
+          const formData = new FormData();
+          formData.append('manifest', JSON.stringify(batchManifest));
+          batchFiles.forEach((file) => formData.append('files', file, filePath(file)));
 
-      // Бір XHR сұрау — нақты жүктеу прогрессын көрсету үшін.
-      const result = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE_URL}/codes/folder`);
-        xhr.withCredentials = true;
-        const token = getAccessToken();
-        if (token) {
-          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        }
-
-        const totalFiles = manifestInfo.files.length;
-        let lastPct = 0;
-
-        xhr.upload.onprogress = (e) => {
-          if (!e.lengthComputable) return;
-          const pct = e.loaded / e.total;
-          // UI "X / N файл" форматында көрсету үшін файл санына бөлеміз.
-          const current = Math.min(totalFiles, Math.max(1, Math.round(pct * totalFiles)));
-          if (pct > lastPct) {
-            lastPct = pct;
-            setUploadProgress({ current, total: totalFiles, startTime, loaded: e.loaded, bytes: e.total });
-          }
-        };
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch {
-              reject(new Error(t('fileUpload.apiError')));
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url);
+          xhr.withCredentials = true;
+          if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) onProgress(e.loaded / e.total);
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                resolve(JSON.parse(xhr.responseText));
+              } catch {
+                reject(new Error(t('fileUpload.apiError')));
+              }
+            } else {
+              let detail = xhr.statusText;
+              try {
+                const data = JSON.parse(xhr.responseText);
+                detail = data.detail || data.error || detail;
+              } catch { /* ignore */ }
+              reject(Object.assign(new Error(detail), { status: xhr.status }));
             }
-          } else {
-            let detail = xhr.statusText;
-            try {
-              const data = JSON.parse(xhr.responseText);
-              detail = data.detail || data.error || detail;
-            } catch { /* ignore */ }
-            reject(new Error(detail));
-          }
-        };
+          };
+          xhr.onerror = () => reject(Object.assign(new Error(t('fileUpload.backendUnreachable')), { status: 0 }));
+          xhr.send(formData);
+        });
 
-        xhr.onerror = () => reject(new Error(t('fileUpload.backendUnreachable')));
-        xhr.ontimeout = () => reject(new Error(t('fileUpload.backendUnreachable')));
-        xhr.send(formData);
-      });
+      // Желі үзілсе немесе сервер 5xx берсе — бөлік қайта жіберіледі (сервер қайталанған жолдарды өткізеді)
+      const sendWithRetry = async (...args: Parameters<typeof sendBatch>) => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await sendBatch(...args);
+          } catch (err) {
+            const status = (err as { status?: number }).status ?? 0;
+            if (attempt >= BATCH_RETRIES || (status !== 0 && status < 500)) throw err;
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          }
+        }
+      };
+
+      // Жоба көлеміне шек жоқ: Cloud Run бір сұрауды ~32 МБ-пен шектейді, сондықтан жоба
+      // бөліктерге бөлінеді. Бірінші бөлік жобаны құрады, қалғандары /codes/{id}/files-ке қосылады.
+      const batches = splitIntoBatches(manifestInfo.files.map((f, i) => ({ entry: f, file: fileArray[i] })));
+      const totalBytes = manifestInfo.totalSize || 1;
+      let doneBytes = 0;
+      let folderId = '';
+      let created = 0;
+      let failed = 0;
+      let serverMs = 0;
+      const failedFiles: string[] = [];
+
+      for (const [index, batch] of batches.entries()) {
+        const batchBytes = batch.reduce((sum, item) => sum + item.file.size, 0);
+        const onProgress = (pct: number) => {
+          const loaded = Math.min(totalBytes, doneBytes + pct * batchBytes);
+          const current = Math.min(manifestInfo.files.length, Math.max(1, Math.round((loaded / totalBytes) * manifestInfo.files.length)));
+          setUploadProgress({ current, total: manifestInfo.files.length, startTime, loaded, bytes: totalBytes });
+        };
+        const entries = batch.map((item) => item.entry);
+        const files = batch.map((item) => item.file);
+        try {
+          const res = index === 0
+            ? await sendWithRetry(`${API_BASE_URL}/codes/folder`, { ...manifest, files: entries }, files, onProgress)
+            : await sendWithRetry(`${API_BASE_URL}/codes/${folderId}/files`, { files: entries }, files, onProgress);
+          if (index === 0) folderId = res?.folderId ?? res?.folder?.id;
+          created += res?.created ?? 0;
+          failed += res?.failed ?? 0;
+          failedFiles.push(...(res?.failedFiles ?? []));
+          serverMs += res?.serverMs ?? 0;
+        } catch (err) {
+          // Бірінші бөліксіз жоба жоқ — қате. Кейінгі бөлік өтпесе, оның файлдары «өтпеді» тізіміне
+          if (index === 0) throw err;
+          console.error(`Upload batch ${index + 1}/${batches.length} failed:`, err);
+          failed += entries.length;
+          failedFiles.push(...entries.map((e) => e.path));
+        }
+        doneBytes += batchBytes;
+      }
+      const result = { folderId, created, failed, failedFiles, serverMs };
 
       const totalSeconds = (Date.now() - startTime) / 1000;
       const totalTime = totalSeconds.toFixed(1);
@@ -305,14 +366,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
 
       // Dispatch event to refresh codes list
       window.dispatchEvent(new CustomEvent('codesUpdated'));
-      return {
-        folderId: result?.folderId ?? result?.folder?.id,
-        created: result?.created ?? 0,
-        failed: result?.failed ?? 0,
-        failedFiles: result?.failedFiles ?? [],
-        totalSeconds,
-        serverMs: result?.serverMs ?? 0,
-      };
+      return { ...result, totalSeconds };
     } catch (err) {
       console.error(t('fileUpload.folderError'), err);
       let errorMessage = t('fileUpload.folderUploadError');

@@ -713,6 +713,225 @@
 }
 
 /* =========================================================
+   Жоба табтары — хедер астында, бірнеше жобада қатар жұмыс
+   ========================================================= */
+.vibe-ptabs {
+  position: relative;
+  z-index: 30;
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  padding: 0 4px 0 0;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--ide-border);
+  background: #070707;
+}
+
+.vibe-ptabs__list {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vibe-ptabs__list::-webkit-scrollbar { display: none; }
+
+.vibe-ptab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 200px;
+  padding: 0 6px 0 12px;
+  border-right: 1px solid var(--ide-border-soft);
+  color: var(--ide-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color var(--ide-transition), color var(--ide-transition);
+}
+.vibe-ptab:hover { background: var(--ide-hover); color: var(--ide-text); }
+.vibe-ptab:focus-visible { outline: 2px solid var(--ide-accent); outline-offset: -2px; }
+.vibe-ptab.active {
+  background: var(--ide-editor-bg);
+  color: var(--ide-text);
+}
+/* Белсенді табтың үстіңгі жиегі */
+.vibe-ptab.active::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--ide-accent);
+}
+.vibe-ptab.dragging { opacity: 0.45; }
+
+.vibe-ptab__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vibe-ptab__input {
+  width: 120px;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--ide-accent);
+  border-radius: 4px;
+  background: #000;
+  color: var(--ide-text);
+  font: inherit;
+  outline: none;
+}
+
+/* Пернелер нөмірі — тек тышқан үстінде тұрғанда немесе Alt басылғанда көрінеді */
+.vibe-ptab__key {
+  min-width: 14px;
+  padding: 0 3px;
+  border: 1px solid var(--ide-border);
+  border-radius: 3px;
+  color: var(--ide-text-muted);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity var(--ide-transition);
+}
+.vibe-ptab:hover .vibe-ptab__key { opacity: 0.8; }
+
+.vibe-ptab__close {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+}
+.vibe-ptab.active .vibe-ptab__close,
+.vibe-ptab:hover .vibe-ptab__close { opacity: 1; }
+.vibe-ptab__close:hover { background: var(--ide-active); }
+
+/* Сақталмаған файлы бар жоба — нүкте, үстіне келгенде жабу белгісі */
+.vibe-ptab__close.dirty { opacity: 1; }
+.vibe-ptab__close.dirty svg { display: none; }
+.vibe-ptab__close.dirty::after,
+.vibe-ptab__dot {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ide-dirty);
+}
+.vibe-ptab__close.dirty:hover svg { display: block; }
+.vibe-ptab__close.dirty:hover::after { display: none; }
+
+.vibe-ptabs__btn {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ide-text-muted);
+  cursor: pointer;
+  transition: background-color var(--ide-transition), color var(--ide-transition);
+}
+.vibe-ptabs__btn:hover,
+.vibe-ptabs__btn.active { background: var(--ide-hover); color: var(--ide-text); }
+
+.vibe-ptabs__menu-wrap {
+  position: relative;
+  display: flex;
+  margin-left: auto;
+}
+
+.vibe-ptabs__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 260px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  box-sizing: border-box;
+  border: 1px solid var(--ide-border);
+  border-radius: var(--ide-radius);
+  background: var(--ide-sidebar-bg);
+  box-shadow: var(--ide-shadow-2);
+}
+
+.vibe-ptabs__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  margin-bottom: 4px;
+  border: 1px solid var(--ide-border);
+  border-radius: 6px;
+  background: #000;
+  color: var(--ide-text-muted);
+}
+.vibe-ptabs__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ide-text);
+  font-size: 12px;
+  outline: none;
+}
+
+.vibe-ptabs__menu-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.vibe-ptabs__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ide-text-muted);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.vibe-ptabs__menu-item:hover { background: var(--ide-hover); color: var(--ide-text); }
+.vibe-ptabs__menu-item.active { color: var(--ide-text); background: var(--ide-accent-soft); }
+.vibe-ptabs__menu-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.vibe-ptabs__menu-open { font-size: 8px; color: var(--ide-success); }
+.vibe-ptabs__menu-hint { font-size: 10px; opacity: 0.6; }
+.vibe-ptabs__menu-new {
+  margin-top: 4px;
+  border-top: 1px solid var(--ide-border-soft);
+  border-radius: 0 0 5px 5px;
+}
+.vibe-ptabs__empty {
+  padding: 8px;
+  color: var(--ide-text-muted);
+  font-size: 12px;
+}
+
+/* =========================================================
    Кіші экрандар
    ========================================================= */
 
@@ -730,4 +949,6 @@
   .vibe-toolbar__side:first-child { display: none; }
   .vibe-run-btn { padding: 0 8px; }
   .vibe-run-btn__text { display: none; }
+  .vibe-ptab { max-width: 140px; padding-left: 10px; }
+  .vibe-ptab__key { display: none; }
 }

@@ -11,7 +11,6 @@ import {
   CheckIcon,
   InsertIcon,
   CloseIcon,
-  ArrowUpIcon,
   FilePlusIcon,
   SearchIcon,
   WandIcon,
@@ -64,6 +63,7 @@ import {
   parseMentions,
   mentionCandidates,
 } from './burkitBlocks';
+import SendIcon from '../SendIcon';
 
 /* Бүркіт — Vibecoding-тегі код көмекшісі (Google Gemini), Cursor/Claude сияқты агент: Agent режимінде
    жобаның файлдарын жазады, бөлшектеп өңдейді, өшіреді, жылжытады, оқиды, терминалда команда орындайды
@@ -1591,7 +1591,7 @@ const ChatPanel: React.FC = () => {
                 className="vx-ai__send"
                 title={t('vibecoding.chat.send')}
               >
-                <ArrowUpIcon size={16} />
+                <SendIcon size={15} />
               </button>
             )}
           </div>

@@ -74,8 +74,35 @@ async def lifespan(app: FastAPI):
     
     # Start auto-save task
     auto_save_task = asyncio.create_task(auto_save())
-    
+
+    # Ұзақ қолданылмаған ортақ пакет жиынтықтарын ұйықтату (іске қосылғанда және 6 сағат сайын)
+    async def sweep_shared_packages():
+        from services import shared_packages
+        while True:
+            try:
+                await asyncio.to_thread(shared_packages.sweep)
+            except Exception as e:
+                logger.error(f"Shared packages sweep failed: {e}")
+            await asyncio.sleep(6 * 3600)
+
+    sweep_task = asyncio.create_task(sweep_shared_packages())
+
+    # Мониторинг журналының ескі жазбаларын және мерзімі өткен кіру кодтарын тазалау (сағат сайын)
+    async def purge_monitoring():
+        from services import monitoring
+        while True:
+            try:
+                await asyncio.to_thread(monitoring.purge_old)
+            except Exception as e:
+                logger.error(f"Monitoring purge failed: {e}")
+            await asyncio.sleep(3600)
+
+    purge_task = asyncio.create_task(purge_monitoring())
+
     yield
+
+    sweep_task.cancel()
+    purge_task.cancel()
     
     # Shutdown - save all data before closing
     try:
@@ -120,6 +147,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # GitHub архивінің мета-деректері (routes/github.py) — фронт оқи алуы үшін
+    expose_headers=["X-Repo-Name", "X-Repo-Subdir", "X-Repo-Ref"],
 )
 
 # NOTE: SlowAPIMiddleware is NOT added as global middleware because it
@@ -178,6 +207,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # Add inner middleware BEFORE CORS (LIFO: last added = runs first on request)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+# Мониторинг: әр сұраныстың уақыты/статусы/маршруты және 5xx қателер (services/monitoring.py)
+from services.monitoring import MetricsMiddleware
+app.add_middleware(MetricsMiddleware)
 
 # Root endpoints
 @app.get("/")
@@ -246,42 +278,37 @@ async def serve_upload_options(file_path: str):
 # Custom endpoint for serving uploads with CORS headers
 @app.get("/api/uploads/{file_path:path}")
 async def serve_upload(file_path: str):
-    """Serve uploaded files with CORS headers"""
+    """Жүктелген файлдарды беру.
+    Чат файлдары мен модерациядағы сторис тек қолтаңбалы жол арқылы ашылады:
+    /api/uploads/~<қолданушы>.<мерзімі>.<қолтаңба>/<жол> — қол қойылған адамның рұқсаты
+    әр сұраныста қайта тексеріледі (utils/media_access.py). Жолды білу жеткіліксіз"""
     import urllib.parse
-    
-    # URL decode the file path to handle special characters and spaces
+    from utils import media_access
+
+    not_found = JSONResponse(content={"error": "File not found"}, status_code=404)
+
     try:
         decoded_path = urllib.parse.unquote(file_path)
     except Exception:
         decoded_path = file_path
-    
-    upload_dir = "uploads"
-    file_full_path = os.path.join(upload_dir, decoded_path)
-    
-    # Normalize the path to handle any path separators
-    file_full_path = os.path.normpath(file_full_path)
-    
-    # Security check: prevent directory traversal
-    # Ensure the resolved path is still within upload_dir
-    upload_dir_abs = os.path.abspath(upload_dir)
-    file_full_path_abs = os.path.abspath(file_full_path)
-    
-    if not file_full_path_abs.startswith(upload_dir_abs) or ".." in decoded_path:
-        response = JSONResponse(
-            content={"error": "File not found"},
-            status_code=404
-        )
-        return response
-    
-    # Check if file exists
-    if not os.path.exists(file_full_path) or not os.path.isfile(file_full_path):
-        response = JSONResponse(
-            content={"error": "File not found"},
-            status_code=404
-        )
-        return response
-    
-    # Determine content type based on decoded path
+
+    viewer_id, rel_path = media_access.split_token(decoded_path)
+    if not rel_path or ".." in rel_path or "\\" in rel_path or rel_path.startswith("/"):
+        return not_found
+
+    upload_dir_abs = os.path.abspath("uploads")
+    file_full_path_abs = os.path.abspath(os.path.normpath(os.path.join(upload_dir_abs, rel_path)))
+    # Directory traversal болмауы үшін: жол uploads/ ішінде қалуы керек
+    if not file_full_path_abs.startswith(upload_dir_abs + os.sep):
+        return not_found
+
+    # Рұқсат жоқ па — файлдың бар-жоғын да айтпаймыз (бәрібір 404)
+    if not media_access.can_access(rel_path, viewer_id):
+        return not_found
+
+    if not os.path.isfile(file_full_path_abs):
+        return not_found
+
     content_type = "application/octet-stream"
     MIME_MAP = {
         '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -289,20 +316,17 @@ async def serve_upload(file_path: str):
         '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
         '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
     }
-    ext = os.path.splitext(decoded_path)[1].lower()
+    ext = os.path.splitext(rel_path)[1].lower()
     if ext in MIME_MAP:
         content_type = MIME_MAP[ext]
-    
-    # Get filename for Content-Disposition header
-    filename = os.path.basename(decoded_path)
 
+    # Жабық файлды ортақ кэштер (прокси, CDN) сақтамауы керек
+    cache = "private, max-age=3600" if media_access.is_private(rel_path) else "public, max-age=31536000"
     return FileResponse(
-        file_full_path,
+        file_full_path_abs,
         media_type=content_type,
-        filename=filename,
-        headers={
-            "Cache-Control": "public, max-age=31536000",
-        }
+        filename=os.path.basename(rel_path),
+        headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"},
     )
 
 # Include WebSocket endpoint directly (WebSocket doesn't work well with APIRouter)
@@ -358,7 +382,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
                 message_id = data.get('messageId')
                 if message_id:
                     message = next((msg for msg in messages if msg['id'] == message_id), None)
-                    if message and message.get('status') == 'sent':
+                    # Тек алушысы ғана «жеткізілді» деп белгілей алады — бөтен ID-мен емес
+                    if message and message.get('status') == 'sent' and str(message.get('toUserId')) == str(user_id):
                         message['status'] = 'delivered'
                         save_messages()
             elif message_type == 'typing':
@@ -478,6 +503,7 @@ async def terminal_websocket_endpoint(
     session = None
     output_task = None
     watch_task = None
+    packages_task = None
     try:
         # Жоба файлдарын терминал папкасына жазу — терминал жобаның ішінде ашылады
         cwd = None
@@ -486,11 +512,11 @@ async def terminal_websocket_endpoint(
             from services.code_service import CodeService
             from services.code_run_service import terminal_files
             code = CodeService.find_code_by_id(code_id)
-            if code and not code.get("folderId"):
+            if code and not code.get("folderId") and CodeService.can_view(code, user.username):
                 try:
                     cwd = await asyncio.to_thread(
                         terminal_workspace.push, user_id, f"code-{code['id']}", code.get("title") or "project",
-                        terminal_files(code), [], True,
+                        terminal_files(code, user.username), [], True,
                     )
                 except Exception as e:
                     logger.error(f"Terminal workspace sync failed for code {code_id}: {e}")
@@ -570,6 +596,44 @@ async def terminal_websocket_endpoint(
         if session.project_id:
             watch_task = asyncio.create_task(watch_project_files())
 
+        async def watch_packages():
+            """Жоба пакеттері фонда орнатылып жатса — терминалға «орнатылуда… / дайын» жазу.
+
+            Жоба сақталған сайын (push) жаңа пакет қосылуы мүмкін, сондықтан сессия
+            бойы бақылаймыз (тек жадтағы тізімді қарайды — арзан).
+            """
+            from services import shared_packages
+            announced: dict = {}
+            hinted = False
+            while True:
+                items = await asyncio.to_thread(shared_packages.pending, session.cwd)
+                current = {str(i["path"]): i for i in items}
+                fresh = [i for p, i in current.items() if p not in announced]
+                if fresh:
+                    what = "; ".join(shared_packages._what(i, session.cwd) for i in fresh)
+                    await websocket.send_json({"type": "output", "data": shared_packages.terminal_notice("installing", lang, what)})
+                    announced.update({str(i["path"]): i for i in fresh})
+                done = [p for p in announced if p not in current]
+                for path in done:
+                    item = announced.pop(path)
+                    res = await asyncio.to_thread(shared_packages.result, path)
+                    what = shared_packages._what(item, session.cwd)
+                    if not res["ok"]:
+                        kind = "failed"
+                    elif res["failed"]:
+                        kind, what = "partial", ", ".join(res["failed"])
+                    else:
+                        kind = "ready"
+                    text = shared_packages.terminal_notice(kind, lang, what)
+                    if kind != "failed" and not hinted:
+                        text += shared_packages.terminal_notice("hint", lang)
+                        hinted = True
+                    await websocket.send_json({"type": "output", "data": text})
+                await asyncio.sleep(1)
+
+        if cwd:
+            packages_task = asyncio.create_task(watch_packages())
+
         # Simple per-connection input rate limiter (sliding window).
         rate_window_start = asyncio.get_event_loop().time()
         rate_count = 0
@@ -624,7 +688,7 @@ async def terminal_websocket_endpoint(
             pass
     finally:
         # Cleanup
-        for task in (output_task, watch_task):
+        for task in (output_task, watch_task, packages_task):
             if task and not task.done():
                 task.cancel()
                 try:
