@@ -1,0 +1,291 @@
+/* ---------- Кіру коды: 6 квадрат ---------- */
+
+.auth-code-email {
+  margin: -4px 0 6px;
+  text-align: center;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--a2-fg, #fafafa);
+  word-break: break-all;
+}
+
+.otp {
+  --otp-size: 48px;
+  --otp-gap: 8px;
+  --otp-step: calc(var(--otp-size) + var(--otp-gap));
+  --otp-fg: var(--a2-fg, #fafafa);
+  --otp-line: var(--a2-line-strong, rgba(255, 255, 255, 0.28));
+  --otp-bg: var(--a2-field, rgba(255, 255, 255, 0.04));
+  --otp-ok: #22c55e;
+  --otp-bad: #ef4444;
+
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: var(--otp-gap);
+  margin: 6px 0 2px;
+  cursor: text;
+  user-select: none;
+}
+
+/* Нақты input көрінбейді: пернетақта, қою (paste) және SMS/пошта автотолтыру жұмыс істейді */
+.otp__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  font-size: 16px; /* iOS үлкейтпеуі үшін */
+  color: transparent;
+  background: transparent;
+  caret-color: transparent;
+  z-index: 2;
+}
+
+.otp__cell {
+  position: relative;
+  flex: 0 0 var(--otp-size);
+  width: var(--otp-size);
+  height: var(--otp-size); /* нақты шаршы */
+  box-sizing: border-box;
+  padding: 0;
+  border-radius: 12px;
+  border: 1.5px solid var(--otp-line);
+  background: var(--otp-bg);
+  color: var(--otp-fg);
+  font-size: calc(var(--otp-size) * 0.5);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.otp__cell.is-filled {
+  border-color: var(--otp-fg);
+}
+
+.otp__cell.is-filled .otp__digit {
+  animation: otpPop 0.18s ease-out;
+}
+
+.otp__cell.is-active {
+  border-color: var(--otp-fg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--otp-fg) 14%, transparent);
+}
+
+/* Белсенді бос квадратта жыпылықтайтын курсор — дәл ортада */
+.otp__cell.is-active:not(.is-filled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 2px;
+  height: 45%;
+  border-radius: 2px;
+  background: var(--otp-fg);
+  animation: otpCaret 1s steps(1) infinite;
+}
+
+/* Сан квадраттың дәл ортасында: шрифт пен line-height әсер етпейді */
+.otp__digit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  text-align: center;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.otp__check {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 62%;
+  height: 62%;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+}
+
+/* --- Тексеру: квадраттардың өзі жүктелу анимациясы --- */
+
+.otp--checking .otp__digit {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.otp--checking .otp__cell {
+  border-color: var(--otp-fg);
+  animation: otpWave 0.9s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.1s);
+}
+
+/* --- Дұрыс (1): квадраттар көрініп тұрып ортаға жиналады --- */
+
+.otp--merging .otp__digit,
+.otp--done .otp__digit {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.otp--merging .otp__cell,
+.otp--done .otp__cell {
+  border-color: var(--otp-fg);
+  background: color-mix(in srgb, var(--otp-fg) 16%, transparent);
+  box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--otp-fg) 45%, transparent);
+  transform: translateX(calc(var(--shift) * var(--otp-step))) scale(0.92);
+  transition:
+    transform 1s cubic-bezier(0.7, 0, 0.25, 1),
+    opacity 0.2s ease 0.85s,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Сыртқы квадраттар жылжығанда сәл айналып, ізі қалғандай болады */
+.otp--merging .otp__cell:not(.is-center) {
+  animation: otpTravel 1s cubic-bezier(0.7, 0, 0.25, 1) both;
+}
+
+.otp--merging .otp__cell.is-center,
+.otp--done .otp__cell.is-center {
+  z-index: 1;
+}
+
+/* Жиналып болған соң тек ортадағысы қалады */
+.otp--merging .otp__cell:not(.is-center),
+.otp--done .otp__cell:not(.is-center) {
+  opacity: 0;
+}
+
+/* --- Дұрыс (2): бір квадрат жасыл дөңгелекке айналып, ✓ сызылады --- */
+
+.otp--done .otp__cell.is-center {
+  border-radius: 50%;
+  border-color: transparent;
+  background: linear-gradient(145deg, #4ade80, #16a34a);
+  box-shadow:
+    0 10px 30px -8px rgba(34, 197, 94, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  scale: 1.3;
+  transition:
+    transform 1s cubic-bezier(0.7, 0, 0.25, 1),
+    border-radius 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    scale 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Дөңгелектен тарайтын толқын */
+.otp--done .otp__cell.is-center::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid #22c55e;
+  animation: otpRing 0.8s ease-out 0.15s both;
+  pointer-events: none;
+}
+
+.otp--done .otp__check {
+  opacity: 1;
+  animation:
+    otpCheck 0.4s cubic-bezier(0.65, 0, 0.35, 1) 0.3s forwards,
+    otpCheckPop 0.3s ease-out 0.65s;
+}
+
+/* --- Қате: сілкініп, қызарады --- */
+
+.otp--error .otp__cell {
+  border-color: var(--otp-bad);
+  color: var(--otp-bad);
+  animation: otpShake 0.45s ease-in-out;
+}
+
+.otp--expired .otp__cell {
+  opacity: 0.45;
+}
+
+@keyframes otpPop {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes otpCaret {
+  50% { opacity: 0; }
+}
+
+@keyframes otpWave {
+  0%, 100% { transform: translateY(0); background: var(--otp-bg); }
+  40% {
+    transform: translateY(-9px);
+    background: color-mix(in srgb, var(--otp-fg) 22%, transparent);
+  }
+}
+
+@keyframes otpTravel {
+  0% { rotate: 0deg; }
+  50% { rotate: calc(var(--shift) * -4deg); }
+  100% { rotate: 0deg; }
+}
+
+@keyframes otpRing {
+  from { opacity: 0.9; scale: 1; }
+  to { opacity: 0; scale: 1.9; }
+}
+
+@keyframes otpCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes otpCheckPop {
+  50% { scale: 1.15; }
+}
+
+@keyframes otpShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+.otp-timer {
+  text-align: center;
+}
+
+@media (max-width: 380px) {
+  .otp {
+    --otp-size: 40px;
+    --otp-gap: 6px;
+  }
+
+  .otp__cell {
+    border-radius: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .otp--checking .otp__cell {
+    animation: otpPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes otpPulse {
+    50% { opacity: 0.5; }
+  }
+}

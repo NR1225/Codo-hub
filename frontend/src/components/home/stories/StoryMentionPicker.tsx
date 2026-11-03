@@ -12,7 +12,7 @@ import {
 export type { MentionValue } from './storyUtils';
 
 /* Сторисқа адам белгілеу (міндетті емес): бір қолданушыны іздеп таңдау + пікір түрі + өз сөзімен пікір.
-   Мақтау — оның жобасында кемінде 50 лайк болса ғана; шағым — дәлелімен Бүркіт қабылдаса ғана
+   Мақтау — оның жобасында кемінде 50 лайк болса ғана; шағым — дәлелімен Codo қабылдаса ғана
    (ережелер серверде: backend/services/opinion_service.py) */
 
 interface Props {
@@ -33,7 +33,7 @@ const StoryMentionPicker: React.FC<Props> = ({ value, onChange, currentUserId, d
   const [info, setInfo] = useState<MentionInfo | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  // Бүркіт бір рет жауап берген соң мәтін өзгерсе — «қайта тексерту керек»
+  // Codo бір рет жауап берген соң мәтін өзгерсе — «қайта тексерту керек»
   const [reviewedOnce, setReviewedOnce] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +84,7 @@ const StoryMentionPicker: React.FC<Props> = ({ value, onChange, currentUserId, d
     setReviewError(null);
   };
 
-  // Мәтін/дәлел/жоба өзгерсе — Бүркіттің бұрынғы шешімі жарамсыз
+  // Мәтін/дәлел/жоба өзгерсе — Codo-ның бұрынғы шешімі жарамсыз
   const patch = (fields: Partial<MentionValue>) => {
     if (!value) return;
     onChange({ ...value, ...fields, review: null });
@@ -163,7 +163,7 @@ const StoryMentionPicker: React.FC<Props> = ({ value, onChange, currentUserId, d
             </label>
           )}
 
-          {/* Шағым — дәлел + Бүркіттің тексеруі */}
+          {/* Шағым — дәлел + Codo-ның тексеруі */}
           {value.kind === 'complaint' && (
             <div className="sc__evidence">
               <span className="sc__evidence-title">
@@ -207,7 +207,7 @@ const StoryMentionPicker: React.FC<Props> = ({ value, onChange, currentUserId, d
                     {reviewing ? <span className="sc__review-spin" aria-hidden /> : <FontAwesomeIcon icon={faShieldHalved} />}
                     {reviewing ? t('home.story.reviewing') : t('home.story.reviewBtn')}
                   </button>
-                  {/* Бүркіт қабылдамаса не қолжетімсіз болса — адам қолмен тексереді */}
+                  {/* Codo қабылдамаса не қолжетімсіз болса — адам қолмен тексереді */}
                   {(value.review || reviewError) && (
                     <button type="button" className="sc__btn sc__review-btn" disabled={disabled || !canReview}
                       onClick={() => onChange({ ...value, manual: true })}>

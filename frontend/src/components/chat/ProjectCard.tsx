@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../contexts/ToastContext';
 import { apiService, Message, ProjectCardMeta } from '../../utils/api';
+import { useViewPath } from '../../utils/viewPath';
 import { CodeBracketsIcon, SparkleIcon } from '../home/icons';
 import { FileIcon, FolderIcon } from './MediaIcons';
 
@@ -18,6 +19,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ message, currentUserId }) => 
   const { t } = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
+  const viewPath = useViewPath();
   const [forking, setForking] = useState(false);
   const meta = (message.metadata || {}) as Partial<ProjectCardMeta>;
   const isRepo = meta.kind === 'repo';
@@ -79,7 +81,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ message, currentUserId }) => 
         <div className="cht-pcard__actions">
           {isRepo ? (
             <>
-              <button type="button" className="cht-pcard__btn is-primary" onClick={() => navigate(`/view/${meta.projectId}`)}>
+              <button type="button" className="cht-pcard__btn is-primary" onClick={() => navigate(viewPath(meta.projectId!))}>
                 {t('chat.project.open')}
               </button>
               <button

@@ -42,10 +42,11 @@ import { useBurkitAttachments } from '../useBurkitAttachments';
 import { useBurkitHistory, titleFromText, conversationToMarkdown, BurkitConversation, BurkitMessage, BurkitEdit } from '../vibecoding/useBurkitHistory';
 import { applyFileBlocks, projectContext, restoreFiles } from '../../utils/burkitProjectFiles';
 import type { ProjectOp } from '../vibecoding/burkitBlocks';
+import { useViewPath } from '../../utils/viewPath';
 import './SiteAI.css';
 import SendIcon from '../SendIcon';
 
-// Gemini Бүркіті: соңғы хабарлар саны және бір сұрауға құралдармен жасалатын қадамдар
+// Gemini Codo-сы: соңғы хабарлар саны және бір сұрауға құралдармен жасалатын қадамдар
 const AI_HISTORY = 20;
 const AI_MAX_STEPS = 8;
 const TOOL_PREFIX = '[Құрал нәтижесі]';
@@ -54,19 +55,19 @@ const AI_MAX_CHARS = 20_000;
 // Тізімді өзгертпейтін әрекеттер: контекст қайта жүктелмейді, Ask режимінде сұраусыз орындалады
 const READONLY_OPS = new Set<ProjectOp>(['list', 'open']);
 
-// Үзілген жауапты жалғастыру сұрауы (чатта көрсетілмейді, тек Бүркітке барады) — Vibecoding-тегідей
+// Үзілген жауапты жалғастыру сұрауы (чатта көрсетілмейді, тек Codo-ға барады) — Vibecoding-тегідей
 const CONTINUE_PROMPT =
   '[Жүйелік хабар] Алдыңғы жауабың бет жаңартылғандықтан үзіліп қалды. Дәл тоқтаған жерінен жалғастыр: ' +
   'бұрын жазылған мәтінді қайталама, кіріспе сөз жазба. Код блогының ортасында тоқтаған болсаң — блокты қайта ' +
   'ашпай, келесі таңбадан бастап жалғастыр.';
 
-/* Басты беттің Бүркіті әрқашан автоматты агент: жоба әрекеттерін өзі орындайды,
+/* Басты беттің Codo-сы әрқашан автоматты агент: жоба әрекеттерін өзі орындайды,
    тек қайтарылмайтын әрекеттер (өшіру) ғана расталады. */
 function needsApproval(op: ProjectOp): boolean {
   return ALWAYS_CONFIRM_OPS.has(op);
 }
 
-// «/» командалары: таңдағанда сұрау мәтіні дайындалады (басты беттің Бүркітіне — сайттағы жобалармен жұмыс)
+// «/» командалары: таңдағанда сұрау мәтіні дайындалады (басты беттің Codo-сына — сайттағы жобалармен жұмыс)
 interface SlashCommand {
   name: string;
   label: string;
@@ -152,8 +153,8 @@ const STOP_WORDS = new Set([
   'не', 'бұл', 'сол', 'мен', 'сен', 'сіз', 'маған', 'саған', 'сізге', 'бе', 'ба', 'ма', 'ме', 'па', 'пе', 'қандай', 'қалай', 'және', 'да', 'де',
   'the', 'is', 'are', 'you', 'me', 'my', 'do', 'to', 'and', 'please',
   'что', 'ты', 'вы', 'мне', 'как', 'это', 'и', 'а', 'пожалуйста',
-  // ЖИ-дің өз аты: «Сәлем, Бүркіт» — жоба іздеуге кірмейді
-  'бүркіт', 'буркит', 'burkit',
+  // ЖИ-дің өз аты: «Сәлем, Codo» — жоба іздеуге кірмейді
+  'codo', 'кодо', 'бүркіт', 'буркит', 'burkit', 'қасқыр',
 ]);
 
 const keywordHit = (w: string, k: string) => (k.length <= 3 ? w === k : w.startsWith(k));
@@ -183,9 +184,9 @@ interface AiMessage {
   features?: typeof SITE_FEATURES;
   /** Астында дайын сұраулар көрсетілсін */
   suggest?: boolean;
-  /** Gemini Бүркітінің хабары (сөйлесу тарихына кіреді) */
+  /** Gemini Codo-сының хабары (сөйлесу тарихына кіреді) */
   ai?: boolean;
-  /** «[Құрал нәтижесі]» — Бүркіттің әрекеттерінің нәтижесі */
+  /** «[Құрал нәтижесі]» — Codo-ның әрекеттерінің нәтижесі */
   tool?: boolean;
   error?: boolean;
   /** Орындалған/өткізілген project блоктары */
@@ -196,7 +197,7 @@ interface AiMessage {
   pending?: boolean;
   /** Тіркелген фото/файл/папкалар */
   attachments?: Attachment[];
-  /** Бүркіт жобаға жазған файлдар мен жазбалар */
+  /** Codo жобаға жазған файлдар мен жазбалар */
   edits?: BurkitEdit[];
   /** Өзгерістер «Қайтару» арқылы алынды */
   undone?: boolean;
@@ -249,7 +250,7 @@ function analyze(prompt: string, codes: CodeFile[]) {
   return { intents, wantsProject, features: findFeatures(topic), matches: findMatches(codes, topic) };
 }
 
-// Бүркіт шынымен жауап бере ала ма — тек осындай ұсыныстар көрсетіледі
+// Codo шынымен жауап бере ала ма — тек осындай ұсыныстар көрсетіледі
 function isAnswerable(prompt: string, codes: CodeFile[]): boolean {
   const { intents, features, matches } = analyze(prompt, codes);
   return intents.length > 0 || features.length > 0 || matches.length > 0;
@@ -274,7 +275,7 @@ function topLanguages(list: CodeFile[]): string[] {
 
 /* Адамға бейімделген дайын сұраулар (ең көбі 4):
    жобасы жоқ адамға — жүктеу, өзі жазатын тілдегі жобалар, сайттағы танымал жоба,
-   сайттағы басқа танымал тіл, Vibecoding, «Не істей аласың?». Әрқайсысы Бүркіттің
+   сайттағы басқа танымал тіл, Vibecoding, «Не істей аласың?». Әрқайсысы Codo-ның
    өзінен өткізіліп тексеріледі — жауабы жоқ ұсыныс көрсетілмейді. */
 function buildSuggestions(codes: CodeFile[], username: string | undefined, t: TFunction): string[] {
   const out: string[] = [];
@@ -311,7 +312,7 @@ function generateId(): string {
   }
 }
 
-// Тарихта Vibecoding-тегі Бүркітпен бірдей пішімде сақталады
+// Тарихта Vibecoding-тегі Codo-мен бірдей пішімде сақталады
 function toStored(m: AiMessage): BurkitMessage {
   return {
     id: String(m.id),
@@ -367,7 +368,8 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  // Кірген қолданушыға — Gemini Бүркіті (Vibecoding-тегідей); қонаққа — сайт ішінен іздеу
+  const viewPath = useViewPath();
+  // Кірген қолданушыға — Gemini Codo-сы (Vibecoding-тегідей); қонаққа — сайт ішінен іздеу
   const [status, setStatus] = useState<BurkitStatus | null>(null);
   const [statusChecked, setStatusChecked] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
@@ -477,7 +479,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, conversationId, aiMode, upsertConversation]);
 
-  // Бүркіт осы жерде жұмыс істеп жатқан жоба (create/switch-тен кейін): файлдарына Vibecoding-тегідей жазады
+  // Codo осы жерде жұмыс істеп жатқан жоба (create/switch-тен кейін): файлдарына Vibecoding-тегідей жазады
   const [workProject, setWorkProject] = useState<VibecodingProjectDTO | null>(null);
   const workRef = useRef<VibecodingProjectDTO | null>(null);
   workRef.current = workProject;
@@ -535,7 +537,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
     };
   }, [workKey]);
 
-  // Басты беттегі жоба әрекеттері — сервер арқылы; ашылған жобамен Бүркіт осы жерде жұмыс істейді
+  // Басты беттегі жоба әрекеттері — сервер арқылы; ашылған жобамен Codo осы жерде жұмыс істейді
   const host = useMemo<ProjectHost | null>(() => (user ? {
     userId: user.id,
     username: user.username,
@@ -607,7 +609,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
     }));
   };
 
-  // Gemini-ден жауап алу; жауаптағы әрекеттер орындалып, нәтижесі Бүркітке қайтады (агент циклі)
+  // Gemini-ден жауап алу; жауаптағы әрекеттер орындалып, нәтижесі Codo-ға қайтады (агент циклі)
   // resume — бет жаңартылып үзілген жауап: жаңа мәтін соның соңына жалғанады
   const respondAi = async (thread: AiMessage[], step = 0, resume?: AiMessage) => {
     if (!aliveRef.current) return;
@@ -769,7 +771,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
   const continueAi = (base: AiMessage[], feedback: string[], step: number) => {
     if (!aliveRef.current) return;
     if (step > AI_MAX_STEPS) {
-      push({ role: 'assistant', text: '⚠️ Бүркіт қатарынан тым көп қадам жасады. Жалғастыру үшін хабар жазыңыз.', error: true });
+      push({ role: 'assistant', text: '⚠️ Codo қатарынан тым көп қадам жасады. Жалғастыру үшін хабар жазыңыз.', error: true });
       return;
     }
     const toolMsg: AiMessage = {
@@ -784,7 +786,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
     respondAi([...base, toolMsg], step);
   };
 
-  // «Растау» / «Өткізу»: жауаптың барлық расталатын әрекеті қаралғанда нәтижелер Бүркітке барады
+  // «Растау» / «Өткізу»: жауаптың барлық расталатын әрекеті қаралғанда нәтижелер Codo-ға барады
   const actOn = async (msg: AiMessage, index: number, skip: boolean) => {
     if (thinking || streaming || runningKey) return;
     const gen = genRef.current;
@@ -891,7 +893,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
     ask(input);
   };
 
-  // «/» жазылса — командалар тізімі (тек Gemini Бүркітінде)
+  // «/» жазылса — командалар тізімі (тек Gemini Codo-сында)
   const slashQuery = aiMode ? /^\/(\w*)$/.exec(input)?.[1] : undefined;
   const slashMatches = useMemo(
     () => (slashQuery === undefined ? [] : SLASH_COMMANDS.filter((c) => c.name.startsWith(slashQuery.toLowerCase()))),
@@ -1075,7 +1077,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
           <span className="sai__bar-orb">
             <BurkitLogo size={26} />
           </span>
-          <h2 id="site-ai-title" className="sai__bar-title">
+          <h2 id="site-ai-title" className={`sai__bar-title ${aiMode && currentTitle ? '' : 'is-brand'}`}>
             {(aiMode && currentTitle) || t('home.siteAiTitle')}
           </h2>
           {aiMode && (
@@ -1159,9 +1161,9 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
         ) : (
           <div className="sai__thread">
             {messages.map((msg) => (msg.tool ? (
-              // Құрал нәтижесі — Бүркітке барған мәтін, ықшам күйде
+              // Құрал нәтижесі — Codo-ға барған мәтін, ықшам күйде
               <details key={msg.id} className="sai__tool">
-                <summary>Бүркіт әрекеттерінің нәтижесі</summary>
+                <summary>Codo әрекеттерінің нәтижесі</summary>
                 <pre>{msg.text.slice(TOOL_PREFIX.length).trim()}</pre>
               </details>
             ) : (
@@ -1234,7 +1236,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
                   )}
 
                   {msg.createdId && (
-                    <Link to={`/view/${msg.createdId}`} className="sai__pill">
+                    <Link to={viewPath(msg.createdId)} className="sai__pill">
                       {t('home.siteAiOpenNew')}
                       <ArrowRightIcon />
                     </Link>
@@ -1266,7 +1268,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
                             {code.isFolder ? <FolderIcon size={14} /> : monogram(code.title)}
                           </span>
                           <div className="sai__match-info">
-                            <Link to={`/view/${code.id}`} className="sai__match-title">
+                            <Link to={viewPath(code.id)} className="sai__match-title">
                               {code.title}
                             </Link>
                             <span className="sai__match-meta">
@@ -1274,7 +1276,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
                             </span>
                           </div>
                           {code.isFolder ? (
-                            <Link to={`/view/${code.id}`} className="sai__pill" title={t('home.siteAiFolderNote')}>
+                            <Link to={viewPath(code.id)} className="sai__pill" title={t('home.siteAiFolderNote')}>
                               {t('home.siteAiOpenNew')}
                             </Link>
                           ) : (
@@ -1327,7 +1329,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
                     <span />
                     <span />
                   </div>
-                  {aiMode && <span>Бүркіт ойланып жатыр</span>}
+                  {aiMode && <span>Codo ойланып жатыр</span>}
                 </div>
               </div>
             )}
@@ -1341,7 +1343,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
         {aiMode && workProject && (
           <div className="sai__project">
             <FolderIcon size={14} />
-            <span className="sai__project-name" title="Бүркіт осы жобаның файлдарымен жұмыс істейді">{workProject.name}</span>
+            <span className="sai__project-name" title="Codo осы жобаның файлдарымен жұмыс істейді">{workProject.name}</span>
             <span className="sai__project-meta">{workProject.files.length} файл</span>
             <Link to={`/vibecoding?project=${encodeURIComponent(workProject.id)}`} className="sai__project-link">
               Vibecoding-те ашу

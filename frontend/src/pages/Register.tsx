@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../utils/api';
@@ -6,14 +6,14 @@ import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
 import Turnstile, { TURNSTILE_ENABLED } from '../components/ui/Turnstile';
 import GoogleSignInButton from '../components/ui/GoogleSignInButton';
-import Parallax from 'parallax-js';
+import AuthBackdrop from '../components/auth/AuthBackdrop';
 import './Auth.css';
+import './AuthV2.css';
 
 const Register: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { login, isAuthenticated, isLoading } = useAuth();
-  const heroRef = useRef<HTMLDivElement>(null);
 
   // Already logged in? Skip the register page and go home.
   useEffect(() => {
@@ -21,8 +21,6 @@ const Register: React.FC = () => {
       navigate('/', { replace: true });
     }
   }, [isLoading, isAuthenticated, navigate]);
-  const parallaxRef = useRef<Parallax | null>(null);
-  const parallaxSceneRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -62,49 +60,6 @@ const Register: React.FC = () => {
       document.documentElement.style.overflow = originalHtmlOverflow;
       document.documentElement.style.height = originalHtmlHeight;
     };
-  }, []);
-
-  // Initialize Parallax effect on landing-hero
-  useEffect(() => {
-    const sceneElement = parallaxSceneRef.current;
-    const heroElement = heroRef.current;
-
-    if (sceneElement && heroElement && !parallaxRef.current) {
-      const initTimer = setTimeout(() => {
-        try {
-          parallaxRef.current = new Parallax(sceneElement, {
-            relativeInput: true,
-            hoverOnly: false,
-            inputElement: heroElement,
-            scalarX: 50.0,
-            scalarY: 50.0,
-            frictionX: 0.1,
-            frictionY: 0.1,
-            limitX: false,
-            limitY: false,
-            invertX: false,
-            invertY: false,
-            pointerEvents: true,
-            clipRelativeInput: false,
-            precision: 1,
-          });
-        } catch (error) {
-          console.error('Parallax initialization error:', error);
-        }
-      }, 100);
-
-      return () => {
-        clearTimeout(initTimer);
-        if (parallaxRef.current) {
-          try {
-            parallaxRef.current.destroy();
-          } catch (error) {
-            console.error('Parallax destroy error:', error);
-          }
-          parallaxRef.current = null;
-        }
-      };
-    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -244,67 +199,12 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="landing-page">
-      <div className="landing-hero" ref={heroRef}>
-        <div id="parallax-scene" ref={parallaxSceneRef}>
-          {/* Deep space background */}
-          <div data-depth="0.05" className="parallax-layer">
-            <div className="meteor-deep-space"></div>
-          </div>
-
-          {/* Stars field - background layer */}
-          <div data-depth="0.1" className="parallax-layer">
-            <div className="meteor-stars-field">
-              <div className="star-layer star-layer-1"></div>
-              <div className="star-layer star-layer-2"></div>
-              <div className="star-layer star-layer-3"></div>
-            </div>
-          </div>
-
-          {/* Slow meteors - far background */}
-          <div data-depth="0.2" className="parallax-layer">
-            <div className="meteor-shower meteor-shower-1">
-              <div className="meteor meteor-1"></div>
-              <div className="meteor meteor-2"></div>
-              <div className="meteor meteor-3"></div>
-            </div>
-          </div>
-
-          {/* Medium speed meteors - middle layer */}
-          <div data-depth="0.4" className="parallax-layer">
-            <div className="meteor-shower meteor-shower-2">
-              <div className="meteor meteor-4"></div>
-              <div className="meteor meteor-5"></div>
-              <div className="meteor meteor-6"></div>
-              <div className="meteor meteor-7"></div>
-            </div>
-          </div>
-
-          {/* Fast meteors - foreground */}
-          <div data-depth="0.8" className="parallax-layer">
-            <div className="meteor-shower meteor-shower-3">
-              <div className="meteor meteor-8"></div>
-              <div className="meteor meteor-9"></div>
-              <div className="meteor meteor-10"></div>
-              <div className="meteor meteor-11"></div>
-              <div className="meteor meteor-12"></div>
-            </div>
-          </div>
-
-          {/* Bright foreground meteors */}
-          <div data-depth="1.0" className="parallax-layer">
-            <div className="meteor-shower meteor-shower-4">
-              <div className="meteor meteor-13"></div>
-              <div className="meteor meteor-14"></div>
-              <div className="meteor meteor-15"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="landing-page auth-v2">
+      <AuthBackdrop />
 
       <div className="landing-auth">
-        <div className="auth-card">
-          <h2 className="auth-title">{pendingEmail ? t('register.verifyTitle') : t('register.title')}</h2>
+        <div className="auth-card auth-card--glass">
+          <h2 className="auth-title auth-title--center">{pendingEmail ? t('register.verifyTitle') : t('register.title')}</h2>
 
           {pendingEmail ? (
           <form onSubmit={handleVerify} className="auth-form">
@@ -394,9 +294,7 @@ const Register: React.FC = () => {
             />
           )}
 
-          <p className="auth-footer">
-            <Link to="/login" className="auth-footer-link-black">{t('register.login')}</Link>
-          </p>
+          <Link to="/login" className="auth-switch-chip">{t('register.login')}</Link>
         </div>
       </div>
     </div>

@@ -116,6 +116,9 @@ def _send_code(user: User, code: str, reason: str, label: str, ip: Optional[str]
 
 
 def _check_locked(user: User, ip: Optional[str]) -> None:
+    if user.banned_at:
+        monitoring.record("login_fail", user_id=user.id, ip=ip, detail={"banned": True})
+        raise HTTPException(status_code=403, detail="Account banned")
     now = _utcnow()
     if user.locked_until and _naive(user.locked_until) > now:
         retry_after = int((_naive(user.locked_until) - now).total_seconds())
@@ -133,14 +136,16 @@ def fake_challenge(email: str) -> dict:
         "requires_email_code": True,
         "challenge_id": secrets.token_urlsafe(32),
         "reason": "new_device",
-        "email": mask_email(email),
+        # Адам өзі терген пошта — толық көрсетеміз (шынайы жауаппен бірдей)
+        "email": email,
         "expires_in": LOGIN_CODE_TTL_SECONDS,
         "resend_in": LOGIN_CODE_RESEND_SECONDS,
     }
 
 
 def start_login(db: Session, request: Request, user: User) -> dict:
-    """Кіру басталды: поштаға код. Клиентке қайтарылатын жауап (_device — cookie-ге)"""
+    """Кіру басталды: поштаға код. Клиентке қайтарылатын жауап (_device — cookie-ге).
+    Пошта толық көрсетіледі (ник арқылы кірсе де) — иесінің шешімі"""
     ip = client_ip(request)
     _check_locked(user, ip)
     now = _utcnow()
@@ -186,7 +191,7 @@ def start_login(db: Session, request: Request, user: User) -> dict:
         "requires_email_code": True,
         "challenge_id": challenge.id,
         "reason": reason,
-        "email": mask_email(user.email),
+        "email": user.email,
         "expires_in": LOGIN_CODE_TTL_SECONDS,
         "resend_in": LOGIN_CODE_RESEND_SECONDS,
         "_device": device_value,

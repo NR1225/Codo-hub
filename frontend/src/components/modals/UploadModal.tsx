@@ -6,6 +6,7 @@ import { CATEGORY_TAG_PREFIX, LANGUAGE_TAG_PREFIX } from '../../utils/codeCatego
 import { innerPath, ProtectionKind } from '../../utils/uploadRules';
 import { filePath } from '../../utils/fileHandler';
 import { apiService, GithubRepo } from '../../utils/api';
+import { useViewPath } from '../../utils/viewPath';
 import { useGithubConnection } from '../../hooks/useGithubConnection';
 import {
   CollectedProject,
@@ -568,6 +569,7 @@ const TreeRows: React.FC<{ nodes: PreviewNode[]; depth: number; open: Set<string
 const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const viewPath = useViewPath();
   const { uploading, error, uploadProgress, uploadFolder, reset } = useFileUpload();
 
   const [stage, setStage] = useState<Stage>('pick');
@@ -870,7 +872,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuccess })
     const id = result.folderId;
     resetAll();
     // Алдымен жобаға өтеміз, сосын жабамыз — /upload беті жабылғанда артқа қайтпауы үшін
-    navigate(`/view/${id}`);
+    navigate(viewPath(id));
     onClose();
   };
 

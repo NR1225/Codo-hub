@@ -110,6 +110,8 @@ def _build_env(workspace: str, lang: str = "en") -> Dict[str, str]:
     env["npm_config_prefer_offline"] = "true"
     # Dev-серверлер (Vite `open: true`, CRA т.б.) сервер компьютерінде браузер ашпасын
     env["BROWSER"] = "none"
+    # pip / npm шимдерінің хабарлары сайт тілінде (services/pkg_shim.py)
+    env["CODO_LANG"] = lang if lang in _LANG_LOCALES else "en"
     # Jail HOME / TEMP to the per-user workspace.
     if IS_WINDOWS:
         env["USERPROFILE"] = workspace
@@ -293,7 +295,9 @@ def _shell_command(lang: str = "en") -> list:
                 f"try{{[Globalization.CultureInfo]::DefaultThreadCurrentUICulture='{culture}';"
                 f"[Globalization.CultureInfo]::CurrentUICulture='{culture}'}}catch{{}};"
                 "$OutputEncoding=[Text.Encoding]::UTF8;"
-                + _ps_help_function(lang) +
+                + _ps_help_function(lang)
+                # pip / npm / yarn / pnpm → серверге ортақ пакет қоймасы (тұрақты орнату)
+                + shared_packages.powershell_functions() +
                 "function prompt {"
                 " $p=(Get-Location).Path;"
                 " if($p.StartsWith($env:USERPROFILE)){$p='~'+$p.Substring($env:USERPROFILE.Length).Replace('\\','/')};"
@@ -359,9 +363,10 @@ class TerminalSession:
     async def start(self):
         """Start the shell process inside the sandbox."""
         env = _build_env(self.workspace, self.lang)
+        # pip / npm / yarn / pnpm — серверге ортақ пакет қоймасы арқылы (тұрақты);
+        # жобаның ішінде python / python -m pip — оның .venv-інен
+        shared_packages.terminal_env(self.cwd, env, is_project=self.cwd != self.workspace)
         if self.cwd != self.workspace:
-            # Жобаның ортақ .venv-і бар болса — python / pip содан
-            shared_packages.terminal_env(self.cwd, env)
             # Ашық тұрғанда оның пакет жиынтықтары ұйықтатылмайды / тазаланбайды
             shared_packages.session_opened(self.cwd)
             self._registered_cwd = True

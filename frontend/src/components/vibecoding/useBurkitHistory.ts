@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
-/* Бүркіт сөйлесулерінің тарихы — браузерде (localStorage), әр қолданушыға бөлек.
+/* Codo сөйлесулерінің тарихы — браузерде (localStorage), әр қолданушыға бөлек.
    Сақтау сәтсіз болса (жеке терезе, толы жад) — тарих тек осы сессияда тұрады. */
 
 export interface BurkitMessage {
@@ -14,14 +14,14 @@ export interface BurkitMessage {
   context?: string;
   /** Тіркелген фото/файл/папкалардың аттары (мазмұны тарихта сақталмайды) */
   attachments?: { kind: 'image' | 'file' | 'folder'; name: string; count?: number }[];
-  /** Қате туралы хабар — Бүркітке келесі сұраумен жіберілмейді */
+  /** Қате туралы хабар — Codo-ға келесі сұраумен жіберілмейді */
   error?: boolean;
-  /** Бүркіт (Agent) жобаға жазған файлдар мен Notes жазбалары */
+  /** Codo (Agent) жобаға жазған файлдар мен Notes жазбалары */
   edits?: BurkitEdit[];
   /** Жауап аяқталмай қалды (бет жаңартылды / панель жабылды) — қайта ашылғанда жалғасады.
       user хабарында — жауап әлі басталмаған, assistant хабарында — жартылай жазылған */
   pending?: boolean;
-  /** «[Құрал нәтижесі]» — Бүркіттің read/run блоктарының нәтижесі (қолданушы жазбаған, ықшам көрсетіледі) */
+  /** «[Құрал нәтижесі]» — Codo-ның read/run блоктарының нәтижесі (қолданушы жазбаған, ықшам көрсетіледі) */
   tool?: boolean;
   /** Assistant хабарындағы орындалған/өткізілген run блоктары (блоктың реттік нөмірі) */
   ran?: number[];
@@ -53,7 +53,7 @@ export interface BurkitConversation {
 
 const MAX_CONVERSATIONS = 100;
 
-/** Тарих қай беттің Бүркітіне тиесілі: vibe — Vibecoding, site — басты бет */
+/** Тарих қай беттің Codo-сына тиесілі: vibe — Vibecoding, site — басты бет */
 export type BurkitScope = 'vibe' | 'site';
 
 const storageKey = (scope: BurkitScope, userId?: string) => `${scope}-burkit-history:${userId ?? 'guest'}`;
@@ -188,7 +188,7 @@ export function useBurkitHistory(scope: BurkitScope = 'vibe') {
 export function conversationToMarkdown(conv: BurkitConversation): string {
   const lines = [`# ${conv.title}`, '', `_${new Date(conv.createdAt).toLocaleString()}_`, ''];
   conv.messages.forEach((m) => {
-    lines.push(`### ${m.role === 'user' ? 'Сіз' : 'Бүркіт'}${m.context ? ` · ${m.context}` : ''}`, '', m.content, '');
+    lines.push(`### ${m.role === 'user' ? 'Сіз' : 'Codo'}${m.context ? ` · ${m.context}` : ''}`, '', m.content, '');
   });
   return lines.join('\n');
 }

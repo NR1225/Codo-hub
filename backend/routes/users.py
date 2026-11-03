@@ -226,49 +226,8 @@ async def delete_user(
 ):
     """Delete user account (requires authentication)"""
     try:
-        user_id_to_delete = current_user.id
-        username = current_user.username
-
-        # Delete user's codes first (before SQL delete to avoid orphaned data)
-        codes[:] = [code for code in codes if code.get('author') != username]
-        save_codes()
-
-        # Delete user from friends lists
-        if user_id_to_delete in friends:
-            del friends[user_id_to_delete]
-        for friend_user_id in friends:
-            if friends[friend_user_id]:
-                friends[friend_user_id] = [id for id in friends[friend_user_id] if id != user_id_to_delete]
-        save_friends()
-
-        # Delete user's messages
-        messages[:] = [msg for msg in messages if msg.get('fromUserId') != user_id_to_delete and msg.get('toUserId') != user_id_to_delete]
-        save_messages()
-
-        # Delete friend requests involving this user
-        friend_requests[:] = [req for req in friend_requests if req.get('fromUserId') != user_id_to_delete and req.get('toUserId') != user_id_to_delete]
-        save_friend_requests()
-
-        # Remove user from likes and comments in remaining codes
-        for code in codes:
-            if 'likes' in code:
-                code['likes'] = [id for id in code['likes'] if id != user_id_to_delete]
-            if 'comments' in code:
-                code['comments'] = [
-                    comment for comment in code['comments']
-                    if comment.get('author') != username
-                ]
-                for comment in code['comments']:
-                    if 'likes' in comment:
-                        comment['likes'] = [id for id in comment['likes'] if id != user_id_to_delete]
-                    if 'replies' in comment:
-                        comment['replies'] = [reply for reply in comment['replies'] if reply.get('author') != username]
-        save_codes()
-
-        # Now delete from SQL database
-        CliTokenService.revoke_all(db, user_id_to_delete)
-        db.delete(current_user)
-        db.commit()
+        from services.account_service import delete_account
+        delete_account(db, current_user)
 
         return {"message": "Account deleted successfully"}
     except Exception as e:

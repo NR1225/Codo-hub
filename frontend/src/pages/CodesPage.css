@@ -1599,3 +1599,313 @@ a.cdx-row {
     transition: none;
   }
 }
+
+/* ---------- Жарық тақырып — басты беттің жарық дизайны бойынша
+   (HomeSidebar.css, SiteAI.css): ақ панельдер, ақшыл сұр негізгі батырма,
+   көк фокус жиегі, ақ қалқымалы элементтер, бренд-көк тақырып ---------- */
+
+.light-theme .codes-page {
+  --cdx-line: #e4e4e7;
+  --cdx-line-strong: #d4d4d8;
+  --cdx-hover: #f4f4f5;
+  --cdx-raise: #f4f4f5;
+  --cdx-muted: #71717a;
+  /* Фокус/белсенді жиек — хедердегідей көк */
+  --home-accent: var(--hub-blue);
+  --home-on-accent: #ffffff;
+  --primary-hover: color-mix(in srgb, var(--hub-blue) 85%, #000);
+}
+
+/* Панельдер — басты беттегі sidebar мен Қасқыр сияқты ақ, жұмсақ көлеңке */
+.light-theme .cdx-side,
+.light-theme .cdx-main {
+  border-color: #e4e4e7;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 40px -20px rgba(0, 0, 0, 0.14);
+}
+
+.light-theme .cdx-side {
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.light-theme .cdx-main {
+  background: #ffffff;
+}
+
+/* Тақырыптар («Кодтар», «Шолу», бөлім атауы) — қара түсте қалады */
+.light-theme .cdx-side__title,
+.light-theme .cdx-bar__title {
+  color: #0a0a0a;
+}
+
+/* /codes/list — «Артқа» батырмасы, басты беттегі «жоғары» батырмасы сияқты */
+.light-theme .cdx-side__back {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0;
+  color: #52525b;
+}
+
+.light-theme .cdx-side__back:hover,
+.light-theme .cdx-side__back:focus-visible {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue), 0 6px 16px -6px rgba(0, 0, 0, 0.18);
+  color: var(--hub-blue);
+}
+
+/* /codes/list — бөлімдер */
+.light-theme .cdx-cat:hover:not(.is-active) .cdx-row__slot {
+  color: #0a0a0a;
+}
+
+@media (max-width: 900px) {
+  .light-theme .cdx-cats .cdx-cat {
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1px #e4e4e7;
+  }
+
+  .light-theme .cdx-cats .cdx-cat.is-active {
+    background: #f4f4f5;
+    box-shadow: inset 0 0 0 1px #d4d4d8;
+  }
+}
+
+.light-theme .cdx-side__badge,
+.light-theme .cdx-lang__badge {
+  background: #e8e8e8;
+  box-shadow: none;
+  color: #0a0a0a;
+}
+
+/* «Код жүктеу» — басты беттегі «Жаңа жоба» батырмасы сияқты */
+.light-theme .cdx-row--primary {
+  background: #e8e8e8;
+  color: #0a0a0a;
+}
+
+.light-theme .cdx-row--primary:hover {
+  background: #999fa8;
+  color: #0a0a0a;
+}
+
+.light-theme .cdx-row--ghost .cdx-row__label,
+.light-theme .cdx-cat .cdx-row__label {
+  color: #27272a;
+}
+
+.light-theme .cdx-cat.is-active {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
+.light-theme .cdx-cat.is-active .cdx-cat__icon {
+  background: #e8e8e8;
+  color: #0a0a0a;
+}
+
+/* Іздеу */
+.light-theme .cdx-search,
+.light-theme .cdx-search:hover {
+  background: #ffffff;
+}
+
+.light-theme .cdx-search__input::placeholder {
+  color: #a1a1aa;
+}
+
+.light-theme .cdx-search__input::-webkit-search-cancel-button {
+  filter: grayscale(1);
+}
+
+/* Тіл картасы */
+.light-theme .cdx-lang {
+  background: #ffffff;
+}
+
+.light-theme .cdx-lang.is-open {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0, 0 8px 24px -10px rgba(0, 0, 0, 0.14);
+}
+
+.light-theme .cdx-lang__meta {
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.light-theme .cdx-lang__option {
+  color: #27272a;
+}
+
+.light-theme .cdx-lang__option.is-active {
+  background: #f4f4f5;
+}
+
+.light-theme .cdx-lang__option.is-active .cdx-mono {
+  background: #e8e8e8;
+  color: #0a0a0a;
+}
+
+.light-theme .cdx-lang__option.is-active > svg {
+  color: var(--hub-blue);
+}
+
+.light-theme .cdx-mono {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+  color: #18181b;
+}
+
+/* Сұрыптау мәзірі — ақ, басты беттегі қалқымалы кеңес сияқты */
+.light-theme .cdx-menu__pop {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #e0e0e0, 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.light-theme .cdx-menu__item {
+  color: #27272a;
+}
+
+.light-theme .cdx-menu__item.is-active {
+  background: #f4f4f5;
+}
+
+.light-theme .cdx-menu__item.is-active > svg {
+  color: var(--hub-blue);
+}
+
+/* Тор / тізім ауыстырғышы */
+.light-theme .cdx-seg {
+  background: #f4f4f5;
+  box-shadow: none;
+}
+
+.light-theme .cdx-seg button.is-active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: #0a0a0a;
+}
+
+/* Белсенді сүзгілер */
+.light-theme .cdx-pill {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
+.light-theme .cdx-pill:hover {
+  background: #e8e8e8;
+  box-shadow: inset 0 0 0 1px #d4d4d8;
+}
+
+.light-theme .cdx-pill--clear,
+.light-theme .cdx-pill--clear:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Скроллбарлар */
+.light-theme .cdx-side__scroll,
+.light-theme .cdx-lang__list,
+.light-theme .cdx-scroll {
+  scrollbar-color: #d4d4d8 transparent;
+}
+
+/* ---------- Код карталары (Профильде де қолданылады) ---------- */
+
+.light-theme .cdx-card {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e4e4e7, 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.light-theme .cdx-card:hover {
+  box-shadow: inset 0 0 0 1px #d4d4d8, 0 12px 28px -14px rgba(0, 0, 0, 0.18);
+}
+
+.light-theme .cdx-card:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue);
+}
+
+.light-theme .cdx-card--list:hover {
+  background: #fafafa;
+}
+
+.light-theme .cdx-card__mono {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+  color: #0a0a0a;
+}
+
+.light-theme .cdx-card:hover .cdx-card__mono {
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue);
+  color: var(--hub-blue);
+}
+
+.light-theme .cdx-card__author {
+  color: #3f3f46;
+}
+
+.light-theme .cdx-card__lang,
+.light-theme .cdx-card__private {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+  color: #3f3f46;
+}
+
+/* Код үзіндісі — ақ картадан ажырайтын ақшыл сұр «редактор» */
+.light-theme .cdx-card__preview {
+  background: #f8f8f9;
+  box-shadow: inset 0 0 0 1px #ececef;
+}
+
+.light-theme .cdx-card__code,
+.light-theme .cdx-card__tree {
+  color: #3f3f46;
+}
+
+.light-theme .cdx-card__desc {
+  color: #52525b;
+}
+
+.light-theme .cdx-live::after {
+  box-shadow: inset 0 0 0 2px #ffffff;
+}
+
+.light-theme .cdx-card__open {
+  color: var(--hub-blue);
+}
+
+/* ---------- Жүктелу, қате, бос күй ---------- */
+
+.light-theme .cdx-skel {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.9) 50%, transparent 100%) 0 0 / 200% 100%,
+    #f4f4f5;
+  box-shadow: none;
+}
+
+/* --mono-ffffff жарықта қараяды — қызыл батырмада ақ мәтін қалсын */
+.light-theme .cdx-error button {
+  color: #ffffff;
+}
+
+.light-theme .cdx-empty__icon {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0, 0 6px 16px -6px rgba(0, 0, 0, 0.18);
+  color: var(--hub-blue);
+}
+
+.light-theme .cdx-btn--primary {
+  background: #e8e8e8;
+  color: #0a0a0a;
+}
+
+.light-theme .cdx-btn--primary:hover {
+  background: #999fa8;
+}
+
+.light-theme .cdx-btn--ghost {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0;
+}
+
+.light-theme .cdx-btn--ghost:hover {
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue);
+  color: var(--hub-blue);
+}

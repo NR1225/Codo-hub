@@ -4,7 +4,7 @@ import { FileTypeIcon } from '../vibecoding/fileIcons';
 import { historyGroupLabel, historyShortTime } from '../vibecoding/useBurkitHistory';
 import type { BurkitConversation } from '../vibecoding/useBurkitHistory';
 
-/* Басты беттегі Бүркіттің ескі сөйлесулері: іздеу, күн бойынша топтар, бекіту, атын өзгерту,
+/* Басты беттегі Codo-ның ескі сөйлесулері: іздеу, күн бойынша топтар, бекіту, атын өзгерту,
    Markdown ретінде жүктеу, жою.
    Vibecoding-тегі тарих (BurkitHistory) сияқты, бірақ басты беттің дизайнында. */
 
@@ -96,7 +96,7 @@ const SiteAIHistory: React.FC<Props> = ({
           <div className="sai__hist-empty">
             <ClockIcon size={22} />
             <p>Әзірге сөйлесу жоқ</p>
-            <small>Бүркітпен сөйлескен сайын мұнда сақталады</small>
+            <small>Codo-мен сөйлескен сайын мұнда сақталады</small>
           </div>
         ) : filtered.length === 0 ? (
           <div className="sai__hist-empty">
@@ -148,7 +148,7 @@ const SiteAIHistory: React.FC<Props> = ({
                     </div>
                     {last && (
                       <p className="sai__hist-preview">
-                        {last.role === 'assistant' ? 'Бүркіт: ' : ''}
+                        {last.role === 'assistant' ? 'Codo: ' : ''}
                         {last.content.replace(/```[\s\S]*?```/g, '[код]').replace(/\s+/g, ' ').slice(0, 110)}
                       </p>
                     )}

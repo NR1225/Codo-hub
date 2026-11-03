@@ -14,7 +14,7 @@ def _load_site_config() -> dict:
     if not path.exists():
         return {
             "appName": "Codo Hub",
-            "contact": {"email": "", "phone": "", "address": "", "addressEn": "Kazakhstan"},
+            "contact": {"email": "info.codohub@gmail.com", "phone": "", "address": "", "addressEn": "Kazakhstan"},
             "externalLinks": [],
             "fileConfig": {
                 "maxFileSizeBytes": 31457280,

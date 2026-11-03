@@ -1,6 +1,6 @@
 """Стористегі пікір (мақтау/шағым) ережелері:
 - мақтау — белгіленген адамның бір жобасында кемінде PRAISE_MIN_LIKES лайк болса ғана;
-- шағым — дәлелімен бірге Бүркіт (Gemini) тексеріп, қабылдаса ғана. Бүркіттің шешімі
+- шағым — дәлелімен бірге Codo (Gemini) тексеріп, қабылдаса ғана. Codo-ның шешімі
   қолтаңбалы токенге салынады, сторис жасағанда сервер сол токенді тексереді."""
 import base64
 import hashlib
@@ -23,11 +23,11 @@ logger = logging.getLogger("codo_hub")
 PRAISE_MIN_LIKES = 50
 OPINION_MIN, OPINION_MAX = 10, 300
 EVIDENCE_MIN, EVIDENCE_MAX = 20, 2000
-REVIEW_TTL_SECONDS = 30 * 60  # Бүркіт шешімі осы уақыт ішінде жариялауға жарамды
-MAX_CODE_CHARS = 30000  # Бүркітке жіберілетін жоба кодының шегі
+REVIEW_TTL_SECONDS = 30 * 60  # Codo шешімі осы уақыт ішінде жариялауға жарамды
+MAX_CODE_CHARS = 30000  # Codo-ға жіберілетін жоба кодының шегі
 
 REVIEW_PROMPT = (
-    "Сен — Бүркіт, Codo Hub сайтының модераторысың. Қолданушы басқа адамға стористе ашық шағым "
+    "Сен — Codo, Codo Hub сайтының модераторысың. Қолданушы басқа адамға стористе ашық шағым "
     "жариялағысы келеді. Шағым сол адамның профилінде көрінеді, сондықтан әділ бол: жала жабуға жол берме.\n"
     "Шағымды ТЕК мына жағдайда қабылда (accepted=true): шағым нақты бір оқиға туралы және дәлел оны "
     "нақты растайды — мысалы, жоба коды берілсе, онда шағымда айтылған зиянды әрекет (вирус, құпия "
@@ -87,7 +87,7 @@ def mention_info(target: User) -> Dict[str, Any]:
     }
 
 
-# ---------- Шағым: Бүркіт шешімінің токені ----------
+# ---------- Шағым: Codo шешімінің токені ----------
 
 def _digest(user_id: str, target_id: str, text: str, evidence: str, project_id: Optional[str]) -> str:
     raw = json.dumps([user_id, target_id, text.strip(), evidence.strip(), project_id or ""], ensure_ascii=False)
@@ -107,8 +107,8 @@ def _make_token(digest: str, reason: str) -> str:
 
 def verify_token(token: Optional[str], user_id: str, target_id: str, text: str, evidence: str,
                  project_id: Optional[str]) -> str:
-    """Токен дұрыс әрі дәл осы шағымға берілген болса — Бүркіттің түсіндірмесін қайтарады"""
-    error = HTTPException(status_code=400, detail="Шағымды алдымен Бүркітке тексертіңіз")
+    """Токен дұрыс әрі дәл осы шағымға берілген болса — Codo-ның түсіндірмесін қайтарады"""
+    error = HTTPException(status_code=400, detail="Шағымды алдымен Codo-ға тексертіңіз")
     if not token or "." not in token:
         raise error
     body, sig = token.rsplit(".", 1)
@@ -119,7 +119,7 @@ def verify_token(token: Optional[str], user_id: str, target_id: str, text: str, 
     except ValueError:
         raise error
     if data.get("e", 0) < time.time():
-        raise HTTPException(status_code=400, detail="Бүркіт тексеруінің мерзімі өтті — қайта тексертіңіз")
+        raise HTTPException(status_code=400, detail="Codo тексеруінің мерзімі өтті — қайта тексертіңіз")
     if data.get("d") != _digest(user_id, target_id, text, evidence, project_id):
         raise HTTPException(status_code=400, detail="Шағым тексеруден кейін өзгерді — қайта тексертіңіз")
     return str(data.get("r", ""))[:300]
@@ -178,7 +178,7 @@ async def _ask_gemini(key: str, prompt: str) -> Dict[str, Any]:
                 logger.warning("Opinion review %s failed: %r", model, e)
                 if i + 1 < len(models):
                     continue
-                raise HTTPException(status_code=503, detail="Бүркітке қосылу мүмкін болмады. Қайта көріңіз.")
+                raise HTTPException(status_code=503, detail="Codo-ға қосылу мүмкін болмады. Қайта көріңіз.")
             if resp.status_code == 200:
                 break
             if resp.status_code in (429, 500, 502, 503, 504) and i + 1 < len(models):
@@ -191,12 +191,12 @@ async def _ask_gemini(key: str, prompt: str) -> Dict[str, Any]:
         data = json.loads(text)
         return {"accepted": bool(data.get("accepted")), "reason": str(data.get("reason", "")).strip()[:300]}
     except (KeyError, IndexError, ValueError, TypeError):
-        raise HTTPException(status_code=502, detail="Бүркіт түсінікті жауап бермеді. Қайта көріңіз.")
+        raise HTTPException(status_code=502, detail="Codo түсінікті жауап бермеді. Қайта көріңіз.")
 
 
 async def review_complaint(user: User, target: User, text: str, evidence: str,
                            project_id: Optional[str]) -> Dict[str, Any]:
-    """Бүркіт шағымды дәлелімен тексереді → {accepted, reason, token?}"""
+    """Codo шағымды дәлелімен тексереді → {accepted, reason, token?}"""
     validate_texts(text, evidence)
     if target.id == user.id:
         raise HTTPException(status_code=400, detail="Өзіңізге шағымдана алмайсыз")
@@ -204,17 +204,17 @@ async def review_complaint(user: User, target: User, text: str, evidence: str,
     if project_id:
         code = CodeService.find_code_by_id(project_id)
         # Жабық жобаны көруге рұқсаты жоқ адамға ол «жоқ» (басқа жерлердегідей 404) —
-        # оның бар екені де, коды да (Бүркіттің жауабы арқылы) ашылмайды
+        # оның бар екені де, коды да (Codo-ның жауабы арқылы) ашылмайды
         if not code or not CodeService.can_view(code, user.username):
             raise HTTPException(status_code=404, detail="Жоба табылмады")
         if code.get("author") != target.username or code.get("folderId"):
             raise HTTPException(status_code=400, detail="Бұл жоба осы адамдікі емес")
         code_text = _project_code(project_id)
 
-    # Модерация — сайттың өз кілтімен; ол жоқ болса — қолданушының Бүркіт кілті
+    # Модерация — сайттың өз кілтімен; ол жоқ болса — қолданушының Codo кілті
     key = GEMINI_API_KEY or burkit_service.resolve_key(user)[0]
     if not key:
-        raise HTTPException(status_code=503, detail="Бүркіт қазір қолжетімсіз — шағымды тексеру мүмкін емес")
+        raise HTTPException(status_code=503, detail="Codo қазір қолжетімсіз — шағымды тексеру мүмкін емес")
 
     prompt = (
         f"Шағым иесі: @{user.username}\nКімге: @{target.username}\n\n"

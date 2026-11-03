@@ -2,26 +2,26 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
 import { useVibecoding } from './VibecodingContext';
 import { apiService } from '../utils/api';
 
-/* Бүркіттің (Agent режимі) жобаға және оның Notes папкасына жазған, әлі қаралмаған өзгерістері — Cursor сияқты:
+/* Codo-ның (Agent режимі) жобаға және оның Notes папкасына жазған, әлі қаралмаған өзгерістері — Cursor сияқты:
    файл бірден өзгереді (жасалады, өшіріледі, жылжиды), ал бастапқы нұсқасы осында сақталады. Редактор diff
    көрсетеді, әр файлды «Қабылдау» (өзгерісті қалдыру) немесе «Қайтару» (бастапқысына оралу) мүмкін.
    Тек жадта тұрады: бет жаңартылса, өзгерістер файлда қалады (сақталмаған күйде). */
 
 export interface PendingEdit {
   path: string;
-  /** AI өзгерткенге дейінгі мазмұн; null — файлды Бүркіт жаңадан жасаған */
+  /** AI өзгерткенге дейінгі мазмұн; null — файлды Codo жаңадан жасаған */
   original: string | null;
-  /** Файлды Бүркіт өшірді (original — оның мазмұны) */
+  /** Файлды Codo өшірді (original — оның мазмұны) */
   deleted?: boolean;
-  /** Бүркіт жылжытты / атын өзгертті: бастапқы жолы */
+  /** Codo жылжытты / атын өзгертті: бастапқы жолы */
   movedFrom?: string;
 }
 
-/** Бүркіттің жобаның Notes папкасына жазған жазбасы */
+/** Codo-ның жобаның Notes папкасына жазған жазбасы */
 export interface PendingNoteEdit {
   noteId: string;
   title: string;
-  /** Бұрынғы мазмұн; null — жазбаны Бүркіт жаңадан жасаған */
+  /** Бұрынғы мазмұн; null — жазбаны Codo жаңадан жасаған */
   previous: string | null;
 }
 
@@ -184,7 +184,7 @@ export const BurkitEditsProvider: React.FC<{ children: ReactNode }> = ({ childre
         const known = map[p];
         const original = known ? known.original : readFile(p);
         delete map[p];
-        // Бүркіт өзі жасаған файл — өшсе, ізі қалмайды
+        // Codo өзі жасаған файл — өшсе, ізі қалмайды
         if (original === null) return;
         const at = known?.movedFrom ?? p;
         map[at] = { path: at, original, deleted: true };
@@ -209,7 +209,7 @@ export const BurkitEditsProvider: React.FC<{ children: ReactNode }> = ({ childre
         const known = map[p];
         delete map[p];
         const original = known ? known.original : contents.get(p) ?? null;
-        // Бүркіт жасаған файлдың «бастапқы орны» жоқ
+        // Codo жасаған файлдың «бастапқы орны» жоқ
         const movedFrom = original === null ? undefined : known?.movedFrom ?? p;
         map[np] = { path: np, original, ...(movedFrom && movedFrom !== np && { movedFrom }) };
       });

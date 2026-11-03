@@ -2,7 +2,7 @@
 
 Әр жобаға қолданушының vault-ында бір папка автоматты түрде беріледі: «Vibecoding/<жоба аты>».
 Байланыс жоба ID-і бойынша сақталады (vibecoding_projects.notes_folder), сондықтан жоба
-атын ауыстырса да, папка сол күйі қалады. Бүркіт осы папкадағы жазбаларды оқиды және
+атын ауыстырса да, папка сол күйі қалады. Codo осы папкадағы жазбаларды оқиды және
 Agent режимінде оларға жаза алады."""
 import re
 from typing import Any, Dict, List, Optional
@@ -13,7 +13,7 @@ from db import Note, VibecodingProject
 from services.note_service import NoteService, clean_folder, clean_title
 
 NOTES_ROOT = "Vibecoding"
-# Бүркітке жіберілетін жазбалардың жалпы көлемі (символ)
+# Codo-ға жіберілетін жазбалардың жалпы көлемі (символ)
 MAX_NOTES_CHARS = 60_000
 
 
@@ -68,7 +68,7 @@ def list_notes(db: Session, owner_id: str, folder: str) -> List[Note]:
 
 
 def notes_context(db: Session, owner_id: str, folder: str) -> List[Dict[str, Any]]:
-    """Бүркітке: атауы + мазмұны (көлем шегіне дейін, асқандары — тек атауымен)"""
+    """Codo-ға: атауы + мазмұны (көлем шегіне дейін, асқандары — тек атауымен)"""
     budget = MAX_NOTES_CHARS
     out = []
 

@@ -17,6 +17,16 @@
   --vx-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --vx-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 }
+:where(html.light-theme) .vibe-root {
+  --vx-line: #e0e0e0;
+  --vx-line-strong: #d1d1d1;
+  --vx-raise: #e9e9e9;
+  --vx-raise-2: #e3e3e3;
+  --vx-muted: #707070;
+  --vx-dim: #a3a3a3;
+  --vx-glow: rgba(0, 0, 0, 0.16);
+  --vx-glow-soft: rgba(0, 0, 0, 0.07);
+}
 
 @property --vx-angle {
   syntax: '<angle>';
@@ -55,6 +65,10 @@
 .vibe-panel-right[data-open="true"] {
   animation: vxPanelGlow 0.9s ease-out;
 }
+:where(html.light-theme) .vibe-panel-left[data-open="true"],
+:where(html.light-theme) .vibe-panel-right[data-open="true"] {
+  animation: vxPanelGlowLight 0.9s ease-out;
+}
 
 .vibe-panel-left[data-open="false"],
 .vibe-panel-right[data-open="false"] {
@@ -86,6 +100,10 @@
   background-size: 300% 100%;
   background-position: 150% 0;
   opacity: 0;
+}
+:where(html.light-theme) .vibe-panel-left::after,
+:where(html.light-theme) .vibe-panel-right::after {
+  background: linear-gradient(105deg, transparent 35%, rgba(0, 0, 0, 0.1) 50%, transparent 65%) no-repeat;
 }
 
 .vibe-panel-left[data-open="true"]::after {
@@ -214,6 +232,15 @@
       0 0 48px -6px rgba(255, 255, 255, 0.14);
   }
 }
+@keyframes vxPanelGlowLight {
+  0%, 100% {
+    border-color: var(--ide-border);
+  }
+  30% {
+    border-color: #c2c2c2;
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 48px -6px rgba(0, 0, 0, 0.14);
+  }
+}
 
 @keyframes vxPanelSheen {
   0% {
@@ -300,11 +327,19 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #0a0a0a;
   box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
 }
+:where(html.light-theme) .vx-btn--primary {
+  background: #050505;
+  color: #f5f5f5;
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+}
 
 .vx-btn--primary:hover:not(:disabled) {
   background: #b6b6b8;
   transform: translateY(-1px);
   box-shadow: 0 8px 28px -6px rgba(255, 255, 255, 0.35);
+}
+:where(html.light-theme) .vx-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.35);
 }
 
 .vx-btn--ghost {
@@ -312,10 +347,16 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--ide-text);
   box-shadow: inset 0 0 0 1px var(--vx-line-strong);
 }
+:where(html.light-theme) .vx-btn--ghost {
+  background: rgba(0, 0, 0, 0.03);
+}
 
 .vx-btn--ghost:hover {
   background: var(--vx-raise-2);
   box-shadow: inset 0 0 0 1px #444, 0 0 24px -8px rgba(255, 255, 255, 0.25);
+}
+:where(html.light-theme) .vx-btn--ghost:hover {
+  box-shadow: inset 0 0 0 1px #bbbbbb, 0 0 24px -8px rgba(0, 0, 0, 0.25);
 }
 
 .vx-btn--xs {
@@ -354,11 +395,19 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #0a0a0a;
   box-shadow: 0 0 16px -4px rgba(255, 255, 255, 0.5);
 }
+:where(html.light-theme) .vx-icon-btn.is-on {
+  background: #050505;
+  color: #f5f5f5;
+  box-shadow: 0 0 16px -4px rgba(0, 0, 0, 0.5);
+}
 
 .vx-icon-btn--danger:hover {
   background: rgba(248, 113, 113, 0.1);
   color: #f87171;
   box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.25);
+}
+:where(html.light-theme) .vx-icon-btn--danger:hover {
+  color: #dc2626;
 }
 
 .vx-icon-btn--sm {
@@ -371,6 +420,10 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-btn:focus-visible {
   outline: 2px solid #fafafa;
   outline-offset: 2px;
+}
+:where(html.light-theme) .vx-icon-btn:focus-visible,
+:where(html.light-theme) .vx-btn:focus-visible {
+  outline: 2px solid #050505;
 }
 
 /* Айналатын жарық жиегі бар белгіше (Сайт ЖИ-дегі .sai__orb сияқты) */
@@ -385,6 +438,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #141414;
   color: #d4d4d4;
   box-shadow: inset 0 0 0 1px var(--vx-line-strong);
+}
+:where(html.light-theme) .vx-orb {
+  background: #ebebeb;
+  color: #2b2b2b;
 }
 
 /* Айналатын жиек өшірілген — назар кодта болуы үшін */
@@ -416,6 +473,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 14px;
   font-weight: 800;
 }
+:where(html.light-theme) .vx-mono {
+  background: linear-gradient(145deg, #d3d3d3, #e6e6e6);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08), 0 0 20px -8px rgba(0, 0, 0, 0.3);
+  color: #121212;
+}
 
 .vx-mono--sm {
   width: 24px;
@@ -423,6 +485,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-radius: 7px;
   font-size: 11px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+:where(html.light-theme) .vx-mono--sm {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.07);
 }
 
 /* Қалқымалы мәзір */
@@ -442,6 +507,10 @@ body.is-panel-resizing .vibe-panel-bottom {
     0 0 40px -16px rgba(255, 255, 255, 0.15);
   font-size: 12px;
   animation: vxMenuIn 0.18s var(--vx-ease);
+}
+:where(html.light-theme) .vx-menu {
+  background: linear-gradient(180deg, #e8e8e8 0%, #f1f1f1 100%);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06), 0 20px 50px -10px rgba(0, 0, 0, 0.27), 0 0 40px -16px rgba(0, 0, 0, 0.15);
 }
 
 .vx-menu--projects {
@@ -487,7 +556,14 @@ body.is-panel-resizing .vibe-panel-bottom {
 
 .vx-menu__item:hover { background: var(--vx-raise-2); }
 .vx-menu__item.is-current { background: #1f1f1f; box-shadow: inset 0 0 0 1px #333; }
+:where(html.light-theme) .vx-menu__item.is-current {
+  background: #e0e0e0;
+  box-shadow: inset 0 0 0 1px #cccccc;
+}
 .vx-menu__item.is-danger { color: #f87171; }
+:where(html.light-theme) .vx-menu__item.is-danger {
+  color: #dc2626;
+}
 .vx-menu__item.is-danger:hover { background: rgba(248, 113, 113, 0.1); }
 
 .vx-menu__icon {
@@ -632,10 +708,16 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--vx-dim);
   transition: border-color 0.15s ease;
 }
+:where(html.light-theme) .vx-filter {
+  background: #f5f5f5;
+}
 
 .vx-filter:focus-within {
   border-color: #555;
   color: var(--vx-muted);
+}
+:where(html.light-theme) .vx-filter:focus-within {
+  border-color: #aaaaaa;
 }
 
 .vx-filter input {
@@ -688,6 +770,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-proj__toggle:focus-visible {
   outline: 1px solid #555;
   outline-offset: -1px;
+}
+:where(html.light-theme) .vx-proj__toggle:focus-visible {
+  outline: 1px solid #aaaaaa;
 }
 
 .vx-proj__name {
@@ -778,19 +863,35 @@ body.is-panel-resizing .vibe-panel-bottom {
   pointer-events: none;
   transition: background-color 0.15s ease;
 }
+:where(html.light-theme) .vx-group__children::before {
+  background: #e3e3e3;
+}
 
 /* Тінтуір ағашта тұрғанда бағыттаушы сызықтар анығырақ (VS Code сияқты) */
 .vx-tree:hover .vx-group__children::before { background: #2e2e2e; }
+:where(html.light-theme) .vx-tree:hover .vx-group__children::before {
+  background: #d1d1d1;
+}
 
 /* Сүйреп тастау: файл түсетін папка тобы белгіленеді */
 .vx-group.is-drop {
   background: rgba(255, 255, 255, 0.045);
   box-shadow: inset 0 0 0 1px #3a3a3a;
 }
+:where(html.light-theme) .vx-group.is-drop {
+  background: rgba(0, 0, 0, 0.045);
+  box-shadow: inset 0 0 0 1px #c5c5c5;
+}
 
 .vx-group.is-drop > .vx-row--dir { background: #1a1a1a; }
+:where(html.light-theme) .vx-group.is-drop > .vx-row--dir {
+  background: #e5e5e5;
+}
 
 .vx-tree.is-drop { box-shadow: inset 0 0 0 1px #3a3a3a; }
+:where(html.light-theme) .vx-tree.is-drop {
+  box-shadow: inset 0 0 0 1px #c5c5c5;
+}
 
 .vx-tree__empty {
   display: flex;
@@ -816,11 +917,17 @@ body.is-panel-resizing .vibe-panel-bottom {
   outline: none;
   white-space: nowrap;
 }
+:where(html.light-theme) .vx-row {
+  color: #303030;
+}
 
 .vx-row:hover { background: var(--ide-hover); }
 
 .vx-row:focus-visible {
   box-shadow: inset 0 0 0 1px #555;
+}
+:where(html.light-theme) .vx-row:focus-visible {
+  box-shadow: inset 0 0 0 1px #aaaaaa;
 }
 
 /* Жабысқақ папка тақырыбы (VS Code sticky scroll): top мен z-index деңгейге
@@ -829,8 +936,14 @@ body.is-panel-resizing .vibe-panel-bottom {
   position: sticky;
   background: var(--vibe-panel-bg, #0e0e0e);
 }
+:where(html.light-theme) .vx-row--dir {
+  background: var(--vibe-panel-bg, #f1f1f1);
+}
 
 .vx-row--dir:hover { background: #1a1a1a; }
+:where(html.light-theme) .vx-row--dir:hover {
+  background: #e5e5e5;
+}
 
 /* Ықшам папканың алдыңғы бөліктері ("src/components/") */
 .vx-row__compact { color: var(--vx-muted); }
@@ -838,6 +951,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 /* Таңдалған жол — ағашта фокус болғанда ғана жиегі көрінеді */
 .vx-tree:focus-within .vx-row.is-selected {
   box-shadow: inset 0 0 0 1px #4a4a4a;
+}
+:where(html.light-theme) .vx-tree:focus-within .vx-row.is-selected {
+  box-shadow: inset 0 0 0 1px #b5b5b5;
 }
 
 .vx-row[draggable="true"]:active { cursor: grabbing; }
@@ -895,6 +1011,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   z-index: 50;
   background: var(--vibe-panel-bg, #0e0e0e);
 }
+:where(html.light-theme) .vx-create {
+  background: var(--vibe-panel-bg, #f1f1f1);
+}
 
 .vx-create__hint {
   padding: 2px 10px 6px;
@@ -910,6 +1029,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #cfcfcf;
   font-family: var(--vx-mono);
   font-size: 10.5px;
+}
+:where(html.light-theme) .vx-create__hint code {
+  color: #303030;
 }
 
 /* Бос жоба: не істеуге болатыны бірден көрінеді */
@@ -949,6 +1071,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--ide-text);
   outline: none;
 }
+:where(html.light-theme) .vx-start__item:hover,
+:where(html.light-theme) .vx-start__item:focus-visible {
+  border-color: #cccccc;
+}
 
 .vx-start__item span {
   display: flex;
@@ -983,6 +1109,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #cfcfcf;
   font-family: inherit;
   font-size: 10.5px;
+}
+:where(html.light-theme) .vx-start__tips kbd {
+  color: #303030;
 }
 
 /* Төменгі жол: жоба көлемі және жаңа файлдар жасалатын папка */
@@ -1048,6 +1177,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   transform: translateY(-50%);
   animation: vxMarkIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+:where(html.light-theme) .vx-row--file.is-active::before {
+  background: #050505;
+  box-shadow: 0 0 8px 1px rgba(0, 0, 0, 0.45);
+}
 
 @keyframes vxMarkIn {
   from {
@@ -1071,6 +1204,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--ide-text);
   font: inherit;
   font-size: 14px;
+}
+:where(html.light-theme) .vx-row__input {
+  border: 1px solid #999999;
+  background: #f5f5f5;
 }
 
 /* Жоба жоқ күй */
@@ -1114,6 +1251,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: linear-gradient(180deg, #111 0%, #0c0c0c 100%);
   border-bottom: 1px solid var(--vx-line);
 }
+:where(html.light-theme) .vx-tabs {
+  background: linear-gradient(180deg, #eeeeee 0%, #f3f3f3 100%);
+}
 
 .vx-tab {
   position: relative;
@@ -1136,6 +1276,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--ide-text);
   background: rgba(255, 255, 255, 0.03);
 }
+:where(html.light-theme) .vx-tab:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
 
 /* Белсенді қойынды — редактормен бірігеді, үстінде жарық сызық */
 .vx-tab.is-active {
@@ -1154,6 +1297,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-radius: 0 0 2px 2px;
   background: linear-gradient(90deg, transparent, #fafafa, transparent);
   box-shadow: 0 0 12px 1px rgba(255, 255, 255, 0.55);
+}
+:where(html.light-theme) .vx-tab.is-active::before {
+  background: linear-gradient(90deg, transparent, #050505, transparent);
+  box-shadow: 0 0 12px 1px rgba(0, 0, 0, 0.55);
 }
 
 .vx-tab.is-active::after {
@@ -1187,6 +1334,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-family: var(--vx-mono);
   font-size: 8.5px;
   font-weight: 800;
+}
+:where(html.light-theme) .vx-tab__badge {
+  background: color-mix(in srgb, var(--lang, #8c8c8c) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lang, #8c8c8c) 30%, transparent);
+  color: var(--lang, #5c5c5c);
 }
 
 .vx-tab__name {
@@ -1249,6 +1401,9 @@ body.is-panel-resizing .vibe-panel-bottom {
     radial-gradient(60% 50% at 50% 35%, rgba(255, 255, 255, 0.05) 0%, transparent 70%),
     var(--ide-editor-bg);
 }
+:where(html.light-theme) .vx-editor__empty {
+  background: radial-gradient(60% 50% at 50% 35%, rgba(0, 0, 0, 0.05) 0%, transparent 70%), var(--ide-editor-bg);
+}
 
 .vx-editor__empty::before {
   content: '';
@@ -1259,6 +1414,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   background-size: 22px 22px;
   mask-image: radial-gradient(55% 50% at 50% 40%, #000 0%, transparent 100%);
   -webkit-mask-image: radial-gradient(55% 50% at 50% 40%, #000 0%, transparent 100%);
+}
+:where(html.light-theme) .vx-editor__empty::before {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.07) 1px, transparent 1px);
+  mask-image: radial-gradient(55% 50% at 50% 40%, #ffffff 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(55% 50% at 50% 40%, #ffffff 0%, transparent 100%);
 }
 
 .vx-welcome {
@@ -1312,10 +1472,16 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 12px;
   transition: box-shadow 0.2s ease, color 0.2s ease;
 }
+:where(html.light-theme) .vx-welcome__key {
+  background: rgba(0, 0, 0, 0.02);
+}
 
 .vx-welcome__key:hover {
   color: var(--ide-text);
   box-shadow: inset 0 0 0 1px #333, 0 0 22px -10px rgba(255, 255, 255, 0.35);
+}
+:where(html.light-theme) .vx-welcome__key:hover {
+  box-shadow: inset 0 0 0 1px #cccccc, 0 0 22px -10px rgba(0, 0, 0, 0.35);
 }
 
 .vx-welcome__kbd { display: flex; gap: 3px; }
@@ -1330,6 +1496,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-family: var(--vx-mono);
   font-size: 10px;
   text-align: center;
+}
+:where(html.light-theme) .vx-welcome__kbd kbd {
+  box-shadow: inset 0 0 0 1px var(--vx-line-strong), inset 0 -1px 0 #ffffff;
+  color: #2b2b2b;
 }
 
 .vx-editor__loading {
@@ -1352,6 +1522,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   box-shadow: 0 0 14px -2px rgba(255, 255, 255, 0.35);
   animation: vxRotate 0.8s linear infinite;
 }
+:where(html.light-theme) .vx-spinner {
+  border: 2px solid #d9d9d9;
+  border-top-color: #050505;
+  box-shadow: 0 0 14px -2px rgba(0, 0, 0, 0.35);
+}
 
 @keyframes vxRotate { to { transform: rotate(360deg); } }
 
@@ -1370,7 +1545,7 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vibe-root .vibe-breadcrumb-sep { display: inline-grid; place-items: center; opacity: 0.6; }
 
 /* =========================================================
-   Бүркіт (ЖИ панелі) — басты беттегі Бүркіттің (SiteAI.css) дизайнында:
+   Codo (ЖИ панелі) — басты беттегі Codo-ның (SiteAI.css) дизайнында:
    жаңа чатта ортада жарық жиекті белгіше, дөңгелек дайын сұраулар,
    көпіршіксіз жауаптар, жазу картасының жиегінде қозғалмалы жарық
    ========================================================= */
@@ -1384,6 +1559,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 13px;
   background: radial-gradient(120% 50% at 50% 0%, rgba(255, 255, 255, 0.04) 0%, transparent 60%);
 }
+:where(html.light-theme) .vx-ai {
+  background: radial-gradient(120% 50% at 50% 0%, rgba(0, 0, 0, 0.04) 0%, transparent 60%);
+}
 
 /* Жаңа чатта фонда нүктелі тор — ортасына қарай сөнеді */
 .vx-ai.is-empty::before {
@@ -1395,6 +1573,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   background-size: 22px 22px;
   mask-image: radial-gradient(70% 45% at 50% 32%, #000 0%, transparent 100%);
   -webkit-mask-image: radial-gradient(70% 45% at 50% 32%, #000 0%, transparent 100%);
+}
+:where(html.light-theme) .vx-ai.is-empty::before {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.07) 1px, transparent 1px);
+  mask-image: radial-gradient(70% 45% at 50% 32%, #ffffff 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(70% 45% at 50% 32%, #ffffff 0%, transparent 100%);
 }
 
 /* ── Тақырып жолы (белгішесіз) ── */
@@ -1491,6 +1674,11 @@ body.is-panel-resizing .vibe-panel-bottom {
     0 0 60px -10px rgba(255, 255, 255, 0.2);
   animation: vxRise 0.6s var(--vx-ease) backwards;
 }
+:where(html.light-theme) .vx-ai__orb {
+  background: linear-gradient(145deg, #e0e0e0, #f0f0f0);
+  color: #0a0a0a;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.08), 0 0 60px -10px rgba(0, 0, 0, 0.2);
+}
 
 .vx-ai__orb::before {
   content: '';
@@ -1504,6 +1692,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   animation: vxSpin 4s linear infinite;
+}
+:where(html.light-theme) .vx-ai__orb::before {
+  background: conic-gradient(from var(--vx-angle, 0deg), transparent 0%, rgba(0, 0, 0, 0.9) 12%, transparent 30%, transparent 100%);
+  -webkit-mask: linear-gradient(#ffffff 0 0) content-box, linear-gradient(#ffffff 0 0);
+  mask: linear-gradient(#ffffff 0 0) content-box exclude, linear-gradient(#ffffff 0 0);
 }
 
 .vx-ai__orb svg, .vx-ai__orb img { animation: vxOrbPulse 3s ease-in-out infinite; }
@@ -1560,6 +1753,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   animation-delay: calc(0.2s + var(--d, 0) * 60ms);
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
+:where(html.light-theme) .vx-ai__chip {
+  background: rgba(0, 0, 0, 0.03);
+  box-shadow: inset 0 0 0 1px #d9d9d9;
+  color: #2b2b2b;
+}
 
 .vx-ai__chip:hover,
 .vx-ai__chip:focus-visible {
@@ -1567,6 +1765,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: var(--vx-raise);
   box-shadow: inset 0 0 0 1px #3a3a3a;
   color: #fff;
+}
+:where(html.light-theme) .vx-ai__chip:hover,
+:where(html.light-theme) .vx-ai__chip:focus-visible {
+  box-shadow: inset 0 0 0 1px #c5c5c5;
+  color: #000000;
 }
 
 .vx-ai__chip:active { transform: scale(0.97); }
@@ -1578,6 +1781,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-ai__chip:hover .vx-ai__chip-icon { color: #fff; }
+:where(html.light-theme) .vx-ai__chip:hover .vx-ai__chip-icon {
+  color: #000000;
+}
 
 /* Соңғы сөйлесулер — жылдам оралу */
 .vx-ai__recent {
@@ -1670,6 +1876,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #1c1c1c;
   box-shadow: inset 0 0 0 1px #2a2a2a;
 }
+:where(html.light-theme) .vx-ai__msg--user .vx-ai__content {
+  background: #e3e3e3;
+  box-shadow: inset 0 0 0 1px #d5d5d5;
+}
 
 .vx-ai__text {
   color: #e5e5e5;
@@ -1677,6 +1887,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   line-height: 1.65;
   overflow-wrap: anywhere;
   user-select: text;
+}
+:where(html.light-theme) .vx-ai__text {
+  color: #1a1a1a;
 }
 
 .vx-ai__msg--user .vx-ai__text { color: var(--ide-text); white-space: pre-wrap; }
@@ -1733,6 +1946,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #fafafa;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
+:where(html.light-theme) .vx-ai__bullet {
+  background: #050505;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
 
 .vx-ai__inline-code {
   padding: 1px 5px;
@@ -1743,8 +1960,16 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-family: var(--vx-mono);
   font-size: 12px;
 }
+:where(html.light-theme) .vx-ai__inline-code {
+  background: #e3e3e3;
+  box-shadow: inset 0 0 0 1px #d5d5d5;
+  color: #050505;
+}
 
 .vx-ai__link { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
+:where(html.light-theme) .vx-ai__link {
+  color: #000000;
+}
 
 /* Код блогы: тіл белгісі + көшіру / файлға қою / жаңа файл */
 .vx-ai__code {
@@ -1753,6 +1978,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-radius: 12px;
   background: #0a0a0a;
   box-shadow: inset 0 0 0 1px #262626;
+}
+:where(html.light-theme) .vx-ai__code {
+  background: #f5f5f5;
+  box-shadow: inset 0 0 0 1px #d9d9d9;
 }
 
 .vx-ai__code-bar {
@@ -1764,6 +1993,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   padding: 0 4px 0 12px;
   border-bottom: 1px solid var(--vx-line);
   background: #111;
+}
+:where(html.light-theme) .vx-ai__code-bar {
+  background: #eeeeee;
 }
 
 .vx-ai__code-lang {
@@ -1787,8 +2019,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   line-height: 1.6;
   user-select: text;
 }
+:where(html.light-theme) .vx-ai__code pre {
+  color: #1a1a1a;
+}
 
-/* Бүркіт ойланып жатыр */
+/* Codo ойланып жатыр */
 .vx-ai__thinking {
   display: flex;
   align-items: center;
@@ -1806,6 +2041,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: var(--vx-muted);
   animation: vxDot 1.1s ease-in-out infinite;
 }
+:where(html.light-theme) .vx-ai__dots span {
+  animation: vxDotLight 1.1s ease-in-out infinite;
+}
 
 .vx-ai__dots span:nth-child(2) { animation-delay: 0.15s; }
 .vx-ai__dots span:nth-child(3) { animation-delay: 0.3s; }
@@ -1813,6 +2051,17 @@ body.is-panel-resizing .vibe-panel-bottom {
 @keyframes vxDot {
   0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
   40% { opacity: 1; transform: translateY(-3px); background: #fafafa; }
+}
+@keyframes vxDotLight {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+    background: #050505;
+  }
 }
 
 /* ── Жазу картасы ── */
@@ -1839,9 +2088,13 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: text;
   transition: box-shadow 0.25s ease, transform 0.25s var(--vx-ease);
 }
+:where(html.light-theme) .vx-ai__box {
+  background: linear-gradient(180deg, #e8e8e8 0%, #eeeeee 100%);
+  box-shadow: inset 0 0 0 1px #d5d5d5, inset 0 1px 0 rgba(0, 0, 0, 0.05), 0 18px 40px -18px rgba(0, 0, 0, 0.285);
+}
 
 /* Жиек бойымен үнемі айналып жүретін жарық: тыныш күйде бәсең,
-   фокуста және Бүркіт жауап жазып жатқанда — жарқын */
+   фокуста және Codo жауап жазып жатқанда — жарқын */
 .vx-ai__box::before {
   content: '';
   position: absolute;
@@ -1865,6 +2118,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   transition: opacity 0.3s ease;
   animation: vxSpin 4s linear infinite;
 }
+:where(html.light-theme) .vx-ai__box::before {
+  background: conic-gradient( from var(--vx-angle, 0deg), rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.95) 10%, rgba(0, 0, 0, 0.08) 25%, rgba(0, 0, 0, 0.08) 50%, rgba(0, 0, 0, 0.95) 60%, rgba(0, 0, 0, 0.08) 75% );
+  -webkit-mask: linear-gradient(#ffffff 0 0) content-box, linear-gradient(#ffffff 0 0);
+  mask: linear-gradient(#ffffff 0 0) content-box exclude, linear-gradient(#ffffff 0 0);
+}
 
 .vx-ai__box:hover::before { opacity: 0.55; }
 
@@ -1875,6 +2133,9 @@ body.is-panel-resizing .vibe-panel-bottom {
     0 0 0 4px rgba(255, 255, 255, 0.04),
     0 0 50px -10px rgba(255, 255, 255, 0.14),
     0 18px 40px -18px rgba(0, 0, 0, 0.95);
+}
+:where(html.light-theme) .vx-ai__box:focus-within {
+  box-shadow: inset 0 0 0 1px transparent, 0 0 0 4px rgba(0, 0, 0, 0.04), 0 0 50px -10px rgba(0, 0, 0, 0.14), 0 18px 40px -18px rgba(0, 0, 0, 0.285);
 }
 
 .vx-ai__box:focus-within::before { opacity: 1; }
@@ -1902,6 +2163,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-ai__input::placeholder { color: #6b6b6b; }
+:where(html.light-theme) .vx-ai__input::placeholder {
+  color: #949494;
+}
 
 .vx-ai__box-foot {
   display: flex;
@@ -1909,44 +2173,6 @@ body.is-panel-resizing .vibe-panel-bottom {
   justify-content: space-between;
   gap: 8px;
 }
-
-/* Контекст файлы — Copilot-тағы «Current file» белгісі */
-.vx-ai__ctx {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  height: 26px;
-  padding: 0 9px 0 6px;
-  border: 1px dashed #333;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--vx-dim);
-  font: inherit;
-  font-size: 11.5px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.vx-ai__ctx.is-on {
-  border-style: solid;
-  border-color: #2e2e2e;
-  background: rgba(255, 255, 255, 0.04);
-  color: #d4d4d4;
-}
-
-.vx-ai__ctx:not(.is-on) .vx-ficon { opacity: 0.45; }
-
-.vx-ai__ctx:hover { color: var(--ide-text); border-color: #444; }
-
-.vx-ai__ctx-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vx-ai__ctx-empty { color: var(--vx-dim); font-size: 11.5px; }
 
 /* Дөңгелек жіберу батырмасы (басты беттегідей) */
 .vx-ai__send {
@@ -1963,6 +2189,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
   transition: color 0.15s ease, transform 0.2s var(--vx-ease);
 }
+:where(html.light-theme) .vx-ai__send {
+  color: #0a0a0a;
+}
 
 .vx-ai__send svg { transition: transform 0.2s var(--vx-ease); }
 .vx-ai__send:hover:not(:disabled) { transform: scale(1.12); }
@@ -1972,6 +2201,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-ai__send:disabled {
   color: #555;
   cursor: not-allowed;
+}
+:where(html.light-theme) .vx-ai__send:disabled {
+  color: #aaaaaa;
 }
 
 /* Тоқтату батырмасы */
@@ -1988,6 +2220,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 10.5px;
   text-align: center;
 }
+:where(html.light-theme) .vx-ai__hint {
+  color: #a3a3a3;
+}
 
 .vx-ai__hint kbd {
   padding: 0 4px;
@@ -1996,6 +2231,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #8a8a8a;
   font-family: inherit;
   font-size: 10px;
+}
+:where(html.light-theme) .vx-ai__hint kbd {
+  background: #e9e9e9;
+  color: #757575;
 }
 
 /* «/» командалары — жазу картасының үстінде */
@@ -2011,6 +2250,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: linear-gradient(180deg, #171717 0%, #0e0e0e 100%);
   box-shadow: 0 -16px 40px -12px rgba(0, 0, 0, 0.9);
   animation: vxMenuIn 0.14s var(--vx-ease);
+}
+:where(html.light-theme) .vx-ai__slash {
+  background: linear-gradient(180deg, #e8e8e8 0%, #f1f1f1 100%);
+  box-shadow: 0 -16px 40px -12px rgba(0, 0, 0, 0.27);
 }
 
 .vx-ai__slash-item {
@@ -2037,9 +2280,12 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-ai__slash-item.is-active { background: var(--ide-active); color: #d4d4d4; }
+:where(html.light-theme) .vx-ai__slash-item.is-active {
+  color: #2b2b2b;
+}
 
 /* =========================================================
-   Бүркіт тарихы
+   Codo тарихы
    ========================================================= */
 .vx-hist {
   height: 100%;
@@ -2072,8 +2318,14 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--vx-dim);
   transition: border-color 0.15s ease;
 }
+:where(html.light-theme) .vx-hist__search {
+  background: #f5f5f5;
+}
 
 .vx-hist__search:focus-within { border-color: #555; color: var(--vx-muted); }
+:where(html.light-theme) .vx-hist__search:focus-within {
+  border-color: #aaaaaa;
+}
 
 .vx-hist__search input {
   flex: 1;
@@ -2121,6 +2373,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-hist__item:focus-visible { background: var(--ide-hover); }
 
 .vx-hist__item:focus-visible { box-shadow: inset 0 0 0 1px #4a4a4a; }
+:where(html.light-theme) .vx-hist__item:focus-visible {
+  box-shadow: inset 0 0 0 1px #b5b5b5;
+}
 
 /* Ашық сөйлесу — чат тізіміндегідей сол жақта жанып тұрған сызық */
 .vx-hist__item.is-active { background: var(--ide-active); }
@@ -2137,6 +2392,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.45);
   transform: translateY(-50%);
   animation: vxMarkIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+:where(html.light-theme) .vx-hist__item.is-active::before {
+  background: #050505;
+  box-shadow: 0 0 8px 1px rgba(0, 0, 0, 0.45);
 }
 
 .vx-hist__top {
@@ -2175,6 +2434,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--ide-text);
   font: inherit;
   font-size: 13px;
+}
+:where(html.light-theme) .vx-hist__rename {
+  border: 1px solid #999999;
+  background: #f5f5f5;
 }
 
 .vx-hist__preview {
@@ -2222,6 +2485,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #1f1f1f;
   box-shadow: 0 0 0 1px #2e2e2e, -12px 0 12px -4px var(--ide-hover);
 }
+:where(html.light-theme) .vx-hist__actions {
+  background: #e0e0e0;
+  box-shadow: 0 0 0 1px #d1d1d1, -12px 0 12px -4px var(--ide-hover);
+}
 
 .vx-hist__item:hover .vx-hist__actions,
 .vx-hist__item:focus-within .vx-hist__actions { display: flex; }
@@ -2245,6 +2512,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 
 .vx-hist__confirm:hover { background: var(--ide-hover); color: var(--ide-text); }
 .vx-hist__confirm.is-danger { color: #f87171; }
+:where(html.light-theme) .vx-hist__confirm.is-danger {
+  color: #dc2626;
+}
 .vx-hist__confirm.is-danger:hover { background: rgba(248, 113, 113, 0.12); }
 
 .vx-hist__empty {
@@ -2270,6 +2540,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #161616;
   box-shadow: inset 0 0 0 1px var(--vx-line-strong);
 }
+:where(html.light-theme) .vx-hist__empty-icon {
+  background: #e9e9e9;
+}
 
 .vx-hist__new {
   display: inline-flex;
@@ -2286,6 +2559,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
+}
+:where(html.light-theme) .vx-hist__new {
+  background: #050505;
+  color: #f5f5f5;
 }
 
 .vx-hist__new:hover { background: #b6b6b8; }
@@ -2319,6 +2596,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-hist__clear:hover { background: rgba(248, 113, 113, 0.1); color: #f87171; }
+:where(html.light-theme) .vx-hist__clear:hover {
+  color: #dc2626;
+}
 
 /* =========================================================
    Терминал
@@ -2353,6 +2633,17 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--term-text);
   animation: vxTermGlow 0.9s ease-out;
 }
+:where(html.light-theme) .vx-term {
+  --term-line: #e0e0e0;
+  --term-chip-bg: #e3e3e3;
+  --term-chip-border: #d1d1d1;
+  --term-hover: #e5e5e5;
+  --term-text: #0a0a0a;
+  --term-muted: #707070;
+  background: linear-gradient(180deg, #ededed 0%, #f5f5f5 100%);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04), 0 16px 40px -16px rgba(0, 0, 0, 0.27);
+  animation: vxTermGlowLight 0.9s ease-out;
+}
 
 /* Панель бетінен өтетін жарық сызығы */
 .vx-term::after {
@@ -2368,6 +2659,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   opacity: 0;
   animation: vxTermSheen 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
+:where(html.light-theme) .vx-term::after {
+  background: linear-gradient(105deg, transparent 35%, rgba(0, 0, 0, 0.08) 50%, transparent 65%) no-repeat;
+}
 
 @keyframes vxTermGlow {
   0%, 100% { border-color: var(--term-line); }
@@ -2378,6 +2672,15 @@ body.is-panel-resizing .vibe-panel-bottom {
       0 0 0 1px rgba(255, 255, 255, 0.06),
       0 0 48px -6px rgba(255, 255, 255, 0.14),
       0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  }
+}
+@keyframes vxTermGlowLight {
+  0%, 100% {
+    border-color: var(--term-line);
+  }
+  30% {
+    border-color: #c2c2c2;
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 48px -6px rgba(0, 0, 0, 0.14), 0 16px 40px -16px rgba(0, 0, 0, 0.27);
   }
 }
 
@@ -2400,6 +2703,10 @@ body.is-panel-resizing .vibe-panel-bottom {
     0 30px 80px rgba(0, 0, 0, 0.8);
   animation: vxTermPop 0.45s var(--vx-spring) both;
 }
+:where(html.light-theme) .vx-term.is-max {
+  border-color: #d5d5d5;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.225), inset 0 1px 0 rgba(0, 0, 0, 0.05), 0 30px 80px rgba(0, 0, 0, 0.24);
+}
 
 @keyframes vxTermPop {
   from { opacity: 0; transform: scale(0.96); }
@@ -2417,6 +2724,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-bottom: 1px solid var(--term-line);
   background: rgba(255, 255, 255, 0.015);
 }
+:where(html.light-theme) .vx-term__bar {
+  background: rgba(0, 0, 0, 0.015);
+}
 
 .vx-term__icon {
   width: 30px;
@@ -2429,6 +2739,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: var(--term-chip-bg);
   color: #e5e5e5;
   animation: vxTermIconIn 0.7s var(--vx-spring) 0.05s backwards;
+}
+:where(html.light-theme) .vx-term__icon {
+  color: #1a1a1a;
 }
 
 @keyframes vxTermIconIn {
@@ -2501,6 +2814,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #f87171;
   box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.25);
 }
+:where(html.light-theme) .vx-term__action--danger:hover {
+  color: #dc2626;
+}
 
 .vx-term__connect {
   display: inline-flex;
@@ -2520,11 +2836,18 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
   transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
+:where(html.light-theme) .vx-term__connect {
+  background: #050505;
+  color: #f5f5f5;
+}
 
 .vx-term__connect:hover:not(:disabled) {
   background: #b6b6b8;
   transform: translateY(-1px);
   box-shadow: 0 8px 28px -6px rgba(255, 255, 255, 0.35);
+}
+:where(html.light-theme) .vx-term__connect:hover:not(:disabled) {
+  box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.35);
 }
 
 .vx-term__connect:active:not(:disabled) { transform: scale(0.97); }
@@ -2535,6 +2858,10 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-term__connect:focus-visible {
   outline: 2px solid #fafafa;
   outline-offset: 2px;
+}
+:where(html.light-theme) .vx-term__action:focus-visible,
+:where(html.light-theme) .vx-term__connect:focus-visible {
+  outline: 2px solid #050505;
 }
 
 /* ---------- Экран ---------- */
@@ -2600,10 +2927,16 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--term-text);
   box-shadow: inset 0 0 0 1px var(--term-chip-border), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
+:where(html.light-theme) .vx-term__tab.is-active {
+  box-shadow: inset 0 0 0 1px var(--term-chip-border), inset 0 1px 0 rgba(0, 0, 0, 0.05);
+}
 
 .vx-term__tab:focus-visible {
   outline: 2px solid #fafafa;
   outline-offset: 1px;
+}
+:where(html.light-theme) .vx-term__tab:focus-visible {
+  outline: 2px solid #050505;
 }
 
 .vx-term__tab-dot {
@@ -2612,6 +2945,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   flex-shrink: 0;
   border-radius: 50%;
   background: #525252;
+}
+:where(html.light-theme) .vx-term__tab-dot {
+  background: #adadad;
 }
 .vx-term__tab-dot.is-on { background: var(--ide-success); box-shadow: 0 0 8px var(--ide-success); }
 .vx-term__tab-dot.is-wait { background: var(--ide-dirty); animation: vxBreath 0.9s ease-in-out infinite; }
@@ -2647,6 +2983,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: rgba(248, 113, 113, 0.12);
   color: #f87171;
 }
+:where(html.light-theme) .vx-term__tab-close:hover {
+  color: #dc2626;
+}
 
 .vx-term__add:disabled { opacity: 0.35; cursor: not-allowed; }
 .vx-term__action:disabled { opacity: 0.35; cursor: default; box-shadow: none; background: transparent; }
@@ -2659,6 +2998,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   min-width: 0;
   display: none;
   background: #0a0a0a;
+}
+:where(html.light-theme) .vx-term__pane {
+  background: #f5f5f5;
 }
 .vx-term__pane.is-visible { display: flex; }
 
@@ -2674,6 +3016,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   height: 2px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
   pointer-events: none;
+}
+:where(html.light-theme) .vx-term__body.is-split .vx-term__pane.is-focused::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.55), transparent);
 }
 
 .vx-term__float {
@@ -2698,7 +3043,7 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vibe-root .vx-term .xterm,
 .vibe-root .vx-term .xterm-viewport { background: transparent !important; }
 
-/* ---------- Қатені Бүркітпен түсіндіру ---------- */
+/* ---------- Қатені Codo-мен түсіндіру ---------- */
 .vx-term__ask {
   display: inline-flex;
   align-items: center;
@@ -2716,6 +3061,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
   box-shadow: 0 8px 28px -8px rgba(255, 255, 255, 0.35);
   transition: transform 0.15s ease, background-color 0.2s ease;
+}
+:where(html.light-theme) .vx-term__ask {
+  background: #050505;
+  color: #f5f5f5;
+  box-shadow: 0 8px 28px -8px rgba(0, 0, 0, 0.35);
 }
 .vx-term__ask:hover { background: #b6b6b8; transform: translateY(-1px); }
 .vx-term__ask:active { transform: scale(0.97); }
@@ -2741,7 +3091,13 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 .vx-term__tab.is-grouped .vx-term__tab-icon { opacity: 1; }
 .vx-term__tab.is-drop-before { box-shadow: inset 2px 0 0 #fafafa; }
+:where(html.light-theme) .vx-term__tab.is-drop-before {
+  box-shadow: inset 2px 0 0 #050505;
+}
 .vx-term__tab.is-drop-after { box-shadow: inset -2px 0 0 #fafafa; }
+:where(html.light-theme) .vx-term__tab.is-drop-after {
+  box-shadow: inset -2px 0 0 #050505;
+}
 .vx-term__tab[draggable='true'] { -webkit-user-drag: element; }
 
 .vx-term__tab-input {
@@ -2757,7 +3113,14 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 12px;
   outline: none;
 }
+:where(html.light-theme) .vx-term__tab-input {
+  border: 1px solid #c5c5c5;
+  background: #f5f5f5;
+}
 .vx-term__tab-input:focus { border-color: #8f8f8f; }
+:where(html.light-theme) .vx-term__tab-input:focus {
+  border-color: #707070;
+}
 
 /* Іске қосу батырмасы (▶ ▾) */
 .vx-term__action.vx-term__run {
@@ -2767,6 +3130,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   gap: 3px;
   padding: 0 7px 0 9px;
   color: #51cf66;
+}
+:where(html.light-theme) .vx-term__action.vx-term__run {
+  color: #16a34a;
 }
 .vx-term__action.vx-term__run:hover,
 .vx-term__action.vx-term__run.is-open {
@@ -2792,6 +3158,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--term-muted);
   box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.9);
   animation: vxTermTabIn 0.25s var(--vx-spring) backwards;
+}
+:where(html.light-theme) .vx-term__search {
+  border: 1px solid #d1d1d1;
+  background: #ebebeb;
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.27);
 }
 .vx-term__search input {
   width: 180px;
@@ -2825,6 +3196,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
 }
 .vx-term__search-btn:hover:not(:disabled) { background: #1f1f1f; color: var(--term-text); }
+:where(html.light-theme) .vx-term__search-btn:hover:not(:disabled) {
+  background: #e0e0e0;
+}
 .vx-term__search-btn:disabled { opacity: 0.35; cursor: default; }
 .vx-term__search-btn.is-flip svg { transform: rotate(180deg); }
 
@@ -2849,6 +3223,12 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 12.5px;
   animation: vxTermMenuIn 0.16s ease-out;
 }
+:where(html.light-theme) .vx-term__menu {
+  border: 1px solid #d1d1d1;
+  background: #ebebeb;
+  color: #1a1a1a;
+  box-shadow: 0 18px 48px -12px rgba(0, 0, 0, 0.27), inset 0 1px 0 rgba(0, 0, 0, 0.04);
+}
 @keyframes vxTermMenuIn {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to { opacity: 1; transform: none; }
@@ -2862,8 +3242,17 @@ body.is-panel-resizing .vibe-panel-bottom {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+:where(html.light-theme) .vx-term__menu-title {
+  color: #8c8c8c;
+}
 .vx-term__menu-empty { padding: 6px 10px 8px; color: #8f8f8f; }
+:where(html.light-theme) .vx-term__menu-empty {
+  color: #707070;
+}
 .vx-term__menu-sep { height: 1px; margin: 5px 4px; background: #262626; }
+:where(html.light-theme) .vx-term__menu-sep {
+  background: #d9d9d9;
+}
 
 .vx-term__menu-item {
   width: 100%;
@@ -2881,8 +3270,14 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
 }
 .vx-term__menu-item:hover:not(:disabled) { background: #1f1f1f; }
+:where(html.light-theme) .vx-term__menu-item:hover:not(:disabled) {
+  background: #e0e0e0;
+}
 .vx-term__menu-item:disabled { opacity: 0.4; cursor: default; }
 .vx-term__menu-item svg { flex-shrink: 0; color: #a3a3a3; }
+:where(html.light-theme) .vx-term__menu-item svg {
+  color: #5c5c5c;
+}
 .vx-term__menu-item code {
   min-width: 0;
   overflow: hidden;
@@ -2898,8 +3293,17 @@ body.is-panel-resizing .vibe-panel-bottom {
   font: inherit;
   font-size: 11px;
 }
+:where(html.light-theme) .vx-term__menu-item kbd {
+  color: #8c8c8c;
+}
 .vx-term__menu-item.is-danger:hover { background: rgba(248, 113, 113, 0.1); color: #f87171; }
+:where(html.light-theme) .vx-term__menu-item.is-danger:hover {
+  color: #dc2626;
+}
 .vx-term__menu-item.is-danger:hover svg { color: #f87171; }
+:where(html.light-theme) .vx-term__menu-item.is-danger:hover svg {
+  color: #dc2626;
+}
 .vx-term__menu-ico { width: 13px; flex-shrink: 0; }
 
 .vx-term__menu-zoom {
@@ -2908,6 +3312,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   gap: 4px;
   padding: 2px 6px 2px 10px;
   color: #a3a3a3;
+}
+:where(html.light-theme) .vx-term__menu-zoom {
+  color: #5c5c5c;
 }
 .vx-term__menu-zoom span { margin-right: auto; font-variant-numeric: tabular-nums; }
 .vx-term__menu-zoom button {
@@ -2922,7 +3329,15 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-weight: 700;
   cursor: pointer;
 }
+:where(html.light-theme) .vx-term__menu-zoom button {
+  border: 1px solid #d1d1d1;
+  background: #e5e5e5;
+  color: #1a1a1a;
+}
 .vx-term__menu-zoom button:hover { background: #262626; }
+:where(html.light-theme) .vx-term__menu-zoom button:hover {
+  background: #d9d9d9;
+}
 
 /* =========================================================
    Статус жолағы — жарық белгілер
@@ -2954,6 +3369,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #fafafa;
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
+:where(html.light-theme) .vibe-statusbar-lang {
+  background: #050505;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+}
 
 /* =========================================================
    Мобильді overlay панельдері
@@ -2965,6 +3384,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+}
+:where(html.light-theme) .vibe-overlay-backdrop {
+  background: rgba(0, 0, 0, 0.195);
 }
 
 .vibe-overlay {
@@ -2979,6 +3401,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 50px -20px rgba(255, 255, 255, 0.2);
 }
+:where(html.light-theme) .vibe-overlay {
+  border: 1px solid #d9d9d9;
+  background: linear-gradient(180deg, #ebebeb 0%, #f5f5f5 100%);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.24), 0 0 50px -20px rgba(0, 0, 0, 0.2);
+}
 
 .vibe-overlay--left { left: 8px; width: min(85vw, 340px); }
 .vibe-overlay--right { right: 8px; width: min(90vw, 400px); }
@@ -2992,18 +3419,31 @@ body.is-panel-resizing .vibe-panel-bottom {
     0 30px 80px rgba(0, 0, 0, 0.8),
     0 0 60px -20px rgba(255, 255, 255, 0.25);
 }
+:where(html.light-theme) .vibe-root .vibe-cp {
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06), 0 30px 80px rgba(0, 0, 0, 0.24), 0 0 60px -20px rgba(0, 0, 0, 0.25);
+}
 
 .vibe-root .vibe-cp-input-wrap { padding: 14px 16px; }
 .vibe-root .vibe-cp-mode { color: #fafafa; }
+:where(html.light-theme) .vibe-root .vibe-cp-mode {
+  color: #050505;
+}
 .vibe-root .vibe-cp-item { border-radius: 10px; }
 
 .vibe-root .vibe-cp-item.selected {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
   outline: 1px solid #333;
 }
+:where(html.light-theme) .vibe-root .vibe-cp-item.selected {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.09), rgba(0, 0, 0, 0.02));
+  outline: 1px solid #cccccc;
+}
 
 .vibe-root .vibe-cp-item.selected .vibe-cp-item-icon {
   box-shadow: 0 0 14px -2px rgba(255, 255, 255, 0.5);
+}
+:where(html.light-theme) .vibe-root .vibe-cp-item.selected .vibe-cp-item-icon {
+  box-shadow: 0 0 14px -2px rgba(0, 0, 0, 0.5);
 }
 
 .vibe-root .vibe-settings {
@@ -3014,8 +3454,15 @@ body.is-panel-resizing .vibe-panel-bottom {
     0 24px 60px rgba(0, 0, 0, 0.8),
     0 0 40px -16px rgba(255, 255, 255, 0.2);
 }
+:where(html.light-theme) .vibe-root .vibe-settings {
+  background: linear-gradient(180deg, #e8e8e8 0%, #f1f1f1 100%);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.06), 0 24px 60px rgba(0, 0, 0, 0.24), 0 0 40px -16px rgba(0, 0, 0, 0.2);
+}
 
 .vibe-root .vibe-toggle.on { box-shadow: 0 0 12px -2px rgba(255, 255, 255, 0.55); }
+:where(html.light-theme) .vibe-root .vibe-toggle.on {
+  box-shadow: 0 0 12px -2px rgba(0, 0, 0, 0.55);
+}
 
 /* Палитра белгішелері — басты беттің иконка ұяшығы */
 .vibe-root .vibe-cp-mode {
@@ -3028,6 +3475,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #0a0a0a;
   box-shadow: 0 0 18px -4px rgba(255, 255, 255, 0.55);
 }
+:where(html.light-theme) .vibe-root .vibe-cp-mode {
+  background: #050505;
+  color: #f5f5f5;
+  box-shadow: 0 0 18px -4px rgba(0, 0, 0, 0.55);
+}
 
 .vibe-root .vibe-cp-item-icon {
   position: relative;
@@ -3039,10 +3491,19 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #d4d4d4;
   font-size: inherit;
 }
+:where(html.light-theme) .vibe-root .vibe-cp-item-icon {
+  background: #e3e3e3;
+  box-shadow: inset 0 0 0 1px #d1d1d1;
+  color: #2b2b2b;
+}
 
 .vibe-root .vibe-cp-item.selected .vibe-cp-item-icon {
   background: #fafafa;
   color: #0a0a0a;
+}
+:where(html.light-theme) .vibe-root .vibe-cp-item.selected .vibe-cp-item-icon {
+  background: #050505;
+  color: #f5f5f5;
 }
 
 /* Файл белгішесіндегі тілдің жарық нүктесі */
@@ -3052,6 +3513,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: #1c1c1c;
   box-shadow: inset 0 0 0 1px #2e2e2e;
   font-family: var(--vx-mono);
+}
+:where(html.light-theme) .vibe-root .vibe-cp-item-kbd {
+  background: #e3e3e3;
+  box-shadow: inset 0 0 0 1px #d1d1d1;
 }
 
 .vibe-cp-item-dirty {
@@ -3081,6 +3546,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 9.5px;
   text-align: center;
 }
+:where(html.light-theme) .vibe-root .vibe-cp-hint kbd {
+  background: #e3e3e3;
+  box-shadow: inset 0 0 0 1px #d1d1d1, inset 0 -1px 0 #ffffff;
+  color: #2b2b2b;
+}
 
 /* Баптаулар терезесі */
 .vibe-root .vibe-settings-head {
@@ -3098,6 +3568,11 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #0a0a0a;
   box-shadow: 0 0 16px -4px rgba(255, 255, 255, 0.55);
 }
+:where(html.light-theme) .vibe-settings-head-icon {
+  background: #050505;
+  color: #f5f5f5;
+  box-shadow: 0 0 16px -4px rgba(0, 0, 0, 0.55);
+}
 
 .vibe-settings-head-title { flex: 1; }
 
@@ -3109,6 +3584,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vibe-root .vibe-setting-row:hover { background: #1a1a1a; }
+:where(html.light-theme) .vibe-root .vibe-setting-row:hover {
+  background: #e5e5e5;
+}
 
 .vibe-root .vibe-setting-label { gap: 10px; }
 
@@ -3120,11 +3598,18 @@ body.is-panel-resizing .vibe-panel-bottom {
 
 .vibe-root .vibe-setting-row:hover .vibe-setting-label { color: var(--ide-text); }
 .vibe-root .vibe-setting-row:hover .vibe-setting-label svg { color: #fafafa; }
+:where(html.light-theme) .vibe-root .vibe-setting-row:hover .vibe-setting-label svg {
+  color: #050505;
+}
 
 .vibe-root .vibe-stepper {
   background: #0a0a0a;
   box-shadow: inset 0 0 0 1px #262626;
   border-radius: 8px;
+}
+:where(html.light-theme) .vibe-root .vibe-stepper {
+  background: #f5f5f5;
+  box-shadow: inset 0 0 0 1px #d9d9d9;
 }
 
 /* =========================================================
@@ -3149,7 +3634,7 @@ body.is-panel-resizing .vibe-panel-bottom {
   }
 }
 
-/* Бүркіт: Gemini кілтін енгізу картасы */
+/* Codo: Gemini кілтін енгізу картасы */
 .vx-ai__key {
   width: 100%;
   max-width: 320px;
@@ -3160,6 +3645,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   box-shadow: inset 0 0 0 1px #2a2a2a;
   text-align: left;
   animation: vxRise 0.5s var(--vx-ease) 0.2s backwards;
+}
+:where(html.light-theme) .vx-ai__key {
+  background: linear-gradient(180deg, #e8e8e8 0%, #eeeeee 100%);
+  box-shadow: inset 0 0 0 1px #d5d5d5;
 }
 
 .vx-ai__scroll > .vx-ai__key { margin: 4px auto 14px; animation: none; }
@@ -3188,8 +3677,15 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #fafafa;
   font-family: var(--vx-mono);
 }
+:where(html.light-theme) .vx-ai__key-text code {
+  background: #e3e3e3;
+  color: #050505;
+}
 
 .vx-ai__key-note { margin: 8px 0 0; color: #5c5c5c; font-size: 10.5px; }
+:where(html.light-theme) .vx-ai__key-note {
+  color: #a3a3a3;
+}
 
 .vx-ai__key-row { display: flex; gap: 6px; }
 
@@ -3207,8 +3703,15 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 12px;
   outline: none;
 }
+:where(html.light-theme) .vx-ai__key-input {
+  background: #f2f2f2;
+  box-shadow: inset 0 0 0 1px #d5d5d5;
+}
 
 .vx-ai__key-input:focus { box-shadow: inset 0 0 0 1px #525252; }
+:where(html.light-theme) .vx-ai__key-input:focus {
+  box-shadow: inset 0 0 0 1px #adadad;
+}
 
 .vx-ai__key-btn {
   height: 32px;
@@ -3222,10 +3725,17 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-weight: 600;
   cursor: pointer;
 }
+:where(html.light-theme) .vx-ai__key-btn {
+  background: #050505;
+  color: #f5f5f5;
+}
 
 .vx-ai__key-btn:disabled { opacity: 0.4; cursor: default; }
 
 .vx-ai__key-error { margin: 8px 0 0; color: #f87171; font-size: 12px; }
+:where(html.light-theme) .vx-ai__key-error {
+  color: #dc2626;
+}
 
 .vx-ai__key-remove {
   margin-top: 8px;
@@ -3237,12 +3747,15 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 12px;
   cursor: pointer;
 }
+:where(html.light-theme) .vx-ai__key-remove {
+  color: #dc2626;
+}
 
 .vx-ai__key-remove:hover { text-decoration: underline; }
 
 .vx-ai__msg.is-error .vx-ai__text { color: #fca5a5; }
 
-/* ── Бүркіт Agent: файлдарға/жазбаларға жазу (Cursor сияқты) ── */
+/* ── Codo Agent: файлдарға/жазбаларға жазу (Cursor сияқты) ── */
 
 /* path=/note= блогы: ұзын файл чатты толтырмасын */
 .vx-ai__code--target pre { max-height: 220px; overflow: auto; }
@@ -3267,6 +3780,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-radius: 10px;
   box-shadow: inset 0 0 0 1px #262626;
 }
+:where(html.light-theme) .vx-ai__edits {
+  box-shadow: inset 0 0 0 1px #d9d9d9;
+}
 
 .vx-ai__edit {
   display: flex;
@@ -3279,6 +3795,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-ai__edit.is-pending { background: rgba(255, 255, 255, 0.03); }
+:where(html.light-theme) .vx-ai__edit.is-pending {
+  background: rgba(0, 0, 0, 0.03);
+}
 
 .vx-ai__edit-name {
   display: inline-flex;
@@ -3308,18 +3827,32 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: #4ade80;
   font-size: 10.5px;
 }
+:where(html.light-theme) .vx-ai__edit-tag {
+  color: #16a34a;
+}
 
 .vx-ai__edit-stats { display: inline-flex; gap: 6px; font-family: var(--vx-mono); font-size: 11px; }
 
 .vx-ai__edit-stats .is-add,
 .vx-review__stat.is-add { color: #4ade80; }
+:where(html.light-theme) .vx-ai__edit-stats .is-add,
+:where(html.light-theme) .vx-review__stat.is-add {
+  color: #16a34a;
+}
 
 .vx-ai__edit-stats .is-del,
 .vx-review__stat.is-del { color: #f87171; }
+:where(html.light-theme) .vx-ai__edit-stats .is-del,
+:where(html.light-theme) .vx-review__stat.is-del {
+  color: #dc2626;
+}
 
 .vx-ai__edit-actions { display: inline-flex; gap: 2px; margin-left: auto; }
 
 .vx-ai__edit-done { margin-left: auto; color: #5c5c5c; font-size: 11px; }
+:where(html.light-theme) .vx-ai__edit-done {
+  color: #a3a3a3;
+}
 
 /* Қаралмаған өзгерістер жолағы — жазу картасының үстінде */
 .vx-ai__review {
@@ -3328,6 +3861,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-radius: 14px;
   background: #111;
   box-shadow: inset 0 0 0 1px #2a2a2a;
+}
+:where(html.light-theme) .vx-ai__review {
+  background: #eeeeee;
+  box-shadow: inset 0 0 0 1px #d5d5d5;
 }
 
 .vx-ai__review-head {
@@ -3357,12 +3894,26 @@ body.is-panel-resizing .vibe-panel-bottom {
   font-size: 11.5px;
   cursor: pointer;
 }
+:where(html.light-theme) .vx-ai__review-btn,
+:where(html.light-theme) .vx-review__btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: #2b2b2b;
+}
 
 .vx-ai__review-btn:hover,
 .vx-review__btn:hover { background: rgba(255, 255, 255, 0.09); }
+:where(html.light-theme) .vx-ai__review-btn:hover,
+:where(html.light-theme) .vx-review__btn:hover {
+  background: rgba(0, 0, 0, 0.09);
+}
 
 .vx-ai__review-btn.is-primary,
 .vx-review__btn.is-primary { background: #fafafa; color: #0a0a0a; font-weight: 600; }
+:where(html.light-theme) .vx-ai__review-btn.is-primary,
+:where(html.light-theme) .vx-review__btn.is-primary {
+  background: #050505;
+  color: #f5f5f5;
+}
 
 .vx-ai__review-list { max-height: 132px; overflow-y: auto; }
 
@@ -3376,6 +3927,10 @@ body.is-panel-resizing .vibe-panel-bottom {
   border-radius: 999px;
   background: #0d0d0d;
   box-shadow: inset 0 0 0 1px #262626;
+}
+:where(html.light-theme) .vx-ai__mode {
+  background: #f2f2f2;
+  box-shadow: inset 0 0 0 1px #d9d9d9;
 }
 
 .vx-ai__mode button {
@@ -3391,6 +3946,10 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-ai__mode button.is-on { background: #262626; color: #fafafa; }
+:where(html.light-theme) .vx-ai__mode button.is-on {
+  background: #d9d9d9;
+  color: #050505;
+}
 
 /* Жобаға байланысқан Notes папкасы */
 .vx-ai__notes-link {
@@ -3406,8 +3965,15 @@ body.is-panel-resizing .vibe-panel-bottom {
   text-decoration: none;
   animation: vxRise 0.6s var(--vx-ease) 0.18s backwards;
 }
+:where(html.light-theme) .vx-ai__notes-link {
+  box-shadow: inset 0 0 0 1px #d9d9d9;
+  color: #2b2b2b;
+}
 
 .vx-ai__notes-link:hover { background: rgba(255, 255, 255, 0.04); }
+:where(html.light-theme) .vx-ai__notes-link:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
 .vx-ai__notes-count { color: var(--vx-muted); }
 
 /* Редактордағы diff-тің үстіндегі жолақ */
@@ -3422,6 +3988,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--ide-text);
   font-size: 12px;
   flex-shrink: 0;
+}
+:where(html.light-theme) .vx-review {
+  background: #f0f0f0;
 }
 
 .vx-review__label { font-weight: 600; }
@@ -3439,6 +4008,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   inset: 0;
   z-index: 5;
   background: #000;
+}
+:where(html.light-theme) .vx-preview-overlay {
+  background: #ffffff;
 }
 
 .vx-preview__entry {
@@ -3485,6 +4057,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-preview__auto input { accent-color: #51cf66; margin: 0; }
+:where(html.light-theme) .vx-preview__auto input {
+  accent-color: #16a34a;
+}
 
 .vx-preview__body {
   position: relative;
@@ -3515,6 +4090,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   color: var(--term-muted);
   font-size: 13px;
 }
+:where(html.light-theme) .vx-preview__empty {
+  background: #f5f5f5;
+}
 
 .vx-preview__empty p { max-width: 320px; margin: 0; line-height: 1.5; }
 
@@ -3524,6 +4102,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   flex-direction: column;
   border-top: 1px solid var(--term-line);
   background: #0a0a0a;
+}
+:where(html.light-theme) .vx-preview__console {
+  background: #f5f5f5;
 }
 
 .vx-preview__console.is-open { height: 32%; min-height: 90px; }
@@ -3572,6 +4153,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-preview__count.is-error { background: rgba(255, 107, 107, 0.15); color: #ff8787; }
+:where(html.light-theme) .vx-preview__count.is-error {
+  color: #dc2626;
+}
 
 .vx-preview__logs {
   flex: 1 1 0;
@@ -3590,14 +4174,21 @@ body.is-panel-resizing .vibe-panel-bottom {
   white-space: pre-wrap;
   word-break: break-word;
 }
+:where(html.light-theme) .vx-preview__log {
+  border-bottom: 1px solid #ebebeb;
+  color: #2b2b2b;
+}
 
 .vx-preview__log.is-empty { border: 0; color: var(--term-muted); font-family: inherit; }
 .vx-preview__log.is-info { color: #74c0fc; }
 .vx-preview__log.is-debug { color: var(--term-muted); }
 .vx-preview__log.is-warn { background: rgba(255, 212, 59, 0.06); color: #ffe066; }
 .vx-preview__log.is-error { background: rgba(255, 107, 107, 0.07); color: #ff8787; }
+:where(html.light-theme) .vx-preview__log.is-error {
+  color: #dc2626;
+}
 
-/* ═══ Бүркіт агенті: командалар, құрал нәтижелері, Ctrl+K ═══ */
+/* ═══ Codo агенті: командалар, құрал нәтижелері, Ctrl+K ═══ */
 
 /* delete / move / read блоктары — бір жол */
 .vx-ai__code--compact .vx-ai__code-bar { border-bottom: 0; }
@@ -3611,6 +4202,9 @@ body.is-panel-resizing .vibe-panel-bottom {
   padding: 6px 8px;
   border-top: 1px solid var(--vx-line);
   background: #0f0f0f;
+}
+:where(html.light-theme) .vx-ai__run {
+  background: #f0f0f0;
 }
 
 .vx-ai__run-btn {
@@ -3628,21 +4222,38 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
+:where(html.light-theme) .vx-ai__run-btn {
+  border: 1px solid #d1d1d1;
+}
 
 .vx-ai__run-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--ide-text); }
+:where(html.light-theme) .vx-ai__run-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
 .vx-ai__run-btn.is-primary { border-color: #e5e5e5; background: #e5e5e5; color: #0a0a0a; font-weight: 600; }
+:where(html.light-theme) .vx-ai__run-btn.is-primary {
+  border-color: #1a1a1a;
+  background: #1a1a1a;
+  color: #f5f5f5;
+}
 .vx-ai__run-btn.is-primary:hover { background: #b6b6b8; }
 
 .vx-ai__run-state { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--vx-dim); font-size: 11.5px; }
 .vx-ai__run-state.is-done { color: #4ade80; }
+:where(html.light-theme) .vx-ai__run-state.is-done {
+  color: #16a34a;
+}
 
-/* Құрал нәтижесі (Бүркітке барған терминал шығысы / файл) */
+/* Құрал нәтижесі (Codo-ға барған терминал шығысы / файл) */
 .vx-ai__tool {
   margin: 2px 0;
   border: 1px solid var(--vx-line);
   border-radius: 10px;
   background: #0c0c0c;
   font-size: 11.5px;
+}
+:where(html.light-theme) .vx-ai__tool {
+  background: #f3f3f3;
 }
 
 .vx-ai__tool summary {
@@ -3674,9 +4285,15 @@ body.is-panel-resizing .vibe-panel-bottom {
   word-break: break-word;
   user-select: text;
 }
+:where(html.light-theme) .vx-ai__tool pre {
+  color: #424242;
+}
 
 /* Өзгерістер: өшірілген / орындалмаған */
 .vx-ai__edit-tag.is-error { background: #ef44441f; color: #f87171; }
+:where(html.light-theme) .vx-ai__edit-tag.is-error {
+  color: #dc2626;
+}
 .vx-ai__edit.is-deleted .vx-ai__edit-name { color: var(--vx-dim); text-decoration: line-through; cursor: default; }
 .vx-ai__edit.is-failed .vx-ai__edit-name { color: var(--vx-dim); cursor: default; }
 .vx-ai__edit.is-failed .vx-ai__edit-name:hover,
@@ -3698,13 +4315,22 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
   flex-shrink: 0;
 }
+:where(html.light-theme) .vx-ai__auto {
+  border: 1px dashed #cccccc;
+}
 
 .vx-ai__auto.is-on { border-style: solid; border-color: #22c55e55; background: #22c55e14; color: #4ade80; }
+:where(html.light-theme) .vx-ai__auto.is-on {
+  color: #16a34a;
+}
 .vx-ai__auto:hover { color: var(--ide-text); }
 
 .vx-ai__mention { color: #93c5fd; font-family: var(--vx-mono); font-size: 0.95em; }
+:where(html.light-theme) .vx-ai__mention {
+  color: #2563eb;
+}
 
-/* Ctrl+K — редактор ішіндегі Бүркіт */
+/* Ctrl+K — редактор ішіндегі Codo */
 .vx-inline {
   position: absolute;
   left: 56px;
@@ -3718,8 +4344,16 @@ body.is-panel-resizing .vibe-panel-bottom {
   box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.9);
   animation: vxMenuIn 0.14s var(--vx-ease, ease);
 }
+:where(html.light-theme) .vx-inline {
+  border: 1px solid var(--vx-line-strong, #cccccc);
+  background: linear-gradient(180deg, #e8e8e8 0%, #f1f1f1 100%);
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.27);
+}
 
 .vx-inline.is-busy { border-color: #3a3a3a; }
+:where(html.light-theme) .vx-inline.is-busy {
+  border-color: #c5c5c5;
+}
 .vx-inline__row { display: flex; align-items: center; gap: 8px; }
 
 .vx-inline__input {
@@ -3735,6 +4369,9 @@ body.is-panel-resizing .vibe-panel-bottom {
 }
 
 .vx-inline__input::placeholder { color: #5c5c5c; }
+:where(html.light-theme) .vx-inline__input::placeholder {
+  color: #a3a3a3;
+}
 
 .vx-inline__send {
   display: inline-flex;
@@ -3749,11 +4386,23 @@ body.is-panel-resizing .vibe-panel-bottom {
   cursor: pointer;
   transition: transform 0.2s var(--vx-ease);
 }
+:where(html.light-theme) .vx-inline__send {
+  color: #1a1a1a;
+}
 
 .vx-inline__send:hover:not(:disabled) { transform: scale(1.12); }
 .vx-inline__send:disabled { color: #5c5c5c; cursor: default; }
+:where(html.light-theme) .vx-inline__send:disabled {
+  color: #a3a3a3;
+}
 .vx-inline__meta { padding: 2px 0 0 26px; color: #5c5c5c; font-size: 10.5px; }
+:where(html.light-theme) .vx-inline__meta {
+  color: #a3a3a3;
+}
 .vx-inline__error { color: #f87171; }
+:where(html.light-theme) .vx-inline__error {
+  color: #dc2626;
+}
 
 .vx-inline-range { background: rgba(147, 197, 253, 0.07); }
 
@@ -3769,26 +4418,514 @@ body.is-panel-resizing .vibe-panel-bottom {
 .vx-ai__project-note { margin: 0; padding: 0 12px 8px; color: var(--vx-muted); font-size: 12px; white-space: pre-wrap; }
 .vx-ai__project-link { display: flex; align-items: center; gap: 6px; padding: 0 8px 8px 12px; font-size: 11.5px; }
 .vx-ai__project-link a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #93c5fd; }
+:where(html.light-theme) .vx-ai__project-link a {
+  color: #2563eb;
+}
 
-/* Бүркітке тіркеу: фото, файл, папка */
+/* Codo-ға тіркеу: фото, файл, папка */
 .vx-ai__attach { position: relative; flex-shrink: 0; }
 .vx-ai__attach-btn { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--vx-dim); cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; }
 .vx-ai__attach-btn:hover:not(:disabled), .vx-ai__attach-btn.is-open { background: rgba(255, 255, 255, 0.07); color: var(--ide-text); }
+:where(html.light-theme) .vx-ai__attach-btn:hover:not(:disabled),
+:where(html.light-theme) .vx-ai__attach-btn.is-open {
+  background: rgba(0, 0, 0, 0.07);
+}
 .vx-ai__attach-btn:disabled { opacity: 0.5; cursor: default; }
 .vx-ai__attach-menu { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 10; min-width: 140px; padding: 4px; display: flex; flex-direction: column; gap: 2px; border-radius: 12px; background: #171717; box-shadow: inset 0 0 0 1px #2a2a2a, 0 16px 36px -12px rgba(0, 0, 0, 0.8); cursor: default; }
+:where(html.light-theme) .vx-ai__attach-menu {
+  background: #e8e8e8;
+  box-shadow: inset 0 0 0 1px #d5d5d5, 0 16px 36px -12px rgba(0, 0, 0, 0.24);
+}
 .vx-ai__attach-menu button { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 0; border-radius: 8px; background: none; color: var(--ide-text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .vx-ai__attach-menu button:hover { background: rgba(255, 255, 255, 0.07); }
+:where(html.light-theme) .vx-ai__attach-menu button:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
 .vx-ai__attach-menu svg { color: var(--vx-dim); }
 
 .vx-ai__atts { display: flex; flex-wrap: wrap; gap: 5px; }
 .vx-ai__msg--user .vx-ai__atts { justify-content: flex-end; margin-bottom: 4px; }
 .vx-ai__atts--draft { cursor: default; }
 .vx-ai__att { display: inline-flex; align-items: center; gap: 5px; max-width: 200px; height: 26px; padding: 0 5px 0 3px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px #2a2a2a; color: #d4d4d4; font-size: 11.5px; }
+:where(html.light-theme) .vx-ai__att {
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: inset 0 0 0 1px #d5d5d5;
+  color: #2b2b2b;
+}
 .vx-ai__att.is-loading { padding: 0 9px; color: var(--vx-dim); }
 .vx-ai__att-thumb { width: 20px; height: 20px; border-radius: 5px; object-fit: cover; }
 .vx-ai__att-icon { display: grid; place-items: center; width: 20px; height: 20px; color: var(--vx-dim); }
 .vx-ai__att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vx-ai__att-count { padding: 0 4px; border-radius: 5px; background: rgba(255, 255, 255, 0.08); color: var(--vx-dim); font-size: 10.5px; }
+:where(html.light-theme) .vx-ai__att-count {
+  background: rgba(0, 0, 0, 0.08);
+}
 .vx-ai__att-remove { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--vx-dim); cursor: pointer; }
 .vx-ai__att-remove:hover { background: rgba(255, 255, 255, 0.1); color: var(--ide-text); }
+:where(html.light-theme) .vx-ai__att-remove:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
 .vx-ai__att-error { align-self: center; color: #f87171; font-size: 11px; }
+:where(html.light-theme) .vx-ai__att-error {
+  color: #dc2626;
+}
+
+/* ═══ Көрініс: құрылғы өлшемі, DevTools (Консоль + Желі) ═══ */
+.vx-preview.is-dragging { cursor: row-resize; user-select: none; }
+.vx-preview.is-dragging iframe { pointer-events: none; }
+
+.vx-term__action:disabled { opacity: 0.35; cursor: default; }
+.vx-term__action.is-active { color: var(--term-text); background: var(--term-hover); }
+
+.vx-preview__device-select {
+  height: 24px;
+  max-width: 140px;
+  padding: 0 4px;
+  border: 1px solid var(--term-chip-border);
+  border-radius: 6px;
+  background: var(--term-chip-bg);
+  color: var(--term-text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vx-preview__body.is-device {
+  overflow: hidden;
+  background: #141414;
+  background-image: radial-gradient(#262626 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+:where(html.light-theme) .vx-preview__body.is-device {
+  background-color: #e9e9e9;
+  background-image: radial-gradient(#d0d0d0 1px, transparent 1px);
+}
+
+.vx-preview__device {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform-origin: top center;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.35), 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.vx-preview__device-info {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ddd;
+  font-family: var(--vx-mono);
+  font-size: 10.5px;
+  pointer-events: none;
+}
+
+.vx-preview__devtools {
+  flex-shrink: 0;
+  display: flex;
+  min-height: 32px;
+}
+
+.vx-dev {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--term-line);
+  background: #0a0a0a;
+}
+:where(html.light-theme) .vx-dev { background: #f5f5f5; }
+
+.vx-dev__resize {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  z-index: 2;
+  cursor: row-resize;
+}
+.vx-dev__resize:hover { background: color-mix(in srgb, var(--ide-accent, #51cf66) 40%, transparent); }
+
+.vx-dev__bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--term-line);
+}
+.vx-dev:not(.is-open) .vx-dev__bar { border-bottom: 0; }
+
+.vx-dev__collapse {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--term-muted);
+  cursor: pointer;
+}
+.vx-dev__collapse:hover { background: var(--term-hover); color: var(--term-text); }
+.vx-dev.is-open .vx-preview__chevron { transform: none; }
+
+.vx-dev__tabs { display: flex; gap: 2px; min-width: 0; }
+
+.vx-dev__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--term-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.vx-dev__tab:hover { color: var(--term-text); background: var(--term-hover); }
+.vx-dev__tab.is-active { color: var(--term-text); background: var(--term-chip-bg); }
+
+.vx-dev__bar-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; min-width: 0; }
+
+.vx-dev__search {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--term-chip-border);
+  border-radius: 6px;
+  background: var(--term-chip-bg);
+  color: var(--term-muted);
+}
+.vx-dev__search input {
+  width: 110px;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--term-text);
+  font-size: 11.5px;
+}
+
+.vx-preview__count.is-warn { background: rgba(255, 212, 59, 0.15); color: #ffd43b; }
+:where(html.light-theme) .vx-preview__count.is-warn { color: #b45309; }
+
+.vx-dev__filters {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--term-line);
+}
+
+.vx-dev__chip {
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--term-muted);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.vx-dev__chip:hover { color: var(--term-text); }
+.vx-dev__chip.is-active { color: var(--term-text); border-color: var(--term-chip-border); background: var(--term-chip-bg); }
+
+.vx-dev .vx-preview__log { display: flex; gap: 8px; }
+.vx-dev__time { flex-shrink: 0; color: var(--term-muted); opacity: 0.7; font-size: 10.5px; padding-top: 1px; }
+.vx-dev__text { min-width: 0; flex: 1 1 auto; white-space: pre-wrap; word-break: break-word; }
+.vx-dev__prompt { flex-shrink: 0; color: #74c0fc; font-weight: 700; }
+.vx-preview__log.is-input { color: var(--term-text); }
+.vx-preview__log.is-result { color: #b2f2bb; }
+:where(html.light-theme) .vx-preview__log.is-result { color: #2f9e44; }
+
+.vx-dev__input {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 10px;
+  border-top: 1px solid var(--term-line);
+  font-family: var(--vx-mono);
+  font-size: 12px;
+}
+.vx-dev__input textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--term-text);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.vx-dev__note {
+  padding: 10px 12px;
+  color: var(--term-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.vx-dev__link {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #74c0fc;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Желі */
+.vx-net { position: relative; flex: 1 1 0; min-height: 0; display: flex; }
+.vx-net__table { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.vx-net__body { flex: 1 1 0; min-height: 0; overflow: auto; }
+
+.vx-net__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 62px 76px 70px 64px;
+  align-items: center;
+  width: 100%;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--term-line);
+  background: transparent;
+  color: var(--term-text);
+  font-family: var(--vx-mono);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.vx-net__row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+.vx-net__row:hover { background: var(--term-hover); }
+.vx-net__row.is-selected { background: color-mix(in srgb, #74c0fc 16%, transparent); }
+.vx-net__row.is-error { color: #ff8787; }
+.vx-net__row.is-warn { color: #ffd43b; }
+.vx-net__row.is-pending { color: var(--term-muted); }
+:where(html.light-theme) .vx-net__row.is-error { color: #dc2626; }
+:where(html.light-theme) .vx-net__row.is-warn { color: #b45309; }
+
+.vx-net__head {
+  flex-shrink: 0;
+  cursor: default;
+  color: var(--term-muted);
+  font-family: inherit;
+  font-size: 11px;
+}
+.vx-net__head:hover { background: transparent; }
+
+.vx-net__name em {
+  margin-right: 5px;
+  font-style: normal;
+  font-weight: 700;
+  color: #da77f2;
+}
+.vx-net__name small { margin-left: 6px; color: var(--term-muted); font-size: 10.5px; }
+
+.vx-net__summary {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-top: 1px solid var(--term-line);
+  color: var(--term-muted);
+  font-size: 11px;
+}
+
+.vx-net__detail {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(62%, 560px);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--term-line);
+  background: #0d0d0d;
+  box-shadow: -10px 0 24px rgba(0, 0, 0, 0.3);
+}
+:where(html.light-theme) .vx-net__detail { background: #fafafa; box-shadow: -10px 0 24px rgba(0, 0, 0, 0.08); }
+
+.vx-net__detail-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--term-line);
+}
+.vx-net__detail-body { flex: 1 1 0; min-height: 0; overflow: auto; padding: 6px 0; }
+
+.vx-dev__section { padding: 4px 10px 8px; }
+.vx-dev__section-title { margin-bottom: 4px; color: var(--term-text); font-size: 11.5px; font-weight: 600; }
+.vx-dev__kv {
+  display: grid;
+  grid-template-columns: minmax(90px, 34%) 1fr;
+  gap: 10px;
+  padding: 1px 0;
+  font-family: var(--vx-mono);
+  font-size: 11.5px;
+}
+.vx-dev__kv > span:first-child { color: var(--term-muted); overflow-wrap: anywhere; }
+.vx-dev__kv > span:last-child { color: var(--term-text); overflow-wrap: anywhere; }
+.vx-dev__kv > span.is-error { color: #ff8787; }
+.vx-dev__kv.is-empty { color: var(--term-muted); display: block; }
+
+.vx-net__pre {
+  margin: 0;
+  padding: 4px 10px;
+  color: var(--term-text);
+  font-family: var(--vx-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .vx-net__row { grid-template-columns: minmax(100px, 1fr) 52px 64px; }
+  .vx-net__row > span:nth-child(3), .vx-net__row > span:nth-child(5) { display: none; }
+  .vx-net__detail { width: 100%; }
+  .vx-dev__search input { width: 70px; }
+  .vx-preview__device-select { max-width: 90px; }
+}
+
+.vx-net__image {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background-image: linear-gradient(45deg, rgba(127,127,127,.15) 25%, transparent 25%, transparent 75%, rgba(127,127,127,.15) 75%),
+    linear-gradient(45deg, rgba(127,127,127,.15) 25%, transparent 25%, transparent 75%, rgba(127,127,127,.15) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+.vx-net__image img { max-width: 100%; max-height: 260px; object-fit: contain; }
+
+/* =========================================================
+   Сайдбарлар енге қарай бейімделеді (container queries)
+   ========================================================= */
+.vibe-panel-left > *,
+.vx-ai {
+  container-type: inline-size;
+}
+.vx-ai { container-name: vxai; }
+.vibe-panel-left > * { container-name: vxside; }
+
+/* Кең AI панелі: мәтін жолдары тым ұзарып кетпеуі үшін ортаға жиналады */
+@container vxai (min-width: 560px) {
+  .vx-ai__thread,
+  .vx-ai__composer {
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  .vx-ai__thread { padding-inline: 20px; gap: 22px; }
+  .vx-ai__msg--user .vx-ai__content { max-width: 75%; }
+}
+@container vxai (min-width: 900px) {
+  .vx-ai { font-size: 14px; }
+  .vx-ai__thread,
+  .vx-ai__composer { max-width: 840px; }
+}
+/* Тар AI панелі: ішкі шегіністер азаяды */
+@container vxai (max-width: 300px) {
+  .vx-ai__thread { padding-inline: 10px; gap: 14px; }
+  .vx-ai__composer { padding-inline: 8px; }
+  .vx-ai__msg--user .vx-ai__content { max-width: 94%; }
+}
+
+/* Кең файлдар панелі: жолдар биіктеп, оқуға жеңілдейді */
+@container vxside (min-width: 420px) {
+  .vx-row { height: 28px; font-size: 13.5px; }
+}
+
+/* =========================================================
+   Жазу картасы — икемді: бір жолда [тіркеу | мәтін | жіберу],
+   мәтін ұзарса өседі, батырмалар төменгі жолда қалады
+   ========================================================= */
+.vx-ai__box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "atts atts atts"
+    "attach input send";
+  align-items: end;
+  column-gap: 4px;
+  row-gap: 0;
+  padding: 6px;
+  border-radius: 20px;
+}
+.vx-ai__box::before { border-radius: 21px; }
+.vx-ai__box-foot { display: contents; }
+.vx-ai__foot-left { grid-area: attach; height: 34px; }
+.vx-ai__box > .vx-ai__atts--draft { grid-area: atts; margin: 2px 2px 6px; }
+.vx-ai__input {
+  grid-area: input;
+  align-self: center;
+  min-height: 34px;
+  max-height: min(168px, 35vh);
+  padding: 6px 4px;
+  box-sizing: border-box;
+  overflow-y: hidden;
+}
+.vx-ai__box .vx-ai__send { grid-area: send; }
+
+/* Тар панель: шегіністер азаяды */
+@container vxai (max-width: 300px) {
+  .vx-ai__composer { padding: 6px 6px 8px; }
+  .vx-ai__box { padding: 4px; border-radius: 16px; column-gap: 2px; }
+  .vx-ai__box::before { border-radius: 17px; }
+  .vx-ai__input { font-size: 13px; }
+}
+/* Кең панель: өріс биігірек өсе алады, карта сәл кеңірек */
+@container vxai (min-width: 560px) {
+  .vx-ai__box { padding: 8px; border-radius: 22px; }
+  .vx-ai__box::before { border-radius: 23px; }
+  .vx-ai__input { max-height: min(260px, 40vh); font-size: 14px; }
+}
+
+/* Файл сүйреліп жазу картасының үстінде тұрғанда */
+.vx-ai__box.is-drop {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px transparent,
+    0 0 0 4px rgba(56, 189, 248, 0.12),
+    0 0 40px -10px rgba(56, 189, 248, 0.35);
+}
+.vx-ai__box.is-drop::before {
+  opacity: 1;
+  background: rgba(56, 189, 248, 0.85);
+  animation: none;
+}
+.vx-ai__box.is-drop::after {
+  content: 'Осында тастаңыз';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgba(10, 10, 10, 0.82);
+  color: #7dd3fc;
+  font-size: 12.5px;
+  font-weight: 500;
+  pointer-events: none;
+}
+:where(html.light-theme) .vx-ai__box.is-drop::after {
+  background: rgba(255, 255, 255, 0.86);
+  color: #0369a1;
+}

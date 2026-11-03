@@ -116,7 +116,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, buttonRef 
     { path: '/notes', label: t('notes.title'), icon: <FontAwesomeIcon icon={faBook} /> },
     { path: '/settings', label: t('sidebar.settings'), icon: <FontAwesomeIcon icon={faCog} /> },
     ...(isModerator ? [{ path: '/moderation', label: t('moderation.title'), icon: <FontAwesomeIcon icon={faShieldHalved} /> }] : []),
-    ...(isAdmin ? [{ path: '/admin/monitoring', label: t('monitoring.menu'), icon: <FontAwesomeIcon icon={faChartLine} /> }] : []),
+    ...(isAdmin ? [{ path: '/admin/monitoring', label: t('admin.title'), icon: <FontAwesomeIcon icon={faChartLine} /> }] : []),
   ];
 
   const isLoggedIn = !!localStorage.getItem('user');

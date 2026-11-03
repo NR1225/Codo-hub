@@ -111,7 +111,7 @@
     linear-gradient(180deg, var(--mono-121212) 0%, var(--mono-0b0b0b) 100%);
 }
 
-/* Бос күйде фонда нүктелі тор — басты беттегі Бүркіт сияқты */
+/* Бос күйде фонда нүктелі тор — басты беттегі Codo сияқты */
 .nt-workspace.is-empty::before {
   content: '';
   position: absolute;
@@ -1020,7 +1020,7 @@
 .nt-picker__item.is-active small { color: var(--mono-525252); }
 .nt-picker__item--create span { font-style: italic; }
 
-/* ── Бос күй: басты беттегі Бүркіт hero-сы сияқты ── */
+/* ── Бос күй: басты беттегі Codo hero-сы сияқты ── */
 .nt-welcome {
   flex: 1;
   min-height: 0;

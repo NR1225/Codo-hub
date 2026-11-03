@@ -13,6 +13,13 @@ interface UseResizerOptions {
   minRight?: number;
   minBottom?: number;
   minCenter?: number;
+  /** Ортаңғы бағанның ең кіші ені (px) — пайызбен қатар тексеріледі */
+  minCenterPx?: number;
+  /** Оң панельдің ең үлкен ені (%) */
+  maxRight?: number;
+  /** Жабық панель орын алмайды — қарсы панельді соның есебінен кеңейтуге болады */
+  leftVisible?: boolean;
+  rightVisible?: boolean;
   onSizesChange?: (sizes: PanelSizes) => void;
   disabled?: boolean;
 }
@@ -23,6 +30,10 @@ export function useResizer({
   minRight = 15,
   minBottom = 15,
   minCenter = 30,
+  minCenterPx = 0,
+  maxRight = 100,
+  leftVisible = true,
+  rightVisible = true,
   onSizesChange,
   disabled = false,
 }: UseResizerOptions) {
@@ -39,6 +50,8 @@ export function useResizer({
   // setSizes updater would update another component during render)
   const sizesRef = useRef(sizes);
   sizesRef.current = sizes;
+  const visibleRef = useRef({ left: leftVisible, right: rightVisible });
+  visibleRef.current = { left: leftVisible, right: rightVisible };
 
   const onDragStart = useCallback((
     e: React.MouseEvent,
@@ -73,13 +86,18 @@ export function useResizer({
         const deltaPercentY = (dy / totalHeight) * 100;
 
         let newSizes = { ...prev };
+        // Ортаға қалатын ең кіші орын: пайыз немесе пиксель — қайсысы үлкен болса
+        const centerMin = Math.max(minCenter, totalWidth > 0 ? (minCenterPx / totalWidth) * 100 : 0);
+        // Қарсы панель нақты қанша орын алып тұр (жабық болса — 0)
+        const otherRight = visibleRef.current.right ? startSizes.current.right : 0;
+        const otherLeft = visibleRef.current.left ? startSizes.current.left : 0;
 
         if (dragType.current === 'left') {
-          const newLeft = Math.max(minLeft, Math.min(startSizes.current.left + deltaPercentX, 100 - minCenter - minRight));
+          const newLeft = Math.max(minLeft, Math.min(startSizes.current.left + deltaPercentX, 100 - centerMin - otherRight));
           newSizes.left = newLeft;
           newSizes.center = 100 - newLeft - startSizes.current.right;
         } else if (dragType.current === 'right') {
-          const newRight = Math.max(minRight, Math.min(startSizes.current.right - deltaPercentX, 100 - minCenter - minLeft));
+          const newRight = Math.max(minRight, Math.min(startSizes.current.right - deltaPercentX, 100 - centerMin - otherLeft, maxRight));
           newSizes.right = newRight;
           newSizes.center = 100 - startSizes.current.left - newRight;
         } else if (dragType.current === 'bottom') {
@@ -109,7 +127,7 @@ export function useResizer({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [minLeft, minRight, minBottom, minCenter]);
+  }, [minLeft, minRight, minBottom, minCenter, minCenterPx, maxRight]);
 
   return { sizes, setSizes, onDragStart };
 }

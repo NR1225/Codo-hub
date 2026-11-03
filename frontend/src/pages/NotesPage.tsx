@@ -386,7 +386,7 @@ const NotesPage: React.FC = () => {
     if (!active) {
       return (
         <div className="nt-welcome">
-          {/* Басты беттегі Бүркіт сияқты: жарқыраған белгіше, тақырып, дайын әрекеттер */}
+          {/* Басты беттегі Codo сияқты: жарқыраған белгіше, тақырып, дайын әрекеттер */}
           <div className="nt-welcome__hero">
             <div className="nt-welcome__orb">
               <FontAwesomeIcon icon={faFileLines} />

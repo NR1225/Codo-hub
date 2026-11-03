@@ -64,18 +64,19 @@ import {
   mentionCandidates,
 } from './burkitBlocks';
 import SendIcon from '../SendIcon';
+import { VIBE_PATH_MIME, readVibePath } from './dragTypes';
 
-/* Бүркіт — Vibecoding-тегі код көмекшісі (Google Gemini), Cursor/Claude сияқты агент: Agent режимінде
+/* Codo — Vibecoding-тегі код көмекшісі (Google Gemini), Cursor/Claude сияқты агент: Agent режимінде
    жобаның файлдарын жазады, бөлшектеп өңдейді, өшіреді, жылжытады, оқиды, терминалда команда орындайды
    (burkitBlocks.ts) және нәтижесін көріп, жұмысты өзі жалғастырады. Файлдар мен Notes өзгерістері
    «Қабылдау / Қайтару» арқылы қаралады (редакторда diff). Ask режимі тек жауап береді (файл оқи алады).
    Хабарда @файл / @папка — сол файлдар контекстке бірінші болып қосылады.
-   Дизайны басты беттегі Бүркіттікі (SiteAI). Сөйлесулер тарихта сақталады. */
+   Дизайны басты беттегі Codo-нікі (SiteAI). Сөйлесулер тарихта сақталады. */
 
-// Бүркітке жіберілетін соңғы хабарлар саны және ашық файлдың ең үлкен көлемі (backend шектеулері)
+// Codo-ға жіберілетін соңғы хабарлар саны және ашық файлдың ең үлкен көлемі (backend шектеулері)
 const MAX_HISTORY = 20;
 
-// Үзілген жауапты жалғастыру сұрауы (чатта көрсетілмейді, тек Бүркітке барады)
+// Үзілген жауапты жалғастыру сұрауы (чатта көрсетілмейді, тек Codo-ға барады)
 const CONTINUE_PROMPT =
   '[Жүйелік хабар] Алдыңғы жауабың бет жаңартылғандықтан үзіліп қалды. Дәл тоқтаған жерінен жалғастыр: ' +
   'бұрын жазылған мәтінді қайталама, кіріспе сөз жазба. Код блогының ортасында тоқтаған болсаң — блокты қайта ' +
@@ -123,7 +124,7 @@ function generateId(): string {
   }
 }
 
-// Жоба файлдарын Бүркітке жіберу: ашық файл бөлек барады, қалғандары — жалпы көлем шегіне дейін.
+// Жоба файлдарын Codo-ға жіберу: ашық файл бөлек барады, қалғандары — жалпы көлем шегіне дейін.
 // @ арқылы атап өтілген файлдар (немесе папкалардың ішіндегілері) бірінші орынға алынады
 const MAX_PROJECT_CHARS = 150_000;
 
@@ -139,7 +140,7 @@ function projectContext(files: VirtualFile[], activePath?: string, mentions: str
   return files.map((f) => (included.has(f.path) ? { path: f.path, content: f.content } : { path: f.path }));
 }
 
-// Бір пайдаланушы хабарына Бүркіт өзі жасай алатын қадамдар (құрал нәтижесі → жалғасы)
+// Бір пайдаланушы хабарына Codo өзі жасай алатын қадамдар (құрал нәтижесі → жалғасы)
 const MAX_AUTO_STEPS = 10;
 const TOOL_PREFIX = '[Құрал нәтижесі]';
 // read нәтижесінде бір файлдың ең үлкен көлемі
@@ -242,15 +243,14 @@ const ChatPanel: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Ағымдағы файлды контекст ретінде қосу (Copilot-тағы «Current file»)
-  const [useContext, setUseContext] = useState(true);
   const [slashIndex, setSlashIndex] = useState(0);
-  // Бүркіт қай кілтпен жұмыс істейді (null — әлі жүктелмеді)
+  // Codo қай кілтпен жұмыс істейді (null — әлі жүктелмеді)
   const [status, setStatus] = useState<BurkitStatus | null>(null);
   const [statusChecked, setStatusChecked] = useState(false);
-  // Терминалдан келген сұрақ («Бүркіттен сұрау») — Бүркіт бос болғанда жіберіледі
+  // Терминалдан келген сұрақ («Codo-дан сұрау») — Codo бос болғанда жіберіледі
   const [incoming, setIncoming] = useState<string | null>(null);
   const [keyOpen, setKeyOpen] = useState(false);
-  // Бүркіт әрқашан автоматты агент: файлдарға жазады, командаларды сұрамай орындайды
+  // Codo әрқашан автоматты агент: файлдарға жазады, командаларды сұрамай орындайды
   // (тек қайтарылмайтын жоба әрекеттері расталады)
   const mode: BurkitMode = 'agent';
   // Жобаға автоматты байланысқан Notes папкасы (жоба серверге сақталмаған болса — null)
@@ -259,9 +259,9 @@ const ChatPanel: React.FC = () => {
   const autoRun = true;
   // Қазір орындалып жатқан әрекет (команда / жоба әрекеті): «хабар id:блок нөмірі»
   const [runningAction, setRunningAction] = useState<string | null>(null);
-  // Бүркіт көрсеткен сілтемелер (бөлісу сілтемесі т.б.): «хабар id:блок нөмірі» → url
+  // Codo көрсеткен сілтемелер (бөлісу сілтемесі т.б.): «хабар id:блок нөмірі» → url
   const [actionLinks, setActionLinks] = useState<Record<string, string>>({});
-  // Сайттағы жобалар, достар, топтар — project блоктары үшін Бүркітке барады
+  // Сайттағы жобалар, достар, топтар — project блоктары үшін Codo-ға барады
   const [siteContext, setSiteContext] = useState<BurkitSiteContext | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -270,6 +270,9 @@ const ChatPanel: React.FC = () => {
   projectsRef.current = vibeState.projects;
   // Курсор орны — @ ескертулер тізімі үшін
   const [caret, setCaret] = useState(0);
+  // Файл сүйреліп жазу картасының үстінде тұр (ағаштан немесе компьютерден)
+  const [dropActive, setDropActive] = useState(false);
+  const dragDepth = useRef(0);
   const [mentionIndex, setMentionIndex] = useState(0);
   // Қолмен орындалатын командалары бар жауаптың жиналған нәтижелері (replyId → нәтижелер)
   const heldRef = useRef(new Map<string, string[]>());
@@ -295,7 +298,8 @@ const ChatPanel: React.FC = () => {
   conversationsRef.current = history.conversations;
 
   const isEmpty = messages.length === 0;
-  const contextFile = useContext ? activeFile : null;
+  // Ашық файл Codo-ға әрқашан контекст ретінде барады (белгісі композиторда көрсетілмейді)
+  const contextFile = activeFile;
   const needsKey = status?.source === 'none';
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -342,12 +346,14 @@ const ChatPanel: React.FC = () => {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Өріс мәтінге қарай өседі (ең көбі ~7 жол)
+  // Өріс мәтінге қарай өседі — шегі CSS max-height-тен (панель еніне қарай өзгереді)
   useLayoutEffect(() => {
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+    const max = parseFloat(getComputedStyle(el).maxHeight) || 168;
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
   }, [inputValue, view]);
 
   // Сөйлесуді тарихқа сақтау
@@ -400,7 +406,7 @@ const ChatPanel: React.FC = () => {
 
     let unsubscribe = () => {};
     try {
-      // Терминал папкасы серверде — Бүркіт жазған файлдар алдымен сонда жетсін
+      // Терминал папкасы серверде — Codo жазған файлдар алдымен сонда жетсін
       await flushProjects().catch(() => {});
       dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: true });
       let out = '';
@@ -463,7 +469,7 @@ const ChatPanel: React.FC = () => {
   }, [host]);
   useEffect(refreshSite, [refreshSite]);
 
-  // Бір әрекет блогын орындау; қайтарғаны — Бүркітке баратын нәтиже
+  // Бір әрекет блогын орындау; қайтарғаны — Codo-ға баратын нәтиже
   const executeBlock = useCallback(async (block: CodeBlock, signal: AbortSignal, replyId: string, index: number): Promise<string> => {
     const key = `${replyId}:${index}`;
     setRunningAction(key);
@@ -485,7 +491,7 @@ const ChatPanel: React.FC = () => {
     }
   }, [runCommand, host, refreshSite]);
 
-  // Құрал нәтижелерін Бүркітке жіберіп, жұмысты жалғастыру (агент циклі)
+  // Құрал нәтижелерін Codo-ға жіберіп, жұмысты жалғастыру (агент циклі)
   const respondRef = useRef<((thread: BurkitMessage[], file: VirtualFile | null, resume?: BurkitMessage, step?: number) => void) | null>(null);
   const continueWith = useCallback((base: BurkitMessage[], feedback: string[], file: VirtualFile | null, step: number) => {
     dirtyRef.current = true;
@@ -493,7 +499,7 @@ const ChatPanel: React.FC = () => {
       setMessages((prev) => [...prev, {
         id: generateId(),
         role: 'assistant',
-        content: '⚠️ Бүркіт қатарынан тым көп қадам жасады. Жалғастыру үшін хабар жазыңыз.',
+        content: '⚠️ Codo қатарынан тым көп қадам жасады. Жалғастыру үшін хабар жазыңыз.',
         timestamp: new Date().toISOString(),
         error: true,
       }]);
@@ -521,7 +527,7 @@ const ChatPanel: React.FC = () => {
     }));
   };
 
-  // Бүркіттен жауап: мәтін бөлік-бөлік келіп, бір хабарға жиналады
+  // Codo-дан жауап: мәтін бөлік-бөлік келіп, бір хабарға жиналады
   // resume — үзілген жауап: жаңа мәтін соның соңына жалғанады; step — агент циклінің қадамы
   const respond = useCallback(async (thread: BurkitMessage[], file: VirtualFile | null, resume?: BurkitMessage, step = 0) => {
     const controller = new AbortController();
@@ -534,7 +540,7 @@ const ChatPanel: React.FC = () => {
     let full = resume?.content ?? '';
     // Үзілгенге дейін жабылған блоктар файлдарға жазылып қойған — қайта жазбаймыз
     let applied = resume ? extractCodeBlocks(full).length : 0;
-    // Келесі қадамда Бүркітке баратын нәтижелер (read, run, сәтсіз өзгерістер)
+    // Келесі қадамда Codo-ға баратын нәтижелер (read, run, сәтсіз өзгерістер)
     const feedback: string[] = [];
     const lastUserText = [...thread].reverse().find((m) => m.role === 'user' && !m.tool)?.content ?? '';
     const mentions = project ? parseMentions(lastUserText, project.files.map((f) => f.path)) : [];
@@ -694,7 +700,7 @@ const ChatPanel: React.FC = () => {
   }, [t, i18n, mode, edits, refreshNotes, autoRun, executeBlock, markRan, continueWith, siteContext]);
   respondRef.current = respond;
 
-  // run / project блогы: «Іске қосу» / «Өткізу». Жауаптың барлық әрекеті қаралғанда нәтижелер Бүркітке барады
+  // run / project блогы: «Іске қосу» / «Өткізу». Жауаптың барлық әрекеті қаралғанда нәтижелер Codo-ға барады
   const handleRunBlock = useCallback(async (msg: BurkitMessage, index: number, skip: boolean) => {
     if (isLoading) return;
     const blocks = extractCodeBlocks(msg.content);
@@ -723,7 +729,7 @@ const ChatPanel: React.FC = () => {
     if (held.length > 0) continueWith(messagesRef.current, held, contextFile, 1);
   }, [isLoading, markRan, executeBlock, continueWith, contextFile, mode]);
 
-  // Кәдімгі shell блогын терминалға жіберу (нәтижесі Бүркітке бармайды)
+  // Кәдімгі shell блогын терминалға жіберу (нәтижесі Codo-ға бармайды)
   const handleSendToTerminal = useCallback(async (command: string) => {
     const project = projectRef.current;
     if (!project) return;
@@ -874,6 +880,31 @@ const ChatPanel: React.FC = () => {
       el.setSelectionRange(before.length, before.length);
     });
   };
+
+  // Файлдар ағашынан тасталған файл/папка — курсор тұрған жерге «@жол» болып қосылады
+  const insertPathMention = (path: string, folder: boolean) => {
+    const token = `@${path}${folder ? '/' : ''}`;
+    if (inputValue.split(/\s+/).includes(token)) {
+      inputRef.current?.focus();
+      return; // бұл файл хабарда бар
+    }
+    const at = caret >= 0 ? Math.min(caret, inputValue.length) : inputValue.length;
+    const head = inputValue.slice(0, at);
+    const tail = inputValue.slice(at);
+    const pre = head && !/\s$/.test(head) ? ' ' : '';
+    const next = `${head}${pre}${token} ${tail.replace(/^\s+/, '')}`;
+    const pos = head.length + pre.length + token.length + 1;
+    setInputValue(next);
+    setCaret(pos);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const acceptsDrop = (dt: DataTransfer) => dt.types.includes(VIBE_PATH_MIME) || dt.types.includes('Files');
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (mentionMatches.length > 0) {
@@ -1146,7 +1177,7 @@ const ChatPanel: React.FC = () => {
     return elements;
   };
 
-  // Файлды редакторда ашу (Бүркіт өзгерткен файлдың атын басқанда)
+  // Файлды редакторда ашу (Codo өзгерткен файлдың атын басқанда)
   const openPath = (path: string) => {
     const file = activeProject?.files.find((f) => f.path === path);
     if (file) dispatch({ type: 'OPEN_FILE', payload: { fileId: file.id } });
@@ -1275,7 +1306,7 @@ const ChatPanel: React.FC = () => {
           </button>
         )}
         <span className="vx-ai__bar-title">
-          {isEmpty ? 'Бүркіт' : history.conversations.find((c) => c.id === conversationId)?.title ?? 'Бүркіт'}
+          {isEmpty ? 'Codo' : history.conversations.find((c) => c.id === conversationId)?.title ?? 'Codo'}
         </span>
         <div className="vx-ai__bar-actions">
           <button
@@ -1310,17 +1341,15 @@ const ChatPanel: React.FC = () => {
           />
         )}
         {isEmpty ? (
-          // Жаңа чат: ортада жарық жиекті белгіше, атау және дайын сұраулар (басты беттің Бүркіті сияқты)
+          // Жаңа чат: ортада жарық жиекті белгіше, атау және дайын сұраулар (басты беттің Codo-сы сияқты)
           <div className="vx-ai__hero">
             <div className="vx-ai__orb" aria-hidden="true">
               <BurkitLogo size={50} />
             </div>
-            <h2 className="vx-ai__hero-title">Бүркіт</h2>
+            <h2 className="vx-ai__hero-title">Codo</h2>
             <p className="vx-ai__hero-sub">
               {mode === 'agent' && activeProject ? (
                 <>Agent режимі: <b>{activeProject.name}</b> жобасының файлдарына өзім жазамын, сіз тек қабылдайсыз немесе қайтарасыз</>
-              ) : activeFile ? (
-                <>Ашық файлмен жұмыс істеймін: <b>{activeFile.name}</b></>
               ) : (
                 t('vibecoding.chat.subtitle')
               )}
@@ -1374,7 +1403,7 @@ const ChatPanel: React.FC = () => {
         ) : (
           <div className="vx-ai__thread">
             {messages.map((msg) => (msg.tool ? (
-              // Құрал нәтижесі (read/run) — Бүркітке барған мәтін, ықшам күйде
+              // Құрал нәтижесі (read/run) — Codo-ға барған мәтін, ықшам күйде
               <details key={msg.id} className="vx-ai__tool">
                 <summary>
                   <TerminalIcon size={12} />
@@ -1429,7 +1458,7 @@ const ChatPanel: React.FC = () => {
               <div className="vx-ai__msg vx-ai__msg--assistant">
                 <div className="vx-ai__thinking" aria-label={t('vibecoding.chat.thinking')}>
                   <span className="vx-ai__dots"><span /><span /><span /></span>
-                  Бүркіт ойланып жатыр
+                  Codo ойланып жатыр
                 </div>
               </div>
             )}
@@ -1511,7 +1540,7 @@ const ChatPanel: React.FC = () => {
         )}
 
         <div
-          className={`vx-ai__box ${isLoading ? 'is-busy' : ''}`}
+          className={`vx-ai__box ${isLoading ? 'is-busy' : ''} ${dropActive ? 'is-drop' : ''}`}
           // Картаның кез келген жерін басса — мәтін жолына фокус
           onMouseDown={(e) => {
             if (!(e.target as HTMLElement).closest('textarea, button, input')) {
@@ -1519,8 +1548,29 @@ const ChatPanel: React.FC = () => {
               inputRef.current?.focus();
             }
           }}
-          onDragOver={(e) => e.dataTransfer.types.includes('Files') && e.preventDefault()}
+          onDragEnter={(e) => {
+            if (!acceptsDrop(e.dataTransfer)) return;
+            dragDepth.current += 1;
+            setDropActive(true);
+          }}
+          onDragLeave={() => {
+            dragDepth.current = Math.max(0, dragDepth.current - 1);
+            if (dragDepth.current === 0) setDropActive(false);
+          }}
+          onDragOver={(e) => {
+            if (!acceptsDrop(e.dataTransfer)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
           onDrop={(e) => {
+            dragDepth.current = 0;
+            setDropActive(false);
+            const vibe = readVibePath(e.dataTransfer);
+            if (vibe) {
+              e.preventDefault();
+              insertPathMention(vibe.path, vibe.folder);
+              return;
+            }
             if (e.dataTransfer.files.length === 0) return;
             e.preventDefault();
             void attach.add(Array.from(e.dataTransfer.files));
@@ -1554,7 +1604,7 @@ const ChatPanel: React.FC = () => {
             placeholder="Жазу"
             rows={1}
             className="vx-ai__input"
-            aria-label="Бүркіт"
+            aria-label="Codo"
           />
           <div className="vx-ai__box-foot">
             <div className="vx-ai__foot-left">
@@ -1564,20 +1614,6 @@ const ChatPanel: React.FC = () => {
               disabled={attach.busy}
               onFiles={(files, folder) => void attach.add(files, folder)}
             />
-            {activeFile ? (
-              <button
-                type="button"
-                className={`vx-ai__ctx ${useContext ? 'is-on' : ''}`}
-                onClick={() => setUseContext((v) => !v)}
-                title={useContext ? 'Файл контекстке қосылған — алып тастау' : 'Ашық файлды контекстке қосу'}
-              >
-                <FileTypeIcon name={activeFile.name} size={14} />
-                <span className="vx-ai__ctx-name">{activeFile.name}</span>
-                {useContext ? <CloseIcon size={11} /> : <PlusIcon size={11} />}
-              </button>
-            ) : (
-              <span className="vx-ai__ctx-empty">Файл ашылмаған</span>
-            )}
             </div>
             {isLoading ? (
               <button type="button" onClick={stop} className="vx-ai__send is-stop" title="Тоқтату">

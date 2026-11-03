@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import os
 import secrets
 import uuid
 from datetime import datetime
@@ -19,7 +20,7 @@ from db import ChatGroupMessage, User, VibecodingProject, get_db
 from services.code_service import CodeService
 from utils.upload_rules import classify_upload_path
 from services.group_service import GroupService
-from services import project_notes, terminal_workspace
+from services import project_notes, run_plan, terminal_workspace
 from services.terminal_service import terminal_manager
 from utils.auth import get_current_user
 
@@ -166,6 +167,55 @@ async def save_project(
     except Exception as e:
         logger.error("Terminal workspace push failed for %s: %s", project.id, e)
     return _to_dict(project)
+
+
+@router.get("/vibecoding/projects/{project_id}/run-plan")
+@limiter.limit("60/minute")
+async def get_run_plan(
+    request: Request,
+    project_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """«Іске қосу»: жоба қалай іске қосылады (dev-сервер / статикалық HTML / консоль скрипті).
+    Терминал папкасы әлі жоқ болса — дерекқордағы файлдардан жасалады."""
+    project = db.query(VibecodingProject).filter(VibecodingProject.id == project_id).first()
+    if not project or project.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Жоба табылмады")
+    root = terminal_workspace.project_dir(user.id, project.id)
+    if not root or not os.path.isdir(root):
+        root = await asyncio.to_thread(
+            terminal_workspace.push, user.id, project.id, project.name,
+            _load_json_list(project.files), _load_json_list(project.folders), True,
+        )
+    return await asyncio.to_thread(run_plan.detect, root)
+
+
+class DevProxyIn(BaseModel):
+    port: int = Field(ge=1, le=65535)
+    path: str = Field(default="/", max_length=2048)
+
+
+@router.post("/vibecoding/dev-proxy")
+@limiter.limit("60/minute")
+async def open_dev_proxy(
+    request: Request,
+    body: DevProxyIn,
+    user: User = Depends(get_current_user),
+):
+    """Терминалдағы dev-серверді DevTools көпірі бар прокси арқылы ашу:
+    «Көрініс» панелі сол беттің консолі мен желі сұрауларын көрсете алады."""
+    from services.dev_proxy import dev_proxy_manager, port_allowed, AUTH_PATH
+    from urllib.parse import urlencode
+
+    if not port_allowed(body.port):
+        raise HTTPException(status_code=400, detail="Бұл портқа прокси ашуға болмайды")
+    # Dev-сервер тек осы қолданушының терминалынан іске қосылады
+    if not any(s.user_id == user.id for s in terminal_manager.sessions.values()):
+        raise HTTPException(status_code=409, detail="Ашық терминал жоқ")
+    path = body.path if body.path.startswith("/") and not body.path.startswith("//") else "/"
+    proxy = await dev_proxy_manager.get_or_create(user.id, body.port)
+    return {"port": proxy.port, "path": f"{AUTH_PATH}?{urlencode({'t': proxy.token, 'next': path})}"}
 
 
 @router.delete("/vibecoding/projects/{project_id}")

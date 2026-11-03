@@ -1,4 +1,4 @@
-"""Бүркіт (Gemini) — кілтті басқару және сөйлесу (streaming)"""
+"""Codo (Gemini) — кілтті басқару және сөйлесу (streaming)"""
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -56,7 +56,7 @@ class BurkitEditorState(BaseModel):
 
 
 class BurkitWorkspace(BaseModel):
-    """Vibecoding бетінің ағымдағы күйі: Бүркіт қолданушы не істеп жатқанын көреді"""
+    """Vibecoding бетінің ағымдағы күйі: Codo қолданушы не істеп жатқанын көреді"""
     events: list[str] = Field(default_factory=list, max_length=100)
     terminal: Optional[str] = Field(default=None, max_length=15_000)
     terminalConnected: bool = False
@@ -101,16 +101,16 @@ class BurkitChatRequest(BaseModel):
     # Серверге сақталған жоба болса — оның Notes папкасындағы жазбалар да жіберіледі
     projectId: Optional[str] = Field(default=None, max_length=64)
     projectFiles: list[BurkitProjectFile] = Field(default_factory=list, max_length=500)
-    # agent — Бүркіт path= блоктарымен жоба файлдарына жазады; ask — тек жауап береді
-    # site — басты беттегі Бүркіт (сайт бойынша көмекші, жобасыз)
+    # agent — Codo path= блоктарымен жоба файлдарына жазады; ask — тек жауап береді
+    # site — басты беттегі Codo (сайт бойынша көмекші, жобасыз)
     mode: Literal["agent", "ask", "site"] = "ask"
     workspace: Optional[BurkitWorkspace] = None
-    # Сайт интерфейсінің тілі — Бүркіт осы тілде жауап береді
+    # Сайт интерфейсінің тілі — Codo осы тілде жауап береді
     uiLanguage: Optional[Literal["kk", "ru", "en"]] = None
     # @ арқылы атап өтілген файлдар/папкалар
     mentions: list[str] = Field(default_factory=list, max_length=50)
     site: Optional[BurkitSite] = None
-    # home — басты беттегі Бүркіт (жобамен жұмыс істесе де — терминалсыз)
+    # home — басты беттегі Codo (жобамен жұмыс істесе де — терминалсыз)
     surface: Literal["vibecoding", "home"] = "vibecoding"
 
 
@@ -200,7 +200,7 @@ async def write_project_note(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Бүркіт (Agent) жобаның папкасына жазба жазады; previous — «Қайтару» үшін"""
+    """Codo (Agent) жобаның папкасына жазба жазады; previous — «Қайтару» үшін"""
     folder = _linked_folder(db, user, project_id)
     return project_notes.upsert_note(db, user.id, folder, body.title, body.content)
 
@@ -212,14 +212,14 @@ async def chat(
 ):
     key, _ = burkit_service.resolve_key(user)
     if not key:
-        raise HTTPException(status_code=403, detail="Бүркітті қолдану үшін Gemini API кілтіңізді енгізіңіз.")
+        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін Gemini API кілтіңізді енгізіңіз.")
     if body.messages[-1].role != "user":
         raise HTTPException(status_code=400, detail="Соңғы хабар қолданушыдан болуы керек.")
     if sum(len(f.content or "") for f in body.projectFiles) > MAX_PROJECT_CHARS:
         raise HTTPException(status_code=413, detail="Жоба файлдары тым үлкен.")
     files = [f for m in body.messages for f in m.files]
     if any(f.data is not None and f.mimeType not in INLINE_MIME_TYPES for f in files):
-        raise HTTPException(status_code=400, detail="Бұл файл түрін Бүркітке жіберу мүмкін емес.")
+        raise HTTPException(status_code=400, detail="Бұл файл түрін Codo-ға жіберу мүмкін емес.")
     if sum(len(f.data or "") for f in files) > MAX_INLINE_CHARS or sum(len(f.text or "") for f in files) > MAX_ATTACHED_TEXT:
         raise HTTPException(status_code=413, detail="Тіркелген файлдар тым үлкен.")
 
@@ -263,7 +263,7 @@ async def inline_edit(request: Request, body: BurkitInlineRequest, user: User = 
     """Ctrl+K: белгіленген жолдардың орнына келетін код (толық жауап, streaming-сіз)"""
     key, _ = burkit_service.resolve_key(user)
     if not key:
-        raise HTTPException(status_code=403, detail="Бүркітті қолдану үшін Gemini API кілтіңізді енгізіңіз.")
+        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін Gemini API кілтіңізді енгізіңіз.")
     lines = body.content.count("\n") + 1
     if body.startLine > lines + 1 or body.endLine > lines:
         raise HTTPException(status_code=400, detail="Жолдар файлдан тыс.")

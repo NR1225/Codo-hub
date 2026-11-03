@@ -197,24 +197,24 @@
       "background": "Background",
       "complaintPlaceholder": "What happened? E.g.: I downloaded their «…» code and it contained a virus",
       "learnTitle": "Want to learn to code?",
-      "learnText": "Build your first project with Burkit AI in Vibecoding — it explains every step",
+      "learnText": "Build your first project with Codo AI in Vibecoding — it explains every step",
       "modeBackground": "Color background",
       "orBackground": "No photo? Pick «Color background» above",
       "opinionPraisePh": "Why do you praise them? In your own words...",
       "opinionComplaintPh": "What happened? In your own words...",
       "evidence": "Evidence",
       "evidencePh": "Describe exactly what happened: which file, what it did, when...",
-      "evidenceProject": "Which of their projects? (Burkit reads the code)",
+      "evidenceProject": "Which of their projects? (Codo reads the code)",
       "evidenceNoProject": "No project selected",
-      "reviewBtn": "Check with Burkit",
-      "reviewing": "Burkit is checking...",
-      "reviewAccepted": "Burkit accepted",
-      "reviewRejected": "Burkit rejected",
+      "reviewBtn": "Check with Codo",
+      "reviewing": "Codo is checking...",
+      "reviewAccepted": "Codo accepted",
+      "reviewRejected": "Codo rejected",
       "reviewAgain": "You changed it — check again",
       "praiseLocked": "To praise, @{{name}} needs at least {{min}} likes on a project (now {{likes}})",
       "stepOpinion": "Opinion",
       "opinionCount": "{{count}}/{{max}}",
-      "verdictLabel": "Confirmed by Burkit",
+      "verdictLabel": "Confirmed by Codo",
       "toModerator": "Send to a moderator",
       "manualTitle": "A moderator will review it",
       "manualText": "The story stays hidden until approved. The decision and reason will be sent to your chat.",
@@ -222,13 +222,13 @@
       "pendingReview": "Under moderator review — not visible to others yet",
       "moderatorLabel": "Approved by a moderator"
     },
-    "siteAiTitle": "Burkit",
+    "siteAiTitle": "Codo",
     "siteAiSubtitle": "Helps only within this site's features and projects: finds projects, builds new ones from them, and points you to site sections.",
     "siteAiPlaceholder": "Write...",
     "siteAiSend": "Send",
     "siteAiNewChat": "New chat",
     "siteAiThinking": "Thinking…",
-    "siteAiHint": "Burkit answers only within this site's projects and sections",
+    "siteAiHint": "Codo answers only within this site's projects and sections",
     "siteAiSuggest": {
       "upload": "Upload a project",
       "lang": "{{lang}} projects",
@@ -239,10 +239,10 @@
     "siteAiNotFound": "I didn't quite get that. I find similar projects on this site, build new ones from them, or show you the right section. Try something like “calculator” or “chat”:",
     "siteAiNoMatchBuild": "There's no similar project on the site yet. But you can build it yourself — write it in the Vibecoding editor or upload your own project:",
     "siteAiReply": {
-      "greeting": "Hi! I'm Burkit, the Codo Hub AI assistant. I can find a similar project on this site and create a new one from it, or show you the right section of the site. What would you like to do?",
+      "greeting": "Hi! I'm Codo, the Codo Hub AI assistant. I can find a similar project on this site and create a new one from it, or show you the right section of the site. What would you like to do?",
       "thanks": "You're welcome! Write any time you need help.",
       "help": "Here is what I can do: search the site for similar projects, create a new project based on one, and point you to site sections (upload, chat, Vibecoding, profile, settings). For example:",
-      "about": "I'm Burkit (Kazakh for “golden eagle”), the Codo Hub AI assistant. Like an eagle, I look from above, find the project you need on the site and point you to the right section.",
+      "about": "I'm Codo, the Codo Hub AI assistant. I find the project you need on the site and point you to the right section.",
       "bye": "Goodbye! Come back any time."
     },
     "siteAiCreate": "Create project from this",
@@ -285,7 +285,16 @@
     "loginForProjects": "Log in to see your projects",
     "starProject": "Star — keep it at the top",
     "unstarProject": "Remove star",
-    "joinedProject": "Joined project"
+    "joinedProject": "Joined project",
+    "dailyTips": [
+      "Write one line of code today",
+      "Small steps, big projects",
+      "Your idea is your next project",
+      "Code, learn, share",
+      "Bugs are part of learning",
+      "Build something new today",
+      "Clean code, clear mind"
+    ]
   },
   "codes": {
     "filters": "Filters",
@@ -308,6 +317,7 @@
     "tagsPlaceholder": "Separate tags with commas"
   },
   "viewCode": {
+    "404": "404 - Page Not Found",
     "title": "View Code",
     "author": "Author",
     "created": "Created",
@@ -333,7 +343,6 @@
     "folderDeleteConfirm": "Are you sure you want to delete this folder and all its files?",
     "noFileSelected": "Select a file",
     "loadingFiles": "Loading files...",
-    "404": "404 - Page Not Found",
     "pageNotFound": "The page you are looking for does not exist.",
     "files": "Files",
     "exportFolder": "Export",
@@ -431,6 +440,7 @@
     "password": "Password",
     "submit": "Login",
     "noAccount": "Don't have an account?",
+    "subtitle": "Welcome back! Enter your username or email and we will email you a code.",
     "register": "Register",
     "error": "Login error",
     "captchaFailed": "CAPTCHA check failed. Please try again.",
@@ -450,6 +460,7 @@
     "confirmPassword": "Confirm Password",
     "submit": "Register",
     "hasAccount": "Already have an account?",
+    "subtitle": "Create an account to save your projects and share with the community.",
     "login": "Login",
     "error": "Registration error",
     "captchaFailed": "CAPTCHA check failed. Please try again.",
@@ -701,6 +712,8 @@
     "accountDesc": "Password, two-factor authentication and session",
     "folderDesc": "Control who can see your projects",
     "infoDesc": "About the platform, links and documents",
+    "motionTab": "Animations",
+    "motionDesc": "Turn each page’s animations on or off",
     "dangerDesc": "Delete account and log out",
     "info": {
       "featuresTitle": "Features",
@@ -716,7 +729,7 @@
           "desc": "Shell in the project folder: tabs, split, search, run menu"
         },
         "burkit": {
-          "title": "Burkit AI",
+          "title": "Codo AI",
           "desc": "Assistant that writes code, shows diffs and explains errors"
         },
         "notes": {
@@ -748,7 +761,7 @@
         "format": "Format code",
         "explorer": "Toggle explorer",
         "terminal": "Toggle terminal",
-        "burkit": "Toggle Burkit panel",
+        "burkit": "Toggle Codo panel",
         "settings": "Editor settings",
         "newTerminal": "New terminal",
         "split": "Split terminal",
@@ -791,7 +804,7 @@
             "items": [
               "Vibecoding IDE — in-browser editor, files and live preview",
               "Terminal — a shell in the project folder: tabs, split, run menu",
-              "Burkit AI — an assistant that writes code, shows diffs and explains errors",
+              "Codo AI — an assistant that writes code, shows diffs and explains errors",
               "Notes — notes with links, a graph and a canvas",
               "Chat and groups — talk and share project cards",
               "Codes — publish, browse and share projects"
@@ -860,8 +873,8 @@
             ]
           },
           {
-            "title": "Terminal and Burkit AI",
-            "text": "The terminal runs in your private workspace with resource limits. Burkit’s answers are AI-generated and may be wrong — review code before using it. If you add your own API key, its costs and terms are between you and the key provider."
+            "title": "Terminal and Codo AI",
+            "text": "The terminal runs in your private workspace with resource limits. Codo’s answers are AI-generated and may be wrong — review code before using it. If you add your own API key, its costs and terms are between you and the key provider."
           },
           {
             "title": "Intellectual property",
@@ -890,7 +903,7 @@
             "items": [
               "Account: username, email and a password hash (the password itself is never stored)",
               "Content: codes, Vibecoding projects, Notes, chat messages",
-              "Burkit: chat history and, if you add one, your API key (encrypted)",
+              "Codo: chat history and, if you add one, your API key (encrypted)",
               "Technical: sign-in times, IP address and error logs — for security"
             ]
           },
@@ -907,7 +920,7 @@
             "title": "Third-party services",
             "text": "Some features rely on external services:",
             "items": [
-              "Google Gemini — your Burkit prompts and attached code are sent to get an answer",
+              "Google Gemini — your Codo prompts and attached code are sent to get an answer",
               "Google Firebase — data storage and sync",
               "Sign in with Google — only if you choose it"
             ]
@@ -1570,7 +1583,8 @@
     "messageFriendsOnly": "You can only message friends. Add them as a friend first.",
     "messageForbidden": "Not allowed to send messages. Become friends first.",
     "uploadTimeout": "Upload timed out. Check the file size or your internet connection.",
-    "uploadConnectionFailed": "Cannot connect to the server. Check that the backend is running."
+    "uploadConnectionFailed": "Cannot connect to the server. Check that the backend is running.",
+    "accountBanned": "Your account has been banned by an administrator."
   },
   "uploadModal": {
     "terminalTitle": "💻 Open web terminal:",
@@ -1718,6 +1732,38 @@
     "months.11.long": "December"
   },
   "vibecoding": {
+    "git": {
+      "title": "Source Control",
+      "filesTab": "Files",
+      "gitTab": "Git",
+      "refresh": "Refresh",
+      "noProject": "Open a project first",
+      "noRepo": "This project has no git repository yet. Initialize one to track changes and see the commit graph.",
+      "init": "Initialize repository",
+      "files": "files",
+      "discardConfirm": "Discard changes in {{name}}? This cannot be undone.",
+      "indexLabel": "Index",
+      "workingTree": "Working tree",
+      "openFile": "Open file",
+      "discard": "Discard changes",
+      "stage": "Stage changes",
+      "unstage": "Unstage changes",
+      "messagePlaceholder": "Message (Ctrl+Enter to commit)",
+      "commitAll": "Commit all",
+      "commit": "Commit",
+      "stagedChanges": "Staged changes",
+      "unstageAll": "Unstage all",
+      "changes": "Changes",
+      "discardAll": "Discard all changes",
+      "stageAll": "Stage all",
+      "clean": "No changes — everything is committed",
+      "truncated": "List is too long — showing only part of it",
+      "graph": "Graph",
+      "noCommits": "No commits yet",
+      "binary": "Binary file — diff not shown",
+      "noDiff": "No content changes (only mode or name changed)",
+      "diffTruncated": "Diff is too large — showing only part of it"
+    },
     "title": "Vibecoding",
     "description": "Online Code Editor",
     "fileExplorer": {
@@ -1755,7 +1801,43 @@
       "console": "Console",
       "clearConsole": "Clear console",
       "consoleEmpty": "No messages yet",
-      "noEntry": "No file to run. Add an index.html or a .js file to the project."
+      "noEntry": "No file to run. Add an index.html or a .js file to the project.",
+      "network": "Network",
+      "filter": "Filter",
+      "clearNetwork": "Clear requests",
+      "serverDevtools": "The DevTools proxy could not be attached, so the page is opened directly. To see its console and requests, open it in a new tab and press F12. Server logs are in the terminal.",
+      "openExternal": "Open in new tab",
+      "levelAll": "All",
+      "levelErrors": "Errors",
+      "levelWarnings": "Warnings",
+      "levelInfo": "Info",
+      "evalPlaceholder": "Type JavaScript and press Enter (e.g. document.title)",
+      "evalUnavailable": "No page to run code in",
+      "netName": "Name",
+      "netStatus": "Status",
+      "netType": "Type",
+      "netSize": "Size",
+      "netTime": "Time",
+      "networkEmpty": "No requests yet. fetch / XHR calls and loaded files will show up here.",
+      "netLocal": "project file",
+      "netRequests": "requests",
+      "netHeaders": "Headers",
+      "netPayload": "Payload",
+      "netResponse": "Response",
+      "netGeneral": "General",
+      "netResHeaders": "Response headers",
+      "netReqHeaders": "Request headers",
+      "netNoBody": "Resource body is not shown here",
+      "netLoading": "Loading…",
+      "device": "Screen size",
+      "deviceResponsive": "Panel width",
+      "devicePhone": "Phone",
+      "devicePhoneL": "Large phone",
+      "deviceTablet": "Tablet",
+      "deviceLaptop": "Laptop",
+      "deviceDesktop": "Desktop",
+      "maximize": "Maximize",
+      "restore": "Restore (Esc)"
     },
     "terminal": {
       "title": "Terminal",
@@ -1775,8 +1857,8 @@
       "runProject": "Project commands",
       "recent": "Recent commands",
       "noCommands": "No commands found",
-      "askBurkit": "Ask Burkit",
-      "explainError": "Explain error with Burkit",
+      "askBurkit": "Ask Codo",
+      "explainError": "Explain error with Codo",
       "find": "Find",
       "findPlaceholder": "Search terminal",
       "noResults": "No results",
@@ -1995,8 +2077,8 @@
     },
     "complaint": "Complaint",
     "evidence": "Evidence",
-    "burkit": "Burkit",
-    "burkitNone": "Burkit rejected or didn't check it — your call",
+    "burkit": "Codo",
+    "burkitNone": "Codo rejected or didn't check it — your call",
     "decision": "Decision",
     "note": "Reason",
     "notePlaceholder": "Write the reason for your decision — it is sent to the author",
@@ -2171,8 +2253,8 @@
   },
   "loginCode": {
     "title": "Code from email",
-    "newDevice": "You're signing in from a new device. To protect your account we sent a code to your email.",
-    "periodic": "For security we ask for a code from time to time. We sent a code to your email.",
+    "newDevice": "You're signing in from a new device. To protect your account we sent a code to your email:",
+    "periodic": "For security we ask for a code from time to time. We sent a code to your email:",
     "sentTo": "Code sent to:",
     "validFor": "Code is valid for {{time}}",
     "expired": "The code has expired. Request a new one.",
@@ -2182,7 +2264,7 @@
     "resent": "A new code was sent. The previous code no longer works.",
     "submit": "Sign in",
     "back": "Back",
-    "login": "We sent a sign-in code to your email."
+    "login": "We sent a sign-in code to your email:"
   },
   "monitoring": {
     "title": "Monitoring",
@@ -2276,7 +2358,11 @@
       "test_code_bypass": "Test account (any code)",
       "email_change_requested": "Email change requested",
       "email_change_code_fail": "Wrong email change code",
-      "email_changed": "Email changed"
+      "email_changed": "Email changed",
+      "admin_view": "Admin viewed private data",
+      "admin_login": "Admin panel sign-in",
+      "admin_login_fail": "Wrong admin code",
+      "admin_denied": "Admin panel: IP not allowed"
     }
   },
   "emailChange": {
@@ -2296,5 +2382,276 @@
     "expired": "The codes have expired. Request new ones.",
     "tooMany": "Too many attempts. Start over.",
     "wait": "Please wait a moment and try again."
+  },
+  "admin": {
+    "title": "Admin panel",
+    "summary": "{{users}} users ({{banned}} banned) · {{files}} files · {{messages}} direct messages · {{notes}} notes",
+    "nav": {
+      "monitoring": "Monitoring",
+      "users": "Users",
+      "projects": "Projects",
+      "stories": "Stories",
+      "groups": "Groups",
+      "vibecoding": "Vibecoding"
+    },
+    "prev": "Previous",
+    "next": "Next",
+    "created": "Created",
+    "updated": "Updated",
+    "save": "Save",
+    "saved": "Saved",
+    "delete": "Delete",
+    "deleted": "Deleted",
+    "edit": "Edit",
+    "open": "Open",
+    "privacyNote": "This is private user data. Every time you open it, it is written to the monitoring log.",
+    "users": {
+      "admin": "admin",
+      "moderator": "moderator",
+      "banned": "banned",
+      "locked": "locked",
+      "search": "Username, email or ID",
+      "user": "User",
+      "lastSeen": "Last seen",
+      "filter": {
+        "all": "All",
+        "banned": "Banned",
+        "moderators": "Moderators",
+        "admins": "Admins"
+      },
+      "tabs": {
+        "profile": "Profile",
+        "messages": "Messages",
+        "notes": "Notes",
+        "vibecoding": "Vibecoding"
+      },
+      "removeAvatar": "Remove avatar",
+      "access": "Access",
+      "roleFromEnv": "This role comes from .env (MODERATOR_USER_IDS)",
+      "revokeModerator": "Revoke moderator",
+      "makeModerator": "Make moderator",
+      "ban": "Ban",
+      "bannedSince": "Banned since {{date}}",
+      "unban": "Unban",
+      "unbanned": "Unbanned",
+      "banReason": "Reason (optional)",
+      "banConfirm": "Ban @{{name}}? All sessions will be closed and they will not be able to sign in.",
+      "bannedOk": "Banned",
+      "deleteConfirm": "Delete the account @{{name}}?",
+      "deleteHint": "Their projects, messages, stories, notes and Vibecoding projects are deleted too. This cannot be undone.",
+      "delete": "Delete account",
+      "messagesCount_one": "{{count}} message",
+      "messagesCount_other": "{{count}} messages",
+      "messagesCount": "{{count}} messages"
+    },
+    "messages": {
+      "deleteConfirm": "Delete this message?",
+      "edited": "edited"
+    },
+    "notes": {
+      "deleteConfirm": "Delete the note “{{title}}”?"
+    },
+    "vibe": {
+      "filesCount_one": "{{count}} file",
+      "filesCount_other": "{{count}} files",
+      "filesCount": "{{count}} files",
+      "search": "Project name",
+      "shared": "Share link",
+      "revokeShare": "Revoke share link"
+    },
+    "projects": {
+      "search": "Title, author or ID",
+      "title": "Title",
+      "author": "Author",
+      "private": "Private",
+      "deleteConfirm": "Delete “{{title}}”?",
+      "deleteFolderHint": "All files inside the project are deleted too.",
+      "deleteComment": "Delete this comment?",
+      "protection": "Protection",
+      "page": "Project page",
+      "parent": "Back to project",
+      "description": "Description",
+      "tags": "Tags (comma separated)",
+      "content": "Content",
+      "files": "Files",
+      "comments": "Comments"
+    },
+    "stories": {
+      "content": "Content",
+      "status": "Status",
+      "expires": "Expires",
+      "praise": "Praise",
+      "complaint": "Complaint",
+      "opinions": "Opinions",
+      "kind": "Type",
+      "target": "About",
+      "text": "Text",
+      "deleteConfirm": "Delete this story? Opinions attached to it are deleted too.",
+      "deleteOpinionConfirm": "Delete this opinion?"
+    },
+    "groups": {
+      "search": "Group name",
+      "name": "Name",
+      "owner": "Owner",
+      "members": "Members",
+      "messages": "Messages",
+      "deleteConfirm": "Delete the group “{{name}}”? All its messages are deleted.",
+      "delete": "Delete group",
+      "removeMember": "Remove from group",
+      "removeConfirm": "Remove @{{name}} from the group?"
+    },
+    "gate": {
+      "title": "Admin panel sign-in",
+      "totpText": "Enter the 6-digit code from your authenticator app.",
+      "emailText": "A 6-digit code has been sent to your email. Enter it here.",
+      "code": "Verification code",
+      "verify": "Verify",
+      "send": "Send code",
+      "resend": "Resend code",
+      "hint": "Verification lasts 30 minutes. Every sign-in is reported by email.",
+      "need2faTitle": "Enable 2FA first",
+      "need2faText": "The admin panel only opens for accounts with two-factor authentication (authenticator) enabled.",
+      "open2fa": "Open 2FA settings",
+      "until": "Open until {{time}}",
+      "lock": "Lock panel",
+      "expired": "Verification expired — enter a code again."
+    }
+  },
+  "welcome": {
+    "viewSite": "View the site",
+    "badge": "A platform for developers",
+    "titleA": "Write code.",
+    "titleB": "Share it.",
+    "titleC": "Build together.",
+    "subtitle": "Codo Hub is one place to keep your projects, write code with Codo AI, and share with the community.",
+    "start": "Get started free",
+    "login": "I have an account",
+    "browse": "Browse codes",
+    "featuresTitle": "Everything in one place",
+    "featuresSubtitle": "From idea to finished project — without switching tools.",
+    "f_vibe_title": "Vibecoding",
+    "f_vibe_desc": "Editor, files and terminal right in the browser — code with nothing to install.",
+    "f_ai_title": "Codo AI",
+    "f_ai_desc": "An AI assistant that helps you write code, find bugs and explains things.",
+    "f_share_title": "Code sharing",
+    "f_share_desc": "Upload projects, share them, collect comments and likes.",
+    "f_chat_title": "Chat",
+    "f_chat_desc": "Message friends and discuss projects together.",
+    "f_notes_title": "Notes",
+    "f_notes_desc": "Keep your ideas and notes in one place.",
+    "f_cli_title": "CLI & GitHub",
+    "f_cli_desc": "Work from the terminal and connect your GitHub repositories.",
+    "stepsTitle": "Start in three steps",
+    "s1_title": "Sign up",
+    "s1_desc": "Less than a minute — create a free account.",
+    "s2_title": "Create a project",
+    "s2_desc": "Upload your code or start from scratch in Vibecoding.",
+    "s3_title": "Share",
+    "s3_desc": "Show your project to the community, get feedback, grow it together.",
+    "ctaTitle": "Start your first project today",
+    "ctaSubtitle": "Join the Codo Hub community.",
+    "codeComment": "// Codo, help me out",
+    "skip": "Go to the site",
+    "aiBubble": "Checked your function — looks good. Want me to write tests?"
+  },
+  "motion": {
+    "deviceTitle": "Your device",
+    "recheck": "Check again",
+    "checking": "Checking…",
+    "kind": {
+      "phone": "Phone",
+      "tablet": "Tablet",
+      "laptop": "Laptop",
+      "desktop": "Desktop"
+    },
+    "tier": {
+      "high": "Powerful",
+      "medium": "Average",
+      "low": "Weak"
+    },
+    "tierHint": {
+      "high": "All animations are on by default.",
+      "medium": "Heavy animations are off by default. You can turn them on manually.",
+      "low": "Your device can’t handle heavy animations, so they can’t be turned on."
+    },
+    "cores": "CPU cores",
+    "memory": "Memory",
+    "gpu": "Graphics",
+    "fps": "Frame rate",
+    "unknown": "unknown",
+    "reducedMotion": "“Reduce motion” is on in your system, so animations are off by default.",
+    "masterTitle": "All animations",
+    "masterDesc": "Turning this off stops every animation on the site.",
+    "auto": "Auto",
+    "autoHint": "Chosen automatically for your device",
+    "resetAll": "Reset all to auto",
+    "unsupported": "Not supported on your device",
+    "cost": {
+      "low": "Light",
+      "medium": "Medium",
+      "high": "Heavy"
+    },
+    "groups": {
+      "global": "General",
+      "auth": "Sign in & sign up",
+      "home": "Home",
+      "chat": "Chat",
+      "codes": "Codes",
+      "notes": "Notes",
+      "vibecoding": "Vibecoding",
+      "profile": "Profile",
+      "settings": "Settings",
+      "welcome": "Welcome page"
+    },
+    "items": {
+      "global_themeTransition": {
+        "title": "Theme switch",
+        "desc": "Diagonal animation when switching light/dark theme"
+      },
+      "auth_meteors": {
+        "title": "Meteors",
+        "desc": "Falling meteors in the dark theme; drifting light dust, leaves and sun rays in the light theme"
+      },
+      "auth_parallax": {
+        "title": "Parallax",
+        "desc": "Background layers follow the mouse"
+      },
+      "auth_card": {
+        "title": "Form animation",
+        "desc": "Sign-in card entrance and button effects"
+      },
+      "home_ui": {
+        "title": "Page animations",
+        "desc": "Card, button and story effects"
+      },
+      "chat_ui": {
+        "title": "Page animations",
+        "desc": "Message entrance, menus"
+      },
+      "codes_ui": {
+        "title": "Page animations",
+        "desc": "Code card and filter effects"
+      },
+      "notes_ui": {
+        "title": "Page animations",
+        "desc": "Note list and editor effects"
+      },
+      "vibecoding_ui": {
+        "title": "Page animations",
+        "desc": "IDE panel and terminal effects"
+      },
+      "profile_ui": {
+        "title": "Page animations",
+        "desc": "Profile card and project effects"
+      },
+      "settings_ui": {
+        "title": "Page animations",
+        "desc": "Tab and card entrance"
+      },
+      "welcome_ui": {
+        "title": "Page animations",
+        "desc": "Floating and blinking elements on the welcome page"
+      }
+    }
   }
 }

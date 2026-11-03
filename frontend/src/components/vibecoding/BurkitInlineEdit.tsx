@@ -3,8 +3,8 @@ import BurkitLogo from '../BurkitLogo';
 import { CloseIcon } from './icons';
 import SendIcon from '../SendIcon';
 
-/* Ctrl+K — редактордың ішіндегі Бүркіт (Cursor-дағы inline edit): белгіленген жолдардың үстінде
-   шығатын шағын өріс. Нұсқау жазылып Enter басылса, Бүркіт сол жолдарды қайта жазады,
+/* Ctrl+K — редактордың ішіндегі Codo (Cursor-дағы inline edit): белгіленген жолдардың үстінде
+   шығатын шағын өріс. Нұсқау жазылып Enter басылса, Codo сол жолдарды қайта жазады,
    нәтижесі кәдімгі diff ретінде «Қабылдау / Қайтару» арқылы қаралады. */
 
 interface BurkitInlineEditProps {
@@ -61,10 +61,10 @@ const BurkitInlineEdit: React.FC<BurkitInlineEditProps> = ({ top, rangeLabel, on
           className="vx-inline__input"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={busy ? 'Бүркіт жазып жатыр…' : 'Не өзгерту керек? (мысалы: қатені түзет, түсініктеме қос)'}
+          placeholder={busy ? 'Codo жазып жатыр…' : 'Не өзгерту керек? (мысалы: қатені түзет, түсініктеме қос)'}
           disabled={busy}
           spellCheck={false}
-          aria-label="Бүркітке нұсқау"
+          aria-label="Codo-ға нұсқау"
         />
         {busy ? (
           <span className="vx-ai__dots" aria-hidden="true"><span /><span /><span /></span>

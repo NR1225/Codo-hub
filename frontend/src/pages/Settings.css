@@ -1739,3 +1739,124 @@
   }
 }
 
+
+/* ---------- Анимациялар қойындысы ---------- */
+
+.stg-motion__tier {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.stg-motion__tier.is-high { color: var(--stg-success); }
+.stg-motion__tier.is-medium { color: var(--stg-warning); }
+.stg-motion__tier.is-low { color: var(--stg-danger); }
+
+.stg-motion__hint {
+  margin: 0;
+  color: var(--stg-muted);
+  line-height: 1.5;
+}
+
+.stg-motion__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stg-motion__stat {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--mono-0a0a0a);
+  box-shadow: inset 0 0 0 1px var(--stg-line);
+}
+
+.stg-motion__stat-label {
+  font-size: 0.75rem;
+  color: var(--stg-muted);
+}
+
+.stg-motion__stat-value {
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stg-motion__groups.is-disabled {
+  opacity: 0.5;
+}
+
+.stg-motion__row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stg-motion__row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.settings-page .stg-motion__row-desc,
+.stg-motion__row-desc {
+  font-size: 0.85rem;
+  color: var(--stg-muted);
+  line-height: 1.4;
+}
+
+.stg-motion__cost,
+.stg-motion__auto {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.stg-motion__cost { box-shadow: inset 0 0 0 1px var(--stg-line-strong); color: var(--stg-muted); }
+.stg-motion__cost.is-medium { color: var(--stg-warning); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stg-warning) 45%, transparent); }
+.stg-motion__cost.is-high { color: var(--stg-danger); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stg-danger) 45%, transparent); }
+
+.stg-motion__auto {
+  color: var(--home-on-accent);
+  background: var(--home-accent);
+}
+
+.stg-motion__unsupported {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--stg-danger);
+}
+
+.stg-motion__row.is-unsupported {
+  cursor: not-allowed;
+}
+
+.stg-switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .stg-motion__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

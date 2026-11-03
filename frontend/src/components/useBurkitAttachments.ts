@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Attachment, attachmentFromFile, attachmentFromFolder, MAX_ATTACHMENTS } from '../utils/burkitAttachments';
 
-// Бүркітке тіркелетін фото/файл/папкалар күйі (басты бет пен Vibecoding-ке ортақ)
+// Codo-ға тіркелетін фото/файл/папкалар күйі (басты бет пен Vibecoding-ке ортақ)
 export function useBurkitAttachments(onDone?: () => void) {
   const [attached, setAttached] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);

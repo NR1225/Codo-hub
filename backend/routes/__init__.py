@@ -1,6 +1,6 @@
 """API routes"""
 from fastapi import APIRouter
-from . import auth, codes, users, messages, friends, chats, config as config_routes, contact, vibecoding, groups, notes, burkit, stories, run, moderation, cli, github, admin
+from . import auth, codes, users, messages, friends, chats, config as config_routes, contact, vibecoding, groups, notes, burkit, stories, run, moderation, cli, github, admin, admin_data, vibe_git
 
 # Create main router
 api_router = APIRouter(prefix="/api")
@@ -24,6 +24,8 @@ api_router.include_router(moderation.router, tags=["moderation"])
 api_router.include_router(cli.router, tags=["cli"])
 api_router.include_router(github.router, tags=["github"])
 api_router.include_router(admin.router, tags=["admin"])
+api_router.include_router(admin_data.router, tags=["admin"])
+api_router.include_router(vibe_git.router, tags=["vibecoding"])
 
 __all__ = ["api_router"]
 

@@ -160,7 +160,7 @@ class StoryService:
         has_media = file is not None and bool(file.filename)
 
         # Адам белгілеу — міндетті емес. Белгіленсе: пікір түрі + өз сөзімен пікір;
-        # мақтау — оның жобасында ≥50 лайк болса; шағым — Бүркіт дәлелін қабылдаса
+        # мақтау — оның жобасында ≥50 лайк болса; шағым — Codo дәлелін қабылдаса
         opinion = opinion or {}
         mention_id = (mention_id or "").strip() or None
         mention_text = (opinion.get("text") or "").strip()
@@ -187,7 +187,7 @@ class StoryService:
             else:
                 opinion_service.validate_texts(mention_text, evidence)
                 if opinion.get("manualReview") and not opinion.get("reviewToken"):
-                    # Бүркіт қабылдамады не қолжетімсіз — модератор қолмен тексереді
+                    # Codo қабылдамады не қолжетімсіз — модератор қолмен тексереді
                     if evidence_project_id:
                         code = CodeService.find_code_by_id(evidence_project_id)
                         if not code or code.get("author") != target.username:
@@ -533,7 +533,7 @@ class StoryService:
                 "id": r.id,
                 "kind": r.kind,
                 "text": r.text,
-                "verdict": r.verdict,  # шағымды Бүркіт неге қабылдады
+                "verdict": r.verdict,  # шағымды Codo неге қабылдады
                 "moderatorNote": r.moderator_note,  # модератор бекітсе — себебі
                 "createdAt": r.created_at.astimezone().isoformat(),
                 "author": {"id": author.id, "username": author.username, "avatar": author.avatar} if author else None,

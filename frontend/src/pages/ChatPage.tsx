@@ -13,7 +13,6 @@ import {
   CloseIcon,
   DownloadIcon,
   EditIcon,
-  InboxIcon,
   LinkIcon,
   MoreIcon,
   RefreshIcon,
@@ -2187,9 +2186,6 @@ const ChatPage: React.FC = () => {
               <div className="cht-list">
                 {!searchQuery ? (
                   <div className="cht-hint">
-                    <span className="cht-hint__icon">
-                      <UserPlusIcon size={20} />
-                    </span>
                     <p>{t('chat.addFriendInfo')}</p>
                   </div>
                 ) : searching ? (
@@ -2296,9 +2292,6 @@ const ChatPage: React.FC = () => {
             <div className="cht-list">
               {friendRequests.length === 0 && outgoingFriendRequests.length === 0 && messageRequests.length === 0 ? (
                 <div className="cht-hint">
-                  <span className="cht-hint__icon">
-                    <InboxIcon size={20} />
-                  </span>
                   <p>{t('chat.noRequests')}</p>
                 </div>
               ) : (

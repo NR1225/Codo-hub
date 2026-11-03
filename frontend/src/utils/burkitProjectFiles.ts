@@ -4,13 +4,13 @@ import type { BurkitEdit } from '../components/vibecoding/useBurkitHistory';
 import { applySearchReplace, CodeBlock } from '../components/vibecoding/burkitBlocks';
 import { detectLanguage } from '../contexts/VibecodingContext';
 
-/* Басты беттегі Бүркіт жобаның файлдарымен жұмыс істейді (Vibecoding-тегі Agent сияқты):
+/* Басты беттегі Codo жобаның файлдарымен жұмыс істейді (Vibecoding-тегі Agent сияқты):
    path=/edit=/delete/move блоктары жоба көшірмесіне қолданылады, содан кейін серверге сақталады. */
 
 const MAX_PROJECT_CHARS = 150_000;
 const MAX_READ_CHARS = 60_000;
 
-/** Бүркітке жоба файлдары: жалпы көлем шегіне дейін мазмұнымен, қалғаны тек жолымен */
+/** Codo-ға жоба файлдары: жалпы көлем шегіне дейін мазмұнымен, қалғаны тек жолымен */
 export function projectContext(files: { path: string; content: string }[]) {
   let budget = MAX_PROJECT_CHARS;
   return files.map((f) => {
@@ -24,7 +24,7 @@ export interface FileOpsResult {
   files: VibecodingProjectFile[];
   folders: string[];
   edits: BurkitEdit[];
-  /** Бүркітке келесі қадамда баратын нәтижелер (read, сәтсіз өзгерістер, run) */
+  /** Codo-ға келесі қадамда баратын нәтижелер (read, сәтсіз өзгерістер, run) */
   feedback: string[];
   /** «Қайтару» үшін: өзгерген файлдардың бұрынғы мәтіні (null — файл жоқ еді) */
   originals: Map<string, string | null>;

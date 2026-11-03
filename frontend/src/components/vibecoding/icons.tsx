@@ -377,7 +377,7 @@ export const LayersIcon: React.FC<P> = ({ size }) => (
   </Icon>
 );
 
-/* Бүркіт тарихы */
+/* Codo тарихы */
 export const HistoryIcon: React.FC<P> = ({ size }) => (
   <Icon size={size}>
     <path d="M4 12a8 8 0 1 0 2.3-5.6" />

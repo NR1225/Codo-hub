@@ -5,6 +5,24 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Codo Hub</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Бренд атауы (жарық тақырып) — YouTube стиліндегі Roboto -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700;900&display=swap" rel="stylesheet" />
+    <script>
+      // Тақырыпты React жүктелмей тұрып қоямыз — жыпылықтамайды.
+      // Жаңа келген адамға (таңдау сақталмаған) — жүйе тақырыбы.
+      (function () {
+        var pref = null;
+        try { pref = localStorage.getItem('theme-preference') || localStorage.getItem('theme'); } catch (e) {}
+        if (pref !== 'light' && pref !== 'dark') {
+          pref = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        var root = document.documentElement;
+        root.classList.add(pref === 'dark' ? 'dark-theme' : 'light-theme');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

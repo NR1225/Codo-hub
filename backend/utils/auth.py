@@ -91,6 +91,10 @@ def resolve_access_user(token: str, db: Session) -> User:
             detail="Session invalidated. Please log in again.",
         )
 
+    # Әкімші бұғаттаған аккаунт (routes/admin.py)
+    if getattr(user, "banned_at", None):
+        raise HTTPException(status_code=403, detail="Account banned")
+
     return user
 
 

@@ -139,73 +139,75 @@ const VibecodingPageInner: React.FC = () => {
     };
   }, []);
 
-  // IDE стилі: беттің өз хедері сайт хедерінің астына жапсырылған,
-  // әсерлер аз — басты назар кодта
+  // Құралдар қатары — тек ортаңғы баған (редактор) енінде, сайдбарлар
+  // оның қасынан жоба табтарына дейін көтеріледі
+  const toolbar = (
+    <div className="vibe-toolbar">
+      <div className="vibe-toolbar__side" />
+
+      {/* Ортада — файл іздеу (VS Code-тағы command center сияқты) */}
+      <button
+        onClick={openFilePalette}
+        className="vibe-toolbar__search"
+        title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
+      >
+        <SearchIcon size={13} />
+        <span className="vibe-toolbar__search-text">{t('vibecoding.palette.searchFiles', 'Файл іздеу')}</span>
+      </button>
+
+      {/* Оң жақта — панельдерді ашып-жабатын белгішелер бір топта */}
+      <div className="vibe-toolbar__side vibe-toolbar__side--end">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('vibecoding:run'))}
+          className="vibe-run-btn"
+          title={`${t('vibecoding.preview.run', 'Іске қосу')} (Ctrl+Enter)`}
+        >
+          <PlayIcon size={13} />
+          <span className="vibe-run-btn__text">{t('vibecoding.preview.run', 'Іске қосу')}</span>
+        </button>
+        <span className="vibe-toolbar__divider" />
+        <button
+          onClick={openCommandPalette}
+          className="vibe-header-tab vibe-header-tab--icon"
+          title={t('vibecoding.status.commandPalette', 'Командалар палитрасы (Ctrl+Shift+P)')}
+        >
+          <CommandIcon size={15} />
+        </button>
+        <span className="vibe-toolbar__divider" />
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
+          className={`vibe-header-tab vibe-header-tab--icon ${state.leftPanelVisible ? 'active' : ''}`}
+          title={`${t('vibecoding.layout.toggleExplorer')} (Ctrl+B)`}
+        >
+          <PanelLeftIcon size={16} active={state.leftPanelVisible} />
+        </button>
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
+          className={`vibe-header-tab vibe-header-tab--icon ${state.bottomPanelVisible ? 'active' : ''}`}
+          title={`${t('vibecoding.layout.toggleTerminal')} (Ctrl+J)`}
+        >
+          <PanelBottomIcon size={16} active={state.bottomPanelVisible} />
+        </button>
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
+          className={`vibe-header-tab vibe-header-tab--icon ${state.rightPanelVisible ? 'active' : ''}`}
+          title={`${t('vibecoding.layout.toggleChat')} (Ctrl+I)`}
+        >
+          <PanelRightIcon size={16} active={state.rightPanelVisible} />
+        </button>
+      </div>
+    </div>
+  );
+
+  // IDE стилі: әсерлер аз — басты назар кодта
   return (
     <div className="vibe-root select-none">
       <div className="vibe-content-layer">
-        {/* Беттің өз хедері — IDE панельдерін басқару */}
-        <div className="vibe-toolbar">
-          <div className="vibe-toolbar__side" />
-
-          {/* Ортада — файл іздеу (VS Code-тағы command center сияқты) */}
-          <button
-            onClick={openFilePalette}
-            className="vibe-toolbar__search"
-            title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
-          >
-            <SearchIcon size={13} />
-            <span className="vibe-toolbar__search-text">{t('vibecoding.palette.searchFiles', 'Файл іздеу')}</span>
-          </button>
-
-          {/* Оң жақта — панельдерді ашып-жабатын белгішелер бір топта */}
-          <div className="vibe-toolbar__side vibe-toolbar__side--end">
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('vibecoding:run'))}
-              className="vibe-run-btn"
-              title={`${t('vibecoding.preview.run', 'Іске қосу')} (Ctrl+Enter)`}
-            >
-              <PlayIcon size={13} />
-              <span className="vibe-run-btn__text">{t('vibecoding.preview.run', 'Іске қосу')}</span>
-            </button>
-            <span className="vibe-toolbar__divider" />
-            <button
-              onClick={openCommandPalette}
-              className="vibe-header-tab vibe-header-tab--icon"
-              title={t('vibecoding.status.commandPalette', 'Командалар палитрасы (Ctrl+Shift+P)')}
-            >
-              <CommandIcon size={15} />
-            </button>
-            <span className="vibe-toolbar__divider" />
-            <button
-              onClick={() => dispatch({ type: 'TOGGLE_LEFT_PANEL' })}
-              className={`vibe-header-tab vibe-header-tab--icon ${state.leftPanelVisible ? 'active' : ''}`}
-              title={`${t('vibecoding.layout.toggleExplorer')} (Ctrl+B)`}
-            >
-              <PanelLeftIcon size={16} active={state.leftPanelVisible} />
-            </button>
-            <button
-              onClick={() => dispatch({ type: 'TOGGLE_BOTTOM_PANEL' })}
-              className={`vibe-header-tab vibe-header-tab--icon ${state.bottomPanelVisible ? 'active' : ''}`}
-              title={`${t('vibecoding.layout.toggleTerminal')} (Ctrl+J)`}
-            >
-              <PanelBottomIcon size={16} active={state.bottomPanelVisible} />
-            </button>
-            <button
-              onClick={() => dispatch({ type: 'TOGGLE_RIGHT_PANEL' })}
-              className={`vibe-header-tab vibe-header-tab--icon ${state.rightPanelVisible ? 'active' : ''}`}
-              title={`${t('vibecoding.layout.toggleChat')} (Ctrl+I)`}
-            >
-              <PanelRightIcon size={16} active={state.rightPanelVisible} />
-            </button>
-          </div>
-        </div>
-
-        {/* Жоба табтары — бірнеше жобада қатар жұмыс істеу */}
+        {/* Жоба табтары (жоба қосу, іздеу) — беттің ең жоғарғы қатары */}
         <ProjectTabsBar />
 
         {/* IDE Layout (editor + panels + terminal + status bar) */}
-        <IDELayout />
+        <IDELayout centerToolbar={toolbar} />
       </div>
 
       {/* Command palette overlay */}

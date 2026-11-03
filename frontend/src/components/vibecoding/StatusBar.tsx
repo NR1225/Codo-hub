@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
 import { useEditorMeta } from '../../contexts/EditorMetaContext';
 import { BranchIcon, CircleAlertIcon, CircleCheckIcon, CommandIcon, ZoomInIcon, ZoomOutIcon, SettingsIcon } from './icons';
+import { GIT_BRANCH_EVENT } from './git/gitEvents';
+import { showLeftView } from './git/LeftSidebar';
 
 interface StatusBarProps {
   onOpenSettings?: () => void;
@@ -13,6 +15,14 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
   const { t } = useTranslation();
   const { dispatch, activeFile, activeProject, editorSettings } = useVibecoding();
   const { meta } = useEditorMeta();
+  // Source Control панелі хабарлаған нақты git бұтағы (репозиторий жоқ болса — null)
+  const [git, setGit] = useState<{ projectId: string | null; branch: string | null; changes: number } | null>(null);
+  useEffect(() => {
+    const onBranch = (e: Event) => setGit((e as CustomEvent).detail);
+    window.addEventListener(GIT_BRANCH_EVENT, onBranch);
+    return () => window.removeEventListener(GIT_BRANCH_EVENT, onBranch);
+  }, []);
+  const branch = git && git.projectId === activeProject?.id ? git.branch : null;
 
   const dirtyCount = activeProject ? activeProject.files.filter(f => f.isDirty).length : 0;
   const language = activeFile ? detectLanguage(activeFile.name) : 'plaintext';
@@ -27,10 +37,19 @@ const StatusBar: React.FC<StatusBarProps> = ({ onOpenSettings, onTogglePalette }
   return (
     <div className="vibe-statusbar" role="status" aria-label="Status bar">
       <div className="vibe-statusbar-left">
-        {/* Git branch (decorative — local editor) */}
-        <span className="vibe-statusbar-item" title={t('vibecoding.status.branch', 'Бұтақ')}>
+        {/* Git бұтағы — басқанда Source Control ашылады */}
+        <span
+          className="vibe-statusbar-item"
+          title={`${t('vibecoding.status.branch', 'Бұтақ')} — Source Control (Ctrl+Shift+G)`}
+          onClick={() => {
+            dispatch({ type: 'SET_LEFT_PANEL_VISIBLE', payload: true });
+            showLeftView('git');
+          }}
+          style={{ cursor: 'pointer' }}
+        >
           <BranchIcon size={13} />
-          <span>main</span>
+          <span>{branch ?? 'git'}</span>
+          {branch && git && git.changes > 0 && <span>· {git.changes}</span>}
         </span>
 
         <span className="vibe-statusbar-divider" />

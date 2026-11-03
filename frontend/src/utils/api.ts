@@ -25,6 +25,17 @@ export interface EmailChangePending {
   resend_in: number;
 }
 
+export interface AdminMe {
+  isAdmin: boolean;
+  method?: 'totp' | 'email' | null;
+  requires2fa?: boolean;
+  verified?: boolean;
+  expiresAt?: string | null;
+}
+
+/** Әкімші растауының мерзімі өтсе — AdminPage растау терезесін қайта көрсетеді */
+export const ADMIN_STEPUP_EVENT = 'admin-stepup-required';
+
 export interface MonitoringEvent {
   id: number;
   at: string | null;
@@ -174,6 +185,67 @@ export interface VibecodingProjectFile {
   path: string;
   content: string;
   language: string;
+}
+
+// ─── Vibecoding Source Control (git) ───
+export interface GitFileStatusDTO {
+  path: string;
+  orig: string | null;
+  /** Индекс күйі (X): ' ', M, A, D, R, C, U, ? */
+  index: string;
+  /** Жұмыс папкасы күйі (Y) */
+  worktree: string;
+}
+
+export interface GitStatusDTO {
+  repo: boolean;
+  branch?: string | null;
+  upstream?: string | null;
+  ahead?: number;
+  behind?: number;
+  detached?: boolean;
+  head?: string | null;
+  files?: GitFileStatusDTO[];
+  truncated?: boolean;
+}
+
+export interface GitCommitDTO {
+  sha: string;
+  parents: string[];
+  author: string;
+  email: string;
+  time: number;
+  refs: string[];
+  subject: string;
+}
+
+export interface GitCommitDetailDTO extends Omit<GitCommitDTO, 'subject'> {
+  message: string;
+  files: { status: string; path: string }[];
+}
+
+export interface GitDiffDTO {
+  diff: string;
+  binary: boolean;
+  truncated: boolean;
+}
+
+export interface GitWorkspaceChangesDTO {
+  upserts: { path: string; content: string }[];
+  deletes: string[];
+  folders: string[];
+  deletedFolders: string[];
+}
+
+/** Жобаны іске қосу жоспары: server — dev-сервер (адресі көріністе ашылады),
+    web — статикалық HTML (браузерде құрастырылады), console — терминалдағы скрипт */
+export interface VibecodingRunPlan {
+  kind: 'server' | 'web' | 'console' | 'none';
+  command: string | null;
+  cwd?: string;
+  framework?: string;
+  script?: string;
+  entry?: string;
 }
 
 export interface VibecodingProjectDTO {
@@ -344,7 +416,7 @@ export interface MentionInfo {
   projects: { id: string; title: string; language: string; isFolder: boolean; likes: number }[];
 }
 
-/** Модератор беті: бір шағым (дәлелі, Бүркіттің пікірі, шешімі) */
+/** Модератор беті: бір шағым (дәлелі, Codo-ның пікірі, шешімі) */
 export type ModerationAction = 'approve' | 'reject' | 'remove';
 export interface ModerationCase {
   id: string;
@@ -362,7 +434,7 @@ export interface ModerationCase {
   story: { id: string; mediaUrl: string; mediaType: 'image' | 'video' | 'text'; caption: string; status: string } | null;
 }
 
-/** Бүркіттің шағымды тексеру нәтижесі; қабылданса — жариялауға токен */
+/** Codo-ның шағымды тексеру нәтижесі; қабылданса — жариялауға токен */
 export interface OpinionReview {
   accepted: boolean;
   reason: string;
@@ -374,7 +446,7 @@ export interface OpinionItem {
   id: string;
   kind: StoryMentionKind;
   text: string;
-  /** Шағымды Бүркіт неге қабылдады */
+  /** Шағымды Codo неге қабылдады */
   verdict?: string | null;
   /** Модератор қолмен бекітсе — себебі */
   moderatorNote?: string | null;
@@ -600,7 +672,7 @@ export interface SiteConfig {
   apiDisplayUrl?: string;
 }
 
-/** Бүркіт қай кілтпен жұмыс істейді: өз кілті, сервердің ортақ кілті, немесе кілт жоқ */
+/** Codo қай кілтпен жұмыс істейді: өз кілті, сервердің ортақ кілті, немесе кілт жоқ */
 export interface BurkitStatus {
   provider: 'gemini';
   model: string;
@@ -621,22 +693,22 @@ export interface BurkitChatPayload {
   /** Ашық файлдың жобадағы жолы және мазмұны */
   fileName?: string;
   fileContent?: string;
-  /** Ашық жоба: Бүркіт файлдарды көріп, path= блоктарымен оларға жаза алады */
+  /** Ашық жоба: Codo файлдарды көріп, path= блоктарымен оларға жаза алады */
   projectName?: string;
   projectFiles?: { path: string; content?: string }[];
-  /** Серверге сақталған жоба — оның Notes папкасындағы жазбалар да Бүркітке барады */
+  /** Серверге сақталған жоба — оның Notes папкасындағы жазбалар да Codo-ға барады */
   projectId?: string;
-  /** agent — Бүркіт файлдар мен жазбаларға жазады; ask — тек жауап береді */
+  /** agent — Codo файлдар мен жазбаларға жазады; ask — тек жауап береді */
   mode?: 'agent' | 'ask' | 'site';
   /** Vibecoding бетінің ағымдағы күйі: оқиғалар, терминал, консоль, редактор, қателер */
   workspace?: WorkspaceSnapshot & { openFiles: string[] };
-  /** Сайт интерфейсінің тілі — Бүркіт осы тілде жауап береді */
+  /** Сайт интерфейсінің тілі — Codo осы тілде жауап береді */
   uiLanguage?: 'kk' | 'ru' | 'en';
   /** @ арқылы атап өтілген файлдар/папкалар */
   mentions?: string[];
   /** Сайттағы жобалармен жұмыс (```project блоктары) үшін контекст */
   site?: BurkitSiteContext & { catalog?: { id: string; title: string; author?: string; language?: string }[] };
-  /** home — басты беттегі Бүркіт (жобамен жұмыс істесе де терминалсыз) */
+  /** home — басты беттегі Codo (жобамен жұмыс істесе де терминалсыз) */
   surface?: 'vibecoding' | 'home';
 }
 
@@ -673,7 +745,7 @@ export interface CliToken {
   lastUsedAt: string | null;
 }
 
-/** Бүркіт сұрауының қатесі; status 403 — кілт енгізілмеген */
+/** Codo сұрауының қатесі; status 403 — кілт енгізілмеген */
 export class BurkitError extends Error {
   constructor(message: string, public status: number) {
     super(message);
@@ -813,6 +885,14 @@ class ApiService {
           errorMessage = tApi('apiErrors.profileUpdateFailed');
         } else if (errorMessage.includes('Invalid credentials') || errorMessage.includes('User not found')) {
           errorMessage = tApi('apiErrors.invalidCredentials');
+        } else if (errorMessage === 'Account banned') {
+          errorMessage = tApi('apiErrors.accountBanned');
+        } else if (endpoint.startsWith('/admin/') && errorData.detail && response.status !== 401) {
+          // Әкімші панелі: сервердің өз хабарламасы (қазақша) өзгеріссіз көрсетіледі
+          if (response.status === 403 && (errorData.detail === 'admin_stepup_required' || errorData.detail === 'admin_2fa_required')) {
+            window.dispatchEvent(new CustomEvent(ADMIN_STEPUP_EVENT));
+            errorMessage = tApi('admin.gate.expired');
+          }
         } else if (errorMessage.includes('Something went wrong')) {
           errorMessage = tApi('apiErrors.genericServerError');
         } else if (response.status === 401) {
@@ -1063,6 +1143,19 @@ class ApiService {
     });
   }
 
+  /** «Іске қосу»: жоба қалай іске қосылатынын сервер оның терминал папкасынан анықтайды */
+  async getVibecodingRunPlan(id: string): Promise<VibecodingRunPlan> {
+    return this.request<VibecodingRunPlan>(`/vibecoding/projects/${encodeURIComponent(id)}/run-plan`);
+  }
+
+  /** Dev-серверді DevTools көпірі бар прокси арқылы ашу (консоль мен желі сұраулары көрінеді) */
+  async openVibecodingDevProxy(port: number, path: string): Promise<{ port: number; path: string }> {
+    return this.request<{ port: number; path: string }>('/vibecoding/dev-proxy', {
+      method: 'POST',
+      body: JSON.stringify({ port, path }),
+    });
+  }
+
   async deleteVibecodingProject(id: string): Promise<void> {
     return this.request<void>(`/vibecoding/projects/${encodeURIComponent(id)}`, {
       method: 'DELETE',
@@ -1099,6 +1192,51 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // ─── Vibecoding Source Control (git) ───
+  private gitUrl(id: string, tail: string): string {
+    return `/vibecoding/projects/${encodeURIComponent(id)}/git/${tail}`;
+  }
+
+  async gitStatus(id: string): Promise<GitStatusDTO> {
+    return this.request<GitStatusDTO>(this.gitUrl(id, 'status'));
+  }
+
+  async gitInit(id: string): Promise<GitStatusDTO> {
+    return this.request<GitStatusDTO>(this.gitUrl(id, 'init'), { method: 'POST' });
+  }
+
+  async gitStage(id: string, paths: string[]): Promise<GitStatusDTO> {
+    return this.request<GitStatusDTO>(this.gitUrl(id, 'stage'), { method: 'POST', body: JSON.stringify({ paths }) });
+  }
+
+  async gitUnstage(id: string, paths: string[]): Promise<GitStatusDTO> {
+    return this.request<GitStatusDTO>(this.gitUrl(id, 'unstage'), { method: 'POST', body: JSON.stringify({ paths }) });
+  }
+
+  async gitDiscard(id: string, paths: string[]): Promise<{ status: GitStatusDTO; changes: GitWorkspaceChangesDTO | null }> {
+    return this.request(this.gitUrl(id, 'discard'), { method: 'POST', body: JSON.stringify({ paths }) });
+  }
+
+  async gitCommit(id: string, message: string, all: boolean): Promise<{ sha: string; status: GitStatusDTO }> {
+    return this.request(this.gitUrl(id, 'commit'), { method: 'POST', body: JSON.stringify({ message, all }) });
+  }
+
+  async gitLog(id: string, limit = 200): Promise<GitCommitDTO[]> {
+    return this.request<GitCommitDTO[]>(this.gitUrl(id, `log?limit=${limit}`));
+  }
+
+  async gitDiff(id: string, path: string, staged: boolean): Promise<GitDiffDTO> {
+    return this.request<GitDiffDTO>(this.gitUrl(id, `diff?path=${encodeURIComponent(path)}&staged=${staged}`));
+  }
+
+  async gitCommitDetail(id: string, sha: string): Promise<GitCommitDetailDTO> {
+    return this.request<GitCommitDetailDTO>(this.gitUrl(id, `commits/${encodeURIComponent(sha)}`));
+  }
+
+  async gitCommitDiff(id: string, sha: string, path: string): Promise<GitDiffDTO> {
+    return this.request<GitDiffDTO>(this.gitUrl(id, `commits/${encodeURIComponent(sha)}/diff?path=${encodeURIComponent(path)}`));
   }
 
   // Жазбалар
@@ -1290,8 +1428,21 @@ class ApiService {
   }
 
   // ── Әкімші: мониторинг ──
-  async getAdminMe(): Promise<{ isAdmin: boolean }> {
+  async getAdminMe(): Promise<AdminMe> {
     return this.request('/admin/me');
+  }
+
+  /** Әкімші панеліне кірер алдындағы растау (backend/services/admin_guard.py) */
+  async adminStepUpStart(): Promise<{ method: 'totp' | 'email'; sent: boolean }> {
+    return this.request('/admin/stepup/start', { method: 'POST' });
+  }
+
+  async adminStepUpVerify(code: string): Promise<{ ok: boolean; verified: boolean; expiresAt: string }> {
+    return this.request('/admin/stepup/verify', { method: 'POST', body: JSON.stringify({ code }) });
+  }
+
+  async adminStepUpEnd(): Promise<{ ok: boolean }> {
+    return this.request('/admin/stepup/end', { method: 'POST' });
   }
 
   async getMonitoringOverview(): Promise<MonitoringOverview> {
@@ -1310,6 +1461,19 @@ class ApiService {
 
   async adminLogoutEverywhere(userId: string): Promise<{ ok: boolean }> {
     return this.request(`/admin/users/${encodeURIComponent(userId)}/logout-everywhere`, { method: 'POST' });
+  }
+
+  /** Әкімші панелінің жалпы шақыруы (components/admin/adminApi.ts) */
+  async admin<T = unknown>(
+    path: string,
+    opts: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; query?: Record<string, string | number | undefined> } = {},
+  ): Promise<T> {
+    const q = new URLSearchParams();
+    Object.entries(opts.query || {}).forEach(([k, v]) => { if (v !== undefined && v !== '') q.set(k, String(v)); });
+    return this.request<T>(`/admin${path}${q.toString() ? `?${q}` : ''}`, {
+      method: opts.method || 'GET',
+      ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
+    });
   }
 
   async firebaseLogin(idToken: string): Promise<any> {
@@ -1651,9 +1815,9 @@ class ApiService {
     data: {
       file: File | null; background?: string; caption: string; projectId: string | null;
       mentionId?: string; mentionKind?: StoryMentionKind;
-      /** Пікірдің өзі; шағымда тағы дәлел және Бүркіттің токені */
+      /** Пікірдің өзі; шағымда тағы дәлел және Codo-ның токені */
       mentionText?: string; evidence?: string; evidenceProjectId?: string | null; reviewToken?: string;
-      /** Бүркіт қабылдамаса — модераторға қолмен тексеруге */
+      /** Codo қабылдамаса — модераторға қолмен тексеруге */
       manualReview?: boolean;
     },
     options?: UploadOptions
@@ -2068,7 +2232,7 @@ class ApiService {
     }
   }
 
-  // ── Бүркіт (Gemini) ──
+  // ── Codo (Gemini) ──
   async getBurkitStatus(): Promise<BurkitStatus> {
     return this.request<BurkitStatus>('/burkit/status');
   }
@@ -2103,7 +2267,7 @@ class ApiService {
   }
 
   /**
-   * Бүркіттен жауап алу — мәтін бөлік-бөлік келеді (onChunk). request() жауапты
+   * Codo-дан жауап алу — мәтін бөлік-бөлік келеді (onChunk). request() жауапты
    * толық күтетіндіктен, мұнда fetch тікелей қолданылады (401-де бір рет жаңартып қайталайды).
    */
   async streamBurkitChat(

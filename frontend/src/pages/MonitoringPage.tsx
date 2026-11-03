@@ -19,7 +19,8 @@ const KINDS = [
   '', 'login_ok', 'login_fail', 'login_unknown_user', 'account_locked', 'login_code_sent', 'login_code_fail',
   'login_code_locked', 'login_code_ok', 'new_device', 'register',
   '2fa_fail', 'refresh_reuse', 'rate_limited', 'server_error', 'alert', 'admin_action',
-  'test_code_bypass', 'email_change_requested', 'email_change_code_fail', 'email_changed',
+  'test_code_bypass', 'email_change_requested', 'email_change_code_fail', 'email_changed', 'admin_view',
+  'admin_login', 'admin_login_fail', 'admin_denied',
 ];
 
 const fmtUptime = (s: number) => {
@@ -115,9 +116,10 @@ const Tile: React.FC<{ label: string; value: React.ReactNode; hint?: string; ton
   </div>
 );
 
-const MonitoringPage: React.FC = () => {
+/* embedded — AdminPage ішінде: рұқсатты AdminPage тексереді, бет тақырыбы көрсетілмейді */
+const MonitoringPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation();
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [allowed, setAllowed] = useState<boolean | null>(embedded ? true : null);
   const [data, setData] = useState<MonitoringOverview | null>(null);
   const [events, setEvents] = useState<MonitoringEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -131,8 +133,9 @@ const MonitoringPage: React.FC = () => {
   filtersRef.current = { severity, kind, ipFilter };
 
   useEffect(() => {
+    if (embedded) return;
     apiService.getAdminMe().then((r) => setAllowed(r.isAdmin)).catch(() => setAllowed(false));
-  }, []);
+  }, [embedded]);
 
   const load = useCallback(async () => {
     const f = filtersRef.current;
@@ -195,10 +198,10 @@ const MonitoringPage: React.FC = () => {
   }
 
   return (
-    <div className="mon">
+    <div className={embedded ? 'mon--embedded' : 'mon'}>
       <header className="mon__top">
         <div>
-          <h1><FontAwesomeIcon icon={faChartLine} /> {t('monitoring.title')}</h1>
+          {!embedded && <h1><FontAwesomeIcon icon={faChartLine} /> {t('monitoring.title')}</h1>}
           <p>
             {data ? t('monitoring.updated', { time: new Date(data.generatedAt).toLocaleTimeString(), uptime: fmtUptime(data.uptimeSeconds) }) : '…'}
           </p>
@@ -320,7 +323,7 @@ const MonitoringPage: React.FC = () => {
                 <tr key={e.id} className={`is-${e.severity}`}>
                   <td className="mon__nowrap">{fmtTime(e.at)}</td>
                   <td className="mon__nowrap"><SevIcon s={e.severity} /> {kindLabel(e.kind)}</td>
-                  <td>{e.username ? <Link to={`/profile/${e.username}`}>@{e.username}</Link> : e.userId || '—'}</td>
+                  <td>{e.userId ? <Link to={`/admin/users/${encodeURIComponent(e.userId)}`}>{e.username ? `@${e.username}` : e.userId}</Link> : '—'}</td>
                   <td className="mon__mono">{e.ip || '—'}</td>
                   <td className="mon__detail">{e.detail ? (typeof e.detail === 'string' ? e.detail : JSON.stringify(e.detail)) : ''}</td>
                   <td className="mon__nowrap">

@@ -6,11 +6,12 @@ import {
   faShieldHalved, faCheck, faXmark, faTrashCan, faArrowRight, faCode, faFolder, faRobot, faGavel,
 } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../utils/api';
+import { useViewPath } from '../utils/viewPath';
 import type { ModerationCase, ModerationAction } from '../utils/api';
 import { avatarSrc, backgroundOf, mediaSrc, shortAgo } from '../components/home/stories/storyUtils';
 import './ModerationPage.css';
 
-/* Шағымдарды қолмен тексеру (тек модераторларға): шағым, дәлел, Бүркіттің пікірі →
+/* Шағымдарды қолмен тексеру (тек модераторларға): шағым, дәлел, Codo-ның пікірі →
    модератор себебін жазып шешім шығарады; себебі авторға (алып тастағанда — белгіленгенге де) чатпен барады */
 
 type Tab = 'pending' | 'approved' | 'closed';
@@ -30,6 +31,7 @@ const Person: React.FC<{ p: ModerationCase['author'] }> = ({ p }) => {
 
 const CaseCard: React.FC<{ item: ModerationCase; onDone: (id: string) => void }> = ({ item, onDone }) => {
   const { t } = useTranslation();
+  const viewPath = useViewPath();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<ModerationAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ const CaseCard: React.FC<{ item: ModerationCase; onDone: (id: string) => void }>
           <h4>{t('moderation.evidence')}</h4>
           <p>{item.evidence || '—'}</p>
           {item.evidenceProject && (
-            <Link to={`/view/${item.evidenceProject.id}`} target="_blank" rel="noopener noreferrer" className="mod__project">
+            <Link to={viewPath(item.evidenceProject.id)} target="_blank" rel="noopener noreferrer" className="mod__project">
               <FontAwesomeIcon icon={item.evidenceProject.isFolder ? faFolder : faCode} />
               {item.evidenceProject.title}
               {item.evidenceProject.language && <em>{item.evidenceProject.language}</em>}

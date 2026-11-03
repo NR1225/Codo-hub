@@ -1,18 +1,22 @@
 """Әкімші панелі: мониторинг (/admin/monitoring беті).
 
-Қорғаныс: тек ADMIN_USER_IDS тізіміндегі қолданушы. Басқаларға — 404 (панельдің бары да білінбейді).
+Қорғаныс (services/admin_guard.py): ADMIN_USER_IDS тізімі + ADMIN_ALLOWED_IPS + міндетті 2FA +
+қайта растау (authenticator/email коды, ADMIN_STEPUP_MINUTES минутқа HttpOnly cookie).
+Тізімде жоқ немесе басқа IP-ден келгенге — 404 (панельдің бары да білінбейді).
 Әкімшінің әр әрекеті (құлыпты алу, құрылғыларды ұмыту) журналға жазылады.
 """
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from config import ADMIN_USER_IDS
 from db import User, get_db
-from services import login_guard, monitoring
+from services import admin_guard, login_guard, monitoring
 from utils.auth import get_current_user
 
 router = APIRouter()
@@ -23,16 +27,46 @@ def is_admin(user: Optional[User]) -> bool:
     return bool(user) and user.id in ADMIN_USER_IDS
 
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
-    if not is_admin(user):
-        raise HTTPException(status_code=404, detail="Not Found")
+def require_admin(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+    """Тізімде + рұқсат етілген IP + 2FA + қайта расталған (services/admin_guard.py)"""
+    admin_guard.require_full(db, user, request)
     return user
 
 
 @router.get("/admin/me")
 @limiter.limit("60/minute")
-async def admin_me(request: Request, user: User = Depends(get_current_user)):
-    return {"isAdmin": is_admin(user)}
+async def admin_me(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return admin_guard.status(db, user, request)
+
+
+class StepUpVerify(BaseModel):
+    code: str = Field(..., min_length=6, max_length=12)
+
+
+@router.post("/admin/stepup/start")
+@limiter.limit("10/minute")
+async def admin_stepup_start(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Әкімші панеліне кірер алдындағы растау: email әдісінде код жіберіледі"""
+    return admin_guard.start(db, user, request)
+
+
+@router.post("/admin/stepup/verify")
+@limiter.limit("10/minute")
+async def admin_stepup_verify(request: Request, body: StepUpVerify, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    token = admin_guard.verify(db, user, request, body.code)
+    response = JSONResponse(admin_guard.status_after_verify())
+    admin_guard.set_cookie(response, token)
+    return response
+
+
+@router.post("/admin/stepup/end")
+@limiter.limit("30/minute")
+async def admin_stepup_end(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Панельден шығу (растауды жою)"""
+    admin_guard.end(db, user, request)
+    response = JSONResponse({"ok": True})
+    admin_guard.clear_cookie(response)
+    return response
 
 
 @router.get("/admin/monitoring/overview")

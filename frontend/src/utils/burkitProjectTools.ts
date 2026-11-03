@@ -2,8 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { apiService, CodeFile, VibecodingProjectDTO } from './api';
 import type { BlockAction, ProjectOp } from '../components/vibecoding/burkitBlocks';
 
-/* Бүркіттің сайттағы жобалармен жұмысы (```project … блоктары) — басты беттегі де, Vibecoding-тегі де
-   Бүркіт осыны қолданады. Жобаны жасау/өшіру/ашу әр бетте әртүрлі (Vibecoding-те — контекст арқылы,
+/* Codo-ның сайттағы жобалармен жұмысы (```project … блоктары) — басты беттегі де, Vibecoding-тегі де
+   Codo осыны қолданады. Жобаны жасау/өшіру/ашу әр бетте әртүрлі (Vibecoding-те — контекст арқылы,
    басты бетте — API арқылы), сондықтан ол бөлігін бет өзі береді (ProjectHost). */
 
 export type ProjectAction = Extract<BlockAction, { kind: 'project' }>;
@@ -31,7 +31,7 @@ export interface ProjectHost {
 }
 
 export interface ProjectActionResult {
-  /** Бүркітке баратын нәтиже */
+  /** Codo-ға баратын нәтиже */
   text: string;
   /** Қолданушыға көрсетілетін сілтеме (бөлісу сілтемесі, жарияланған жоба) */
   link?: string;
@@ -47,7 +47,7 @@ export const VIBE_PROJECTS_EVENT = 'vibeProjectsUpdated';
 
 export const shareUrl = (token: string) => `${window.location.origin}/vibecoding/shared/${token}`;
 
-/** Чатқа/Бүркітке түсінікті бір жолдық сипаттама */
+/** Чатқа/Codo-ға түсінікті бір жолдық сипаттама */
 export function describeProjectAction(action: ProjectAction): string {
   const a = action.attrs;
   const name = a.name ? `«${a.name}»` : 'ашық жоба';
@@ -257,7 +257,7 @@ export async function runProjectAction(action: ProjectAction, host: ProjectHost,
   }
 }
 
-/** Бүркіттің жаңа жобасы README-мен басталады (басты бетте — сервер арқылы) */
+/** Codo-ның жаңа жобасы README-мен басталады (басты бетте — сервер арқылы) */
 export async function createProjectOnServer(name: string): Promise<string> {
   const id = uuidv4();
   await apiService.saveVibecodingProject(id, {
@@ -276,7 +276,7 @@ export interface BurkitSiteContext {
   groups: string[];
 }
 
-/** Бүркітке жүйелік мәтін үшін: менің жобаларым, жарияланғандар, достар, топтар */
+/** Codo-ға жүйелік мәтін үшін: менің жобаларым, жарияланғандар, достар, топтар */
 export async function loadSiteContext(host: ProjectHost): Promise<BurkitSiteContext> {
   const [vibes, published, friends, groups] = await Promise.all([
     host.listVibe().catch(() => [] as ProjectSummary[]),

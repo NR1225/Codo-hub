@@ -259,7 +259,94 @@ header .btn.header-nav-btn:hover:not(:disabled)::after {
   --accent-gradient: linear-gradient(135deg, #00AFCA 0%, #0099CC 25%, #FFD700 50%, #FCD116 75%, #FFC700 100%);
 }
 
-/* Жарық тақырыпта бренд атауы — көк емес, негізгі мәтін түсінде */
-.light-theme .site-brand {
-  color: var(--text-primary);
+/* Бренд атауы — екі тақырыпта да бірдей: көк, YouTube стиліндегі
+   жуан, тығыз шрифт (Roboto) */
+html .site-header .site-brand {
+  color: var(--hub-brand-blue, #38bdf8);
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+/* Логотип пен сайт атауы бір қатарда, тік бойынша дәл ортада */
+.site-header a[href="/"] {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.site-header .site-logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.site-header .site-brand {
+  display: block;
+  line-height: 1;
+  white-space: nowrap;
+  /* Атауды логотиппен теңестіру үшін сәл төмен түсіреміз */
+  position: relative;
+  top: 3px;
+}
+
+/* Жарық тақырыпта навигация карталарының ховер жиегі — қара тақырыптағы көк */
+.light-theme header .btn.header-nav-btn {
+  --nav-stroke: var(--hub-blue);
+}
+
+/* =========================================================
+   Vibecoding бетінде хедер биіктігін сүйреп өзгерту
+   ========================================================= */
+.site-header--sized {
+  box-sizing: border-box;
+  overflow: visible;
+}
+.site-header--sized > div:first-child {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  transition: opacity 160ms ease;
+}
+/* Өте аласа хедерде мазмұн көрінбейді — тек жолақ қалады */
+.site-header--compact > div:first-child {
+  opacity: 0;
+  pointer-events: none;
+}
+.site-header--resizing,
+.site-header--resizing * {
+  transition: none !important;
+  user-select: none;
+}
+.site-header--resizing { cursor: row-resize; }
+
+.site-header__resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  height: 9px;
+  z-index: 2;
+  cursor: row-resize;
+  touch-action: none;
+  outline: none;
+}
+/* Ортадағы кішкене тұтқа — тышқан үстінде немесе сүйреген кезде көрінеді */
+.site-header__resize::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: #38bdf8;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.site-header__resize:hover::after,
+.site-header__resize:focus-visible::after,
+.site-header--resizing .site-header__resize::after {
+  opacity: 0.9;
 }

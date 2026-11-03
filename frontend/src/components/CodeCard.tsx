@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faHeart, faComment, faEye, faChevronDown, faChevronUp, faFolder, faFile } from '@fortawesome/free-solid-svg-icons';
 import { CodeFile } from '../utils/api';
+import { useViewPath } from '../utils/viewPath';
 import './CodeCard.css';
 
 interface CodeCardProps {
@@ -15,6 +16,7 @@ interface CodeCardProps {
 
 const CodeCard: React.FC<CodeCardProps> = ({ code, viewMode = 'grid', isSelected = false, onToggleSelect }) => {
   const { t } = useTranslation();
+  const viewPath = useViewPath();
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const descriptionRef = useRef<HTMLParagraphElement>(null);
   const cardWrapperRef = useRef<HTMLDivElement>(null);
@@ -139,7 +141,7 @@ const CodeCard: React.FC<CodeCardProps> = ({ code, viewMode = 'grid', isSelected
       className={`code-card-wrapper ${viewMode === 'list' ? 'list-mode' : ''} ${isSelected ? 'selected' : ''}`}
     >
       <Link
-        to={`/view/${code.id}`}
+        to={viewPath(code.id)}
         className={`code-card ${viewMode === 'list' ? 'list-mode' : ''}`}
         onClick={(e) => {
           // If clicking on checkbox or toggle button, prevent navigation

@@ -31,6 +31,8 @@ export interface UseTerminalOptions {
   onErrorOutput?: () => void;
   /** Қолданушы Enter басты; командасы анық болса — мәтіні, әйтпесе null */
   onSubmit?: (command: string | null) => void;
+  /** Түс тақырыбы: Vibecoding сайт тақырыбына ереді, қалғандары — қара (әдепкі) */
+  theme?: 'dark' | 'light';
 }
 
 export type TerminalShortcut =
@@ -80,6 +82,56 @@ const PY_LINK_RE = /File "([^"]+)", line (\d+)/g;
 const PATH_LINK_RE = /((?:[A-Za-z]:)?[\w./\\-]*[\w-]\.[A-Za-z][A-Za-z0-9]{0,9})(?::(\d+)(?::(\d+))?|\((\d+),\s?(\d+)\))?/g;
 const URL_RE = /https?:\/\/\S+/g;
 
+const DARK_THEME = {
+  // Қара монохром палитра (кодтар беті т.б.)
+  background: '#0a0a0a',
+  foreground: '#e5e5e5',
+  cursor: '#fafafa',
+  cursorAccent: '#0a0a0a',
+  selectionBackground: 'rgba(255, 255, 255, 0.18)',
+  black: '#000000',
+  red: '#ff6b6b',
+  green: '#51cf66',
+  yellow: '#ffd43b',
+  blue: '#339af0',
+  magenta: '#cc5de8',
+  cyan: '#67e8f9',
+  white: '#d4d4d4',
+  brightBlack: '#6b6b6b',
+  brightRed: '#ff8787',
+  brightGreen: '#69db7c',
+  brightYellow: '#ffe066',
+  brightBlue: '#74c0fc',
+  brightMagenta: '#e599f7',
+  brightCyan: '#66d9e8',
+  brightWhite: '#ffffff',
+};
+
+const LIGHT_THEME = {
+  // Vibecoding бетінің ақ монохром палитрасы
+  background: '#ffffff',
+  foreground: '#1a1a1a',
+  cursor: '#0a0a0a',
+  cursorAccent: '#ffffff',
+  selectionBackground: 'rgba(0, 0, 0, 0.15)',
+  black: '#1a1a1a',
+  red: '#d32f2f',
+  green: '#2e7d32',
+  yellow: '#a16207',
+  blue: '#1d4ed8',
+  magenta: '#9333ea',
+  cyan: '#0e7490',
+  white: '#6b6b6b',
+  brightBlack: '#8a8a8a',
+  brightRed: '#dc2626',
+  brightGreen: '#16a34a',
+  brightYellow: '#b45309',
+  brightBlue: '#2563eb',
+  brightMagenta: '#a855f7',
+  brightCyan: '#0891b2',
+  brightWhite: '#0a0a0a',
+};
+
 const SEARCH_OPTS = {
   decorations: {
     matchBackground: '#3a3a3a',
@@ -125,30 +177,7 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     if (!containerRef.current) return;
 
     const term = new Terminal({
-      theme: {
-        // Vibecoding бетінің қара монохром палитрасы
-        background: '#0a0a0a',
-        foreground: '#e5e5e5',
-        cursor: '#fafafa',
-        cursorAccent: '#0a0a0a',
-        selectionBackground: 'rgba(255, 255, 255, 0.18)',
-        black: '#000000',
-        red: '#ff6b6b',
-        green: '#51cf66',
-        yellow: '#ffd43b',
-        blue: '#339af0',
-        magenta: '#cc5de8',
-        cyan: '#67e8f9',
-        white: '#d4d4d4',
-        brightBlack: '#6b6b6b',
-        brightRed: '#ff8787',
-        brightGreen: '#69db7c',
-        brightYellow: '#ffe066',
-        brightBlue: '#74c0fc',
-        brightMagenta: '#e599f7',
-        brightCyan: '#66d9e8',
-        brightWhite: '#ffffff',
-      },
+      theme: options?.theme === 'light' ? LIGHT_THEME : DARK_THEME,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
       fontSize: optionsRef.current?.fontSize ?? 13,
       lineHeight: 1.4,
@@ -287,6 +316,14 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     };
   }, [fit]);
 
+  // Тақырып ауысса — терминалдың түстерін бірден жаңартамыз
+  const termTheme = options?.theme;
+  useEffect(() => {
+    const term = terminalRef.current;
+    if (!term) return;
+    term.options.theme = termTheme === 'light' ? LIGHT_THEME : DARK_THEME;
+  }, [termTheme]);
+
   // Шрифт өлшемі өзгерсе — жолдар/бағандар санын қайта есептейміз
   const fontSize = options?.fontSize;
   useEffect(() => {
@@ -306,7 +343,7 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
 
     const ws = new TerminalWebSocketService();
 
-    // Бүркіт терминалда не болып жатқанын көруі үшін шығыс пен оқиғалар vibeActivity-ге де барады
+    // Codo терминалда не болып жатқанын көруі үшін шығыс пен оқиғалар vibeActivity-ге де барады
     ws.setOnOutput((data: string) => {
       terminalRef.current?.write(data);
       appendTerminalOutput(data);
@@ -415,7 +452,7 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
   const sendText = useCallback((text: string) => {
     const term = terminalRef.current;
     if (!term) return;
-    // Енгізу жолы арқылы — тарих пен Бүркіт белсенділігі де жаңарады
+    // Енгізу жолы арқылы — тарих пен Codo белсенділігі де жаңарады
     term.input(`${text}\r`);
     term.scrollToBottom();
     term.focus();

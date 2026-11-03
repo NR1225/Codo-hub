@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { extractCodeBlocks, parseFence, actionLabel } from '../vibecoding/burkitBlocks';
 import { describeProjectAction, ALWAYS_CONFIRM_OPS, ProjectAction } from '../../utils/burkitProjectTools';
 
-/* Басты беттегі Бүркіттің (Gemini) жауабын көрсету: markdown (тақырып, тізім, сілтеме, код)
+/* Басты беттегі Codo-ның (Gemini) жауабын көрсету: markdown (тақырып, тізім, сілтеме, код)
    және ```project блоктары — растау батырмалары бар әрекет карталары. */
 
 // Жол ішіндегі markdown: **bold**, `code`, [сілтеме](/path)
@@ -40,7 +40,7 @@ export interface ActionState {
   /** Блок орындалды немесе өткізілді */
   handled: boolean;
   running: boolean;
-  /** Батырмалар көрсетілсін (соңғы жауап, Бүркіт бос) */
+  /** Батырмалар көрсетілсін (соңғы жауап, Codo бос) */
   canAct: boolean;
   link?: string;
 }

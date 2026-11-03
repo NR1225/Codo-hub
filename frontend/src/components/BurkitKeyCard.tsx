@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { apiService, BurkitStatus } from '../utils/api';
 
 /* Gemini кілтін енгізу/ауыстыру/өшіру картасы — Vibecoding-тегі (cls="vx-ai") және
-   басты беттегі (cls="sai") Бүркітке ортақ. Сыныптар: `${cls}__key…` */
+   басты беттегі (cls="sai") Codo-ға ортақ. Сыныптар: `${cls}__key…` */
 
 const AI_STUDIO_URL = 'https://aistudio.google.com/apikey';
 
@@ -55,7 +55,7 @@ const BurkitKeyCard: React.FC<BurkitKeyCardProps> = ({ cls, status, onChange, on
         {status?.source === 'shared' && <>Сіз сайттың ортақ кілтін қолданып жатырсыз. Өз кілтіңізді қойсаңыз, сол қолданылады.</>}
         {(!status || status.source === 'none') && (
           <>
-            Бүркітті қолдану үшін тегін кілт алыңыз:{' '}
+            Codo-ны қолдану үшін тегін кілт алыңыз:{' '}
             <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer" className={`${cls}__link`}>aistudio.google.com</a>
             {' '}→ «Create API key».
           </>

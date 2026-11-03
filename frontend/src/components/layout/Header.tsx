@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock, faUser, faLayerGroup, faLaptopCode } from '@fortawesome/free-solid-svg-icons';
@@ -13,6 +13,16 @@ import { apiService, User } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { imageStorage } from '../../utils/imageStorage';
 import './Header.css';
+
+// Vibecoding бетіндегі хедер биіктігі (px): 0 — толық жиналған
+const VIBE_HEADER_KEY = 'vibecoding.headerHeight';
+const VIBE_HEADER_DEFAULT = 64;
+const VIBE_HEADER_MIN = 0;
+const VIBE_HEADER_LIMIT = 96;
+const clampHeaderH = (h: number) => {
+  const v = Math.round(Math.min(VIBE_HEADER_LIMIT, Math.max(VIBE_HEADER_MIN, h)));
+  return v < 14 ? 0 : v; // кішкене қалдық — толық жинаймыз
+};
 
 const Header: React.FC = () => {
   const { t } = useTranslation();
@@ -39,6 +49,69 @@ const Header: React.FC = () => {
       root.style.removeProperty('--header-h');
     };
   }, []);
+
+  // Vibecoding бетінде ғана хедердің биіктігін сүйреп өзгертуге болады.
+  // Өлшем localStorage-та сақталады: басқа беттерде хедер қалыпты, қайтқанда сол өлшем.
+  const { pathname } = useLocation();
+  const isVibePage = pathname === '/vibecoding';
+  const [vibeHeaderH, setVibeHeaderH] = useState<number | null>(() => {
+    try {
+      const v = Number(localStorage.getItem(VIBE_HEADER_KEY));
+      return Number.isFinite(v) && localStorage.getItem(VIBE_HEADER_KEY) !== null ? clampHeaderH(v) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  const saveVibeHeaderH = useCallback((h: number | null) => {
+    setVibeHeaderH(h);
+    try {
+      if (h === null) localStorage.removeItem(VIBE_HEADER_KEY);
+      else localStorage.setItem(VIBE_HEADER_KEY, String(h));
+    } catch { /* сақтау мүмкін емес — тек осы сессияда */ }
+  }, []);
+
+  const onResizeStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const startY = e.clientY;
+    const startH = headerRef.current?.getBoundingClientRect().height ?? VIBE_HEADER_DEFAULT;
+    let last = startH;
+    setIsResizing(true);
+    const onMove = (ev: PointerEvent) => {
+      last = clampHeaderH(startH + ev.clientY - startY);
+      setVibeHeaderH(last);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      setIsResizing(false);
+      saveVibeHeaderH(last);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  }, [saveVibeHeaderH]);
+
+  const onResizeKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const cur = vibeHeaderH ?? headerRef.current?.getBoundingClientRect().height ?? VIBE_HEADER_DEFAULT;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      saveVibeHeaderH(clampHeaderH(cur + (e.key === 'ArrowUp' ? -8 : 8)));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      saveVibeHeaderH(0);
+    } else if (e.key === 'End' || e.key === 'Enter') {
+      e.preventDefault();
+      saveVibeHeaderH(null);
+    }
+  }, [vibeHeaderH, saveVibeHeaderH]);
+
+  const resizable = isVibePage && vibeHeaderH !== null;
 
   // Load avatar from imageStorage for display
   const loadDisplayUser = useCallback(async () => {
@@ -137,12 +210,16 @@ const Header: React.FC = () => {
   }, [loadDisplayUser]);
 
   return (
-    <header ref={headerRef} className="site-header relative border-b border-border py-[2.6px] sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10">
+    <header
+      ref={headerRef}
+      style={resizable ? { height: vibeHeaderH!, paddingTop: 0, paddingBottom: 0 } : undefined}
+      className={`${resizable ? 'site-header--sized ' : ''}${isResizing ? 'site-header--resizing ' : ''}${resizable && vibeHeaderH! < 40 ? 'site-header--compact ' : ''}site-header relative border-b border-border py-[2.6px] sticky top-0 z-[9999] backdrop-blur-[20.5px] backdrop-saturate-[180%] transition-all w-full max-w-full before:absolute before:inset-0 before:bg-bg-primary before:opacity-95 dark:before:opacity-85 before:-z-10`}
+    >
       <div className="w-full m-0 pr-4 pl-4 flex items-center justify-between gap-4 relative flex-nowrap max-[491.5px]:pr-3 max-[491.5px]:pl-3 min-h-[58px]">
         {/* Сайт атауы */}
         <Link
           to="/"
-          className="flex items-center gap-2 sm:gap-3 flex-shrink-0 m-0 p-1 no-underline rounded-[7.7px] hover:translate-x-0.5 transition-transform text-text-primary"
+          className="flex items-center gap-2 sm:gap-3 flex-shrink-0 m-0 p-1 no-underline rounded-[7.7px] text-text-primary"
           aria-label={t('header.appName')}
         >
           <img
@@ -241,6 +318,22 @@ const Header: React.FC = () => {
         onClose={() => setIsProfileModalOpen(false)}
         buttonRef={profileButtonRef}
       />
+      {isVibePage && (
+        <div
+          className="site-header__resize"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('header.resize', 'Хедер биіктігі')}
+          aria-valuemin={VIBE_HEADER_MIN}
+          aria-valuemax={VIBE_HEADER_LIMIT}
+          aria-valuenow={vibeHeaderH ?? VIBE_HEADER_DEFAULT}
+          tabIndex={0}
+          title={t('header.resizeHint', 'Сүйреп хедер биіктігін өзгертіңіз · екі рет басу — бастапқы өлшем')}
+          onPointerDown={onResizeStart}
+          onDoubleClick={() => saveVibeHeaderH(null)}
+          onKeyDown={onResizeKey}
+        />
+      )}
     </header>
   );
 };

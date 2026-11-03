@@ -1819,7 +1819,7 @@
   to { opacity: 1; transform: none; }
 }
 
-/* ---------- Пікір: өз сөзімен, шағымда — дәлел + Бүркіт ---------- */
+/* ---------- Пікір: өз сөзімен, шағымда — дәлел + Codo ---------- */
 .sc__opinion {
   position: relative;
   display: block;
@@ -1931,7 +1931,7 @@
 .sv__opinion.is-praise { border-left: 3px solid #4ade80; }
 .sv__opinion.is-complaint { border-left: 3px solid #fbbf24; }
 
-/* Бүркіт қабылдамаса — модераторға жіберу */
+/* Codo қабылдамаса — модераторға жіберу */
 .sc__review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sc__review.is-manual { align-items: center; background: rgba(59, 130, 246, 0.12); }
 .sc__review.is-manual svg { color: #60a5fa; margin-top: 0; }
@@ -1946,4 +1946,14 @@
   backdrop-filter: blur(10px);
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+/* Жарық тақырып: жарияланған стористің жиегі — хедердегі көк
+   (көрілгені — бозарған көк). «Жаңа сторис» және жүктелу күйі өзгермейді. */
+.light-theme .hs-item:not(.hs-item--new):not(.hs-item--skeleton) .hs-ring {
+  background: linear-gradient(135deg, var(--hub-brand-blue), var(--hub-blue));
+}
+
+.light-theme .hs-item.is-seen .hs-ring {
+  background: color-mix(in srgb, var(--hub-blue) 35%, #ffffff);
 }

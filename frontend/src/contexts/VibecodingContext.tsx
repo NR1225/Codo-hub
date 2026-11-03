@@ -433,7 +433,7 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       };
     }
 
-    // Жол бойынша жазу (Бүркіт): бар болса — жаңартып ашады, жоқ болса — жасайды.
+    // Жол бойынша жазу (Codo): бар болса — жаңартып ашады, жоқ болса — жасайды.
     // Бір кадрда бірнеше рет шақырылса да әрқашан соңғы күйге қарайды
     case 'WRITE_FILE': {
       if (!state.activeProjectId) return state;
@@ -684,7 +684,7 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
   }
 }
 
-// ─── Бүркітке арналған оқиғалар журналы ─────────────────────────────
+// ─── Codo-ға арналған оқиғалар журналы ─────────────────────────────
 
 function describeAction(action: VibecodingAction, state: VibecodingState): { text: string; key?: string } | null {
   const project = state.projects.find(p => p.id === state.activeProjectId);
@@ -702,7 +702,7 @@ function describeAction(action: VibecodingAction, state: VibecodingState): { tex
     case 'DELETE_FOLDER': return { text: `Папка жойылды: ${action.payload.path}` };
     case 'RENAME_FILE': return { text: `Файл атауы өзгертілді: ${fileName(action.payload.fileId)} → ${action.payload.name}` };
     case 'MOVE_PATH': return { text: `Жылжытылды: ${action.payload.from} → ${action.payload.to}` };
-    case 'WRITE_FILE': return { text: `Бүркіт файлға жазды: ${action.payload.path}`, key: `edit:${action.payload.path}` };
+    case 'WRITE_FILE': return { text: `Codo файлға жазды: ${action.payload.path}`, key: `edit:${action.payload.path}` };
     case 'UPDATE_FILE_CONTENT': {
       const path = fileName(action.payload.fileId);
       return { text: `Файл өңделді: ${path}`, key: `edit:${path}` };
@@ -888,7 +888,7 @@ interface VibecodingProviderProps {
 
 export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children }) => {
   const [state, rawDispatch] = useReducer(vibecodingReducer, undefined, createInitialState);
-  // Әр әрекет Бүркітке арналған оқиғалар журналына да жазылады
+  // Әр әрекет Codo-ға арналған оқиғалар журналына да жазылады
   const logStateRef = useRef(state);
   logStateRef.current = state;
   const dispatch = useCallback<React.Dispatch<VibecodingAction>>((action) => {

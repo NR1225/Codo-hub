@@ -759,7 +759,7 @@
   }
 }
 
-/* ---------- Gemini Бүркіті: markdown, код, жоба әрекеттері ---------- */
+/* ---------- Gemini Codo-сы: markdown, код, жоба әрекеттері ---------- */
 
 .sai__md { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 0.95rem; line-height: 1.6; }
 .sai__md-p, .sai__md-h, .sai__md-li { margin: 0; overflow-wrap: anywhere; }
@@ -861,7 +861,7 @@
 .sai__hist-open { display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem; padding: 6px 12px; border: 0; border-radius: 10px; background: none; color: var(--sai-muted); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: color 0.15s ease, background-color 0.15s ease; }
 .sai__hist-open:hover { color: var(--text-primary); background: var(--sai-raise); }
 
-/* ── Vibecoding-тегі Бүркітпен бірдей мүмкіндіктер ── */
+/* ── Vibecoding-тегі Codo-мен бірдей мүмкіндіктер ── */
 
 /* Хабар + оның астындағы әрекеттер */
 .sai__col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -880,7 +880,7 @@
 .sai__tool-btn.is-done { color: #4ade80; }
 .sai__tool-btn svg { width: 14px; height: 14px; }
 
-/* «Бүркіт ойланып жатыр» */
+/* «Codo ойланып жатыр» */
 .sai__thinking { display: flex; align-items: center; gap: 10px; padding-top: 6px; color: var(--sai-muted); font-size: 0.85rem; }
 
 /* «/» командалары */
@@ -941,7 +941,7 @@
 .sai__att-error { align-self: center; color: #f87171; font-size: 0.75rem; }
 .sai__msg--user .sai__atts { justify-content: flex-end; }
 
-/* Бүркіт жобамен жұмыс істегенде: файл әрекеттері, өзгерістер тізімі, ашық жоба белгісі */
+/* Codo жобамен жұмыс істегенде: файл әрекеттері, өзгерістер тізімі, ашық жоба белгісі */
 .sai__fileop { margin: 6px 0; border-radius: 10px; background: rgba(var(--mono-ink), 0.03); box-shadow: inset 0 0 0 1px var(--mono-2a2a2a); font-size: 0.8125rem; }
 .sai__fileop summary { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; list-style: none; }
 .sai__fileop summary::-webkit-details-marker { display: none; }
@@ -968,3 +968,27 @@
 .sai__project-link { flex-shrink: 0; color: var(--text-primary); text-decoration: underline; text-underline-offset: 2px; }
 .sai__project-close { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--mono-6b6b6b); cursor: pointer; }
 .sai__project-close:hover:not(:disabled) { background: rgba(var(--mono-ink), 0.1); color: var(--text-primary); }
+
+/* ---------- Жарық тақырып: Қасқыр ---------- */
+
+/* Атауы — хедердегі сайт атауымен бірдей (көк, Roboto) */
+.light-theme .sai__title,
+html .sai__bar-title.is-brand {
+  color: var(--hub-brand-blue, #38bdf8);
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+/* Жазу картасының айналатын жиегі — қара емес, көк */
+.light-theme .sai__box::before {
+  background: conic-gradient(
+    from var(--sai-angle, 0deg),
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 0%,
+    var(--hub-blue) 10%,
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 25%,
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 50%,
+    var(--hub-blue) 60%,
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 75%
+  );
+}

@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { viewParentPath } from '../utils/viewPath';
 import { useTranslation } from 'react-i18next';
 import { CodeFile, Comment, ProjectMembership } from '../utils/api';
 import { apiService } from '../utils/api';
@@ -446,6 +447,7 @@ const ViewCode: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const language = i18n.language;
   const currentUser: CurrentUser = user ? { id: user.id, username: user.username } : null;
@@ -671,7 +673,7 @@ const ViewCode: React.FC = () => {
   const goBack = () => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) navigate(-1);
-    else navigate('/codes');
+    else navigate(viewParentPath(location.pathname));
   };
 
   // Жоба осы беттің өзінде іске қосылады (ашық тұрса — қайта іске қосылады)

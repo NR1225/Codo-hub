@@ -1,0 +1,502 @@
+/* ─── Сол панель: Explorer / Source Control ауыстырғышы ─── */
+.vx-left {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.vx-left__tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--vx-line, #1f1f1f);
+}
+
+.vx-left__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--vx-muted, #8f8f8f);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.vx-left__tab:hover { color: var(--ide-text); background: var(--ide-hover); }
+
+.vx-left__tab.is-on { color: var(--ide-text); }
+
+.vx-left__tab.is-on::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ide-accent, #fafafa);
+}
+
+.vx-left__badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--ide-accent, #fafafa);
+  color: var(--ide-editor-bg, #0a0a0a);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.vx-left__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─── Source Control панелі ─── */
+.vx-git__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 12px;
+}
+
+.vx-git__hint {
+  margin: 8px 14px;
+  color: var(--vx-dim, #5c5c5c);
+  font-size: 12px;
+}
+
+.vx-git__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ide-danger, #f87171) 12%, transparent);
+  color: var(--ide-danger, #f87171);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vx-git__error > span { flex: 1; }
+
+.vx-git__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 18px;
+  text-align: center;
+  color: var(--vx-muted, #8f8f8f);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.vx-git__empty p { margin: 0; }
+
+.vx-git__orb {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--vx-raise-2, #1c1c1c);
+  color: var(--ide-text);
+}
+
+.vx-git-spin svg { animation: vx-git-spin 0.8s linear infinite; }
+
+@keyframes vx-git-spin { to { transform: rotate(360deg); } }
+
+/* Коммит блогы */
+.vx-git-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 10px;
+}
+
+.vx-git-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--vx-muted, #8f8f8f);
+  font-size: 12px;
+}
+
+.vx-git-branch > span:not(.vx-git-branch__sync) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vx-git-branch__sync {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--vx-raise-2, #1c1c1c);
+  font-family: var(--vx-mono, monospace);
+  font-size: 11px;
+}
+
+.vx-git-commit__input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 52px;
+  padding: 7px 9px;
+  border: 1px solid var(--vx-line-strong, #333);
+  border-radius: 7px;
+  background: var(--vx-raise-2, #1c1c1c);
+  color: var(--ide-text);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.45;
+  outline: none;
+}
+
+.vx-git-commit__input:focus { border-color: var(--ide-accent, #fafafa); }
+
+.vx-git-commit__btn {
+  height: 30px;
+  border-radius: 7px;
+  font-size: 12.5px;
+}
+
+.vx-git-commit__btn:disabled { cursor: not-allowed; opacity: 0.45; }
+
+/* Бөлімдер */
+.vx-git-sec { margin-top: 2px; }
+
+.vx-git-sec__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 6px;
+  cursor: pointer;
+  color: var(--ide-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.vx-git-sec__head:hover { background: var(--ide-hover); }
+
+.vx-git-sec__chev {
+  display: inline-flex;
+  color: var(--vx-muted, #8f8f8f);
+  transition: transform 0.15s;
+}
+
+.vx-git-sec__chev.is-open { transform: rotate(90deg); }
+
+.vx-git-sec__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.vx-git-sec__actions {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.vx-git-sec__head:hover .vx-git-sec__actions { opacity: 1; }
+
+.vx-git-sec__count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--vx-raise-2, #1c1c1c);
+  color: var(--vx-muted, #8f8f8f);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* Файл жолы */
+.vx-git-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px 0 22px;
+  cursor: pointer;
+  font-size: 13px;
+  outline: none;
+}
+
+.vx-git-item:hover,
+.vx-git-item:focus-visible { background: var(--ide-hover); }
+
+.vx-git-item > svg { flex-shrink: 0; }
+
+.vx-git-item__name {
+  flex-shrink: 0;
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ide-text);
+}
+
+.vx-git-item__name.is-struck { text-decoration: line-through; opacity: 0.7; }
+
+.vx-git-item__dir {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vx-dim, #5c5c5c);
+  font-size: 11.5px;
+}
+
+.vx-git-item__actions {
+  display: none;
+  gap: 1px;
+  margin-left: auto;
+}
+
+.vx-git-item:hover .vx-git-item__actions,
+.vx-git-item:focus-within .vx-git-item__actions { display: inline-flex; }
+
+@media (hover: none) {
+  .vx-git-item__actions,
+  .vx-git-sec__actions { display: inline-flex; opacity: 1; }
+}
+
+.vx-git-item__actions .vx-icon-btn,
+.vx-git-sec__actions .vx-icon-btn { color: var(--vx-muted, #8f8f8f); }
+
+.vx-git-item__actions .vx-icon-btn:hover,
+.vx-git-sec__actions .vx-icon-btn:hover { color: var(--ide-text); background: var(--ide-active); }
+
+.vx-git-undo,
+.vx-git-minus { font-size: 14px; line-height: 1; font-weight: 600; }
+
+.vx-git-item__letter {
+  flex-shrink: 0;
+  width: 14px;
+  margin-left: auto;
+  font-family: var(--vx-mono, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.vx-git-item__actions + .vx-git-item__letter { margin-left: 4px; }
+.vx-git-item__dir ~ .vx-git-item__letter { margin-left: 4px; }
+
+.vx-git-item__letter.is-modified { color: var(--ide-dirty, #fbbf24); }
+.vx-git-item__letter.is-added { color: var(--ide-success, #34d399); }
+.vx-git-item__letter.is-deleted { color: var(--ide-danger, #f87171); }
+.vx-git-item__letter.is-renamed { color: #60a5fa; }
+.vx-git-item__letter.is-conflict { color: #f472b6; }
+
+/* ─── Граф ─── */
+.vx-git-sec--graph { margin-top: 8px; border-top: 1px solid var(--vx-line, #1f1f1f); padding-top: 4px; }
+
+.vx-git-graph { padding: 2px 0 0 6px; }
+
+.vx-git-graph__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding-right: 10px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+.vx-git-graph__row:hover,
+.vx-git-graph__row.is-open { background: var(--ide-hover); }
+
+.vx-git-graph__svg { flex-shrink: 0; display: block; overflow: visible; }
+
+.vx-git-graph__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.vx-git-graph__subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ide-text);
+}
+
+.vx-git-graph__meta {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vx-dim, #5c5c5c);
+  font-size: 11px;
+}
+
+.vx-git-ref {
+  flex-shrink: 0;
+  max-width: 120px;
+  padding: 0 6px;
+  border-radius: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 17px;
+  border: 1px solid currentColor;
+}
+
+.vx-git-ref.is-head { color: #4f9dff; background: color-mix(in srgb, #4f9dff 14%, transparent); }
+.vx-git-ref.is-branch { color: #34d399; }
+.vx-git-ref.is-remote { color: #a78bfa; }
+.vx-git-ref.is-tag { color: #fbbf24; }
+
+.vx-git-detail {
+  padding: 4px 0 8px;
+  border-left: 2px solid var(--vx-line-strong, #333);
+  background: color-mix(in srgb, var(--ide-hover, #222) 50%, transparent);
+}
+
+.vx-git-detail__meta {
+  padding: 2px 10px 4px;
+  color: var(--vx-muted, #8f8f8f);
+  font-size: 11.5px;
+  word-break: break-all;
+}
+
+.vx-git-detail__meta code { font-family: var(--vx-mono, monospace); color: var(--ide-text); }
+
+.vx-git-detail__msg {
+  margin: 0 10px 6px;
+  color: var(--ide-text);
+  font-family: inherit;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vx-git-detail .vx-git-item { padding-left: 10px; }
+
+/* ─── Diff көрінісі (редактор үстінде) ─── */
+.vx-git-diff {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--ide-editor-bg, #0a0a0a);
+  animation: vx-git-diff-in 0.18s ease-out;
+}
+
+@keyframes vx-git-diff-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.vx-git-diff__head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--vx-line, #1f1f1f);
+}
+
+.vx-git-diff__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ide-text);
+  font-size: 13px;
+}
+
+.vx-git-diff__stats {
+  display: inline-flex;
+  gap: 8px;
+  font-family: var(--vx-mono, monospace);
+  font-size: 12px;
+}
+
+.vx-git-diff__stats .is-add { color: var(--ide-success, #34d399); }
+.vx-git-diff__stats .is-del { color: var(--ide-danger, #f87171); }
+
+.vx-git-diff__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.vx-git-diff__table {
+  min-width: 100%;
+  border-collapse: collapse;
+  font-family: var(--vx-mono, ui-monospace, monospace);
+  line-height: 1.55;
+}
+
+.vx-git-diff__table td { padding: 0; vertical-align: top; }
+
+.vx-git-diff__no {
+  width: 1%;
+  min-width: 40px;
+  padding: 0 8px !important;
+  color: var(--vx-dim, #5c5c5c);
+  text-align: right;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.vx-git-diff__sign {
+  width: 16px;
+  padding-left: 4px !important;
+  color: var(--vx-muted, #8f8f8f);
+  user-select: none;
+}
+
+.vx-git-diff__code {
+  padding-right: 16px !important;
+  color: var(--ide-text);
+  white-space: pre;
+}
+
+.vx-git-diff__table tr.is-add { background: color-mix(in srgb, var(--ide-success, #34d399) 13%, transparent); }
+.vx-git-diff__table tr.is-add .vx-git-diff__sign { color: var(--ide-success, #34d399); }
+.vx-git-diff__table tr.is-del { background: color-mix(in srgb, var(--ide-danger, #f87171) 13%, transparent); }
+.vx-git-diff__table tr.is-del .vx-git-diff__sign { color: var(--ide-danger, #f87171); }
+
+.vx-git-diff__table tr.is-hunk td {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  background: color-mix(in srgb, #4f9dff 9%, transparent);
+  color: #6aa8ff;
+}
+
+.vx-git-diff__table tr.is-meta .vx-git-diff__code { color: var(--vx-dim, #5c5c5c); font-style: italic; }

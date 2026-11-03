@@ -1,7 +1,8 @@
 /* =========================================================
    Vibecoding — IDE стилі: өз хедері сайт хедерінің астына жапсырылған,
    жинақы панельдер, әсерлер аз — басты назар кодта.
-   Тақырыптан тәуелсіз — басты бет сияқты әрқашан қара.
+   Сайт тақырыбына ереді: қара тақырыпта — қара, жарық тақырыпта — ақ
+   (жарық нұсқасы әр ереженің астындағы :where(html.light-theme) блоктарында).
    ========================================================= */
 
 /* ── IDE айнымалылары ── */
@@ -66,14 +67,42 @@
   color: var(--ide-text);
   background: #000;
 }
+:where(html.light-theme) .vibe-root {
+  --ide-bg: #ffffff;
+  --ide-sidebar-bg: #f1f1f1;
+  --ide-editor-bg: #ffffff;
+  --ide-terminal-bg: #ffffff;
+  --ide-tab-active-bg: #ffffff;
+  --ide-tab-inactive-bg: #eeeeee;
+  --ide-text: #0a0a0a;
+  --ide-text-muted: #707070;
+  --ide-accent: #050505;
+  --ide-accent-hover: #2b2b2b;
+  --ide-accent-soft: rgba(0, 0, 0, 0.08);
+  --ide-on-accent: #f5f5f5;
+  --ide-border: #e0e0e0;
+  --ide-border-soft: #e8e8e8;
+  --ide-hover: #e5e5e5;
+  --ide-active: #d9d9d9;
+  --ide-status-bar-text: #5c5c5c;
+  --ide-status-bar-item-hover: rgba(0, 0, 0, 0.06);
+  --ide-scrollbar-thumb: #d5d5d5;
+  --ide-dirty: #d97706;
+  --ide-danger: #dc2626;
+  --ide-success: #059669;
+  --ide-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.09);
+  --ide-shadow-2: 0 20px 60px rgba(0, 0, 0, 0.18);
+  --vibe-panel-bg: #f1f1f1;
+  background: #ffffff;
+}
 
 /* ── Беттің өз хедері: сайт хедерінің астына жапсырылған жіңішке жолақ,
    VS Code тақырып жолағы сияқты — іздеу ортада, макет белгішелері оң жақта ── */
 .vibe-toolbar {
   position: relative;
   flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 1fr minmax(0, 420px) 1fr;
+  /* Ортаңғы баған енінде: тар болғанда іздеу өрісі қысқарады, батырмалар сақталады */
+  display: flex;
   align-items: center;
   gap: 10px;
   height: 38px;
@@ -82,9 +111,13 @@
   border-bottom: 1px solid var(--ide-border);
   background: #0a0a0a;
 }
+:where(html.light-theme) .vibe-toolbar {
+  background: #f5f5f5;
+}
 
 .vibe-toolbar__side {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   gap: 2px;
   min-width: 0;
@@ -92,6 +125,8 @@
 
 .vibe-toolbar__side--end {
   justify-content: flex-end;
+  flex-shrink: 0;
+  min-width: max-content;
 }
 
 .vibe-toolbar__divider {
@@ -104,6 +139,8 @@
 /* Файл іздеу — ортадағы кең өріс */
 .vibe-toolbar__search {
   display: inline-flex;
+  flex: 0 1 360px;
+  min-width: 34px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -119,11 +156,18 @@
   cursor: pointer;
   transition: border-color var(--ide-transition), color var(--ide-transition), background-color var(--ide-transition);
 }
+:where(html.light-theme) .vibe-toolbar__search {
+  background: #ededed;
+}
 
 .vibe-toolbar__search:hover {
   border-color: #333;
   background: #171717;
   color: var(--ide-text);
+}
+:where(html.light-theme) .vibe-toolbar__search:hover {
+  border-color: #cccccc;
+  background: #e8e8e8;
 }
 
 .vibe-toolbar__search-text {
@@ -181,12 +225,24 @@
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
+:where(html.light-theme) .vibe-run-btn {
+  border: 1px solid #d1d1d1;
+  background: #e9e9e9;
+  color: #1a1a1a;
+}
 
 .vibe-run-btn svg { color: #51cf66; }
+:where(html.light-theme) .vibe-run-btn svg {
+  color: #16a34a;
+}
 
 .vibe-run-btn:hover {
   border-color: #3a3a3a;
   background: #1f1f1f;
+}
+:where(html.light-theme) .vibe-run-btn:hover {
+  border-color: #c5c5c5;
+  background: #e0e0e0;
 }
 
 .vibe-run-btn:active { transform: scale(0.97); }
@@ -239,6 +295,9 @@
   background: var(--ide-hover);
   color: var(--ide-text);
   border-color: #333;
+}
+:where(html.light-theme) .vibe-btn-secondary:hover {
+  border-color: #cccccc;
 }
 
 /* ── Empty-state card ── */
@@ -412,6 +471,9 @@
 }
 .vibe-statusbar-item:hover { background: var(--ide-status-bar-item-hover); }
 .vibe-statusbar-item:active { background: rgba(0, 0, 0, 0.12); }
+:where(html.light-theme) .vibe-statusbar-item:active {
+  background: rgba(0, 0, 0, 0.036);
+}
 .vibe-statusbar-divider {
   width: 1px;
   align-self: center;
@@ -445,6 +507,9 @@
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: vibe-cp-fade 140ms ease-out;
+}
+:where(html.light-theme) .vibe-cp-overlay {
+  background: rgba(0, 0, 0, 0.21);
 }
 @keyframes vibe-cp-fade {
   from { opacity: 0; }
@@ -512,6 +577,9 @@
   background: var(--ide-hover);
   outline: 1px solid #333;
   outline-offset: -1px;
+}
+:where(html.light-theme) .vibe-cp-item.selected {
+  outline: 1px solid #cccccc;
 }
 .vibe-cp-item-icon {
   width: 22px;
@@ -652,6 +720,9 @@
   background: #fff;
   transition: transform var(--ide-transition);
 }
+:where(html.light-theme) .vibe-toggle::after {
+  background: #000000;
+}
 .vibe-toggle.on { background: var(--ide-accent); }
 .vibe-toggle.on::after { background: var(--ide-on-accent); }
 .vibe-toggle.on::after { transform: translateX(16px); }
@@ -720,52 +791,81 @@
   z-index: 30;
   flex-shrink: 0;
   display: flex;
-  align-items: stretch;
-  height: 32px;
-  padding: 0 4px 0 0;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 6px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--ide-border);
-  background: #070707;
+  background: #050505;
+}
+:where(html.light-theme) .vibe-ptabs {
+  background: #f8f8f8;
 }
 
 .vibe-ptabs__list {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
+  height: 100%;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .vibe-ptabs__list::-webkit-scrollbar { display: none; }
 
+/* Жоба картасы */
 .vibe-ptab {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  max-width: 200px;
-  padding: 0 6px 0 12px;
-  border-right: 1px solid var(--ide-border-soft);
+  max-width: 180px;
+  height: 24px;
+  padding: 0 4px 0 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--ide-border);
+  border-radius: 6px;
+  background: var(--ide-tab-inactive-bg);
   color: var(--ide-text-muted);
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--ide-transition), color var(--ide-transition);
+  transition: background-color var(--ide-transition), color var(--ide-transition),
+    border-color var(--ide-transition), box-shadow var(--ide-transition), transform var(--ide-transition);
 }
-.vibe-ptab:hover { background: var(--ide-hover); color: var(--ide-text); }
-.vibe-ptab:focus-visible { outline: 2px solid var(--ide-accent); outline-offset: -2px; }
-.vibe-ptab.active {
-  background: var(--ide-editor-bg);
+.vibe-ptab svg { flex-shrink: 0; opacity: 0.75; }
+.vibe-ptab:hover {
+  background: var(--ide-hover);
+  border-color: var(--ide-active);
   color: var(--ide-text);
 }
-/* Белсенді табтың үстіңгі жиегі */
+.vibe-ptab:focus-visible { outline: 2px solid var(--ide-accent); outline-offset: 1px; }
+.vibe-ptab.active {
+  background: var(--ide-editor-bg);
+  border-color: #3a3a3a;
+  color: var(--ide-text);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.vibe-ptab.active svg { opacity: 1; }
+:where(html.light-theme) .vibe-ptab.active {
+  background: #ffffff;
+  border-color: #cfcfcf;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+/* Белсенді картаның сол жақ белгісі */
 .vibe-ptab.active::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 2px;
+  left: -1px;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
   background: var(--ide-accent);
 }
-.vibe-ptab.dragging { opacity: 0.45; }
+.vibe-ptab.dragging { opacity: 0.45; transform: scale(0.97); }
 
 .vibe-ptab__name {
   overflow: hidden;
@@ -785,13 +885,16 @@
   font: inherit;
   outline: none;
 }
+:where(html.light-theme) .vibe-ptab__input {
+  background: #ffffff;
+}
 
-/* Пернелер нөмірі — тек тышқан үстінде тұрғанда немесе Alt басылғанда көрінеді */
+/* Пернелер нөмірі — тек тышқан үстінде тұрғанда көрінеді */
 .vibe-ptab__key {
   min-width: 14px;
   padding: 0 3px;
   border: 1px solid var(--ide-border);
-  border-radius: 3px;
+  border-radius: 4px;
   color: var(--ide-text-muted);
   font-size: 10px;
   line-height: 14px;
@@ -804,8 +907,9 @@
 .vibe-ptab__close {
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -813,6 +917,7 @@
   color: inherit;
   cursor: pointer;
   opacity: 0;
+  transition: opacity var(--ide-transition), background-color var(--ide-transition);
 }
 .vibe-ptab.active .vibe-ptab__close,
 .vibe-ptab:hover .vibe-ptab__close { opacity: 1; }
@@ -832,21 +937,31 @@
 .vibe-ptab__close.dirty:hover svg { display: block; }
 .vibe-ptab__close.dirty:hover::after { display: none; }
 
+/* «+» және «барлық жобалар» батырмалары — картамен бір өлшемде */
 .vibe-ptabs__btn {
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 100%;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  border: 0;
+  border: 1px dashed var(--ide-border);
+  border-radius: 6px;
   background: transparent;
   color: var(--ide-text-muted);
   cursor: pointer;
-  transition: background-color var(--ide-transition), color var(--ide-transition);
+  transition: background-color var(--ide-transition), color var(--ide-transition), border-color var(--ide-transition);
 }
 .vibe-ptabs__btn:hover,
-.vibe-ptabs__btn.active { background: var(--ide-hover); color: var(--ide-text); }
+.vibe-ptabs__btn.active {
+  background: var(--ide-hover);
+  border-color: var(--ide-active);
+  border-style: solid;
+  color: var(--ide-text);
+}
+.vibe-ptabs__menu-wrap .vibe-ptabs__btn { border-style: solid; border-color: transparent; }
+.vibe-ptabs__menu-wrap .vibe-ptabs__btn:hover,
+.vibe-ptabs__menu-wrap .vibe-ptabs__btn.active { border-color: var(--ide-active); }
 
 .vibe-ptabs__menu-wrap {
   position: relative;
@@ -856,7 +971,7 @@
 
 .vibe-ptabs__menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   right: 0;
   width: 260px;
   max-width: calc(100vw - 16px);
@@ -879,6 +994,9 @@
   border-radius: 6px;
   background: #000;
   color: var(--ide-text-muted);
+}
+:where(html.light-theme) .vibe-ptabs__search {
+  background: #ffffff;
 }
 .vibe-ptabs__search input {
   flex: 1;
@@ -942,13 +1060,13 @@
     min-height: 0;
   }
   .vibe-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
     gap: 6px;
     padding: 0 4px;
   }
   .vibe-toolbar__side:first-child { display: none; }
   .vibe-run-btn { padding: 0 8px; }
   .vibe-run-btn__text { display: none; }
-  .vibe-ptab { max-width: 140px; padding-left: 10px; }
+  .vibe-ptabs { padding: 0 4px; }
+  .vibe-ptab { max-width: 130px; padding-left: 7px; }
   .vibe-ptab__key { display: none; }
 }

@@ -3099,3 +3099,308 @@ button.cht-avatar:hover {
   .cht-req-btn.is-error,
   .cht-chip--sent { animation: none; }
 }
+
+/* ==========================================================================
+   Жарық тақырып — басты беттің жарық дизайны бойынша (HomeSidebar.css,
+   SiteAI.css, CodesPage.css): ақ панельдер, жұқа #e4e4e7 жиектер, ақшыл сұр
+   негізгі батырмалар (#e8e8e8 → #999fa8), көк фокус пен белгілер, ақ
+   қалқымалы элементтер. Тақырыптар қара түсте қалады.
+   ========================================================================== */
+
+.light-theme .cht-page,
+.light-theme .cht-ma-portal {
+  --cht-line: #e4e4e7;
+  --cht-line-strong: #d4d4d8;
+  --cht-hover: #f4f4f5;
+  --cht-raise: #f4f4f5;
+  --cht-muted: #71717a;
+  --cht-faint: #a1a1aa;
+  --cht-danger: #dc2626;
+}
+
+/* ---------- Панельдер ---------- */
+
+.light-theme .cht-side,
+.light-theme .cht-main {
+  border-color: #e4e4e7;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 40px -20px rgba(0, 0, 0, 0.14);
+}
+
+.light-theme .cht-side {
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.light-theme .cht-main {
+  background: #ffffff;
+}
+
+.light-theme .cht-details {
+  background: #fafafa;
+  border-left-color: #e4e4e7;
+}
+
+.light-theme .cht-side__title,
+.light-theme .cht-bar__name,
+.light-theme .cht-modal__head h2,
+.light-theme .cht-details__head h2 {
+  color: #0a0a0a;
+}
+
+/* ---------- Сол жақ: қойындылар, іздеу, тізім ---------- */
+
+/* Қойындылар — сұр жолақтағы ақ «түймешік» */
+.light-theme .cht-tabs {
+  background: #f4f4f5;
+  box-shadow: none;
+}
+
+.light-theme .cht-tab.is-active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: #0a0a0a;
+}
+
+.light-theme .cht-tab__badge,
+.light-theme .cht-tab.is-active .cht-tab__badge,
+.light-theme .cht-unread,
+.light-theme .cht-filter.is-active .cht-filter__count {
+  background: var(--hub-blue);
+  color: #ffffff;
+}
+
+/* Іздеу — басты беттегідей: ақ өріс, басқанда көк жиек */
+.light-theme .cht-search {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
+.light-theme .cht-search:hover {
+  box-shadow: inset 0 0 0 1px #d4d4d8;
+}
+
+.light-theme .cht-search:focus-within {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue), 0 0 0 4px color-mix(in srgb, var(--hub-blue) 10%, transparent);
+}
+
+.light-theme .cht-search input::-webkit-search-cancel-button {
+  filter: grayscale(1);
+}
+
+.light-theme .cht-list,
+.light-theme .cht-messages,
+.light-theme .cht-modal__body,
+.light-theme .message-textarea {
+  scrollbar-color: #d4d4d8 transparent;
+}
+
+/* Белсенді чат: ақшыл сұр фон, сол жақта көк белгі */
+.light-theme .cht-item.is-active {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
+.light-theme .cht-item.is-active::before {
+  background: var(--hub-blue);
+}
+
+.light-theme .cht-item.is-active .cht-avatar,
+.light-theme .cht-item.has-unread .cht-avatar,
+.light-theme .cht-item.has-unread .cht-gavatar {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px var(--hub-blue);
+}
+
+.light-theme .cht-item__tick.is-read,
+.light-theme .cht-item.has-unread .cht-item__time {
+  color: var(--hub-blue);
+}
+
+/* Сүзгі чиптері */
+.light-theme .cht-filter.is-active {
+  background: #e8e8e8;
+  box-shadow: none;
+  color: #0a0a0a;
+}
+
+.light-theme .cht-filter__count {
+  background: #e4e4e7;
+  color: #27272a;
+}
+
+.light-theme .cht-newgroup-btn {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0;
+}
+
+.light-theme .cht-newgroup-btn:hover {
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue), 0 6px 16px -6px rgba(0, 0, 0, 0.18);
+  color: var(--hub-blue);
+}
+
+/* Жүктелу қаңқасы */
+.light-theme .cht-skel span {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.9) 50%, transparent 100%) 0 0 / 200% 100%,
+    #f4f4f5;
+}
+
+/* ---------- Батырмалар — басты беттегі «Жаңа жоба» сияқты ---------- */
+
+.light-theme .cht-icon-btn--primary,
+.light-theme .cht-btn--primary {
+  background: #e8e8e8;
+  color: #0a0a0a;
+}
+
+.light-theme .cht-icon-btn--primary:hover,
+.light-theme .cht-btn--primary:hover {
+  background: #999fa8;
+  color: #0a0a0a;
+}
+
+.light-theme .cht-btn--ghost {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0;
+}
+
+.light-theme .cht-btn--ghost:hover {
+  box-shadow: inset 0 0 0 1.5px var(--hub-blue);
+  color: var(--hub-blue);
+}
+
+.light-theme .cht-icon-btn--glass {
+  background: rgba(255, 255, 255, 0.85);
+  color: #0a0a0a;
+}
+
+/* ---------- Хабарламалар ---------- */
+
+/* Өзімдікі — басты беттегі негізгі батырманың ақшыл сұр түсі */
+.light-theme .chat-message.own:not(.emoji),
+.light-theme .chat-message.text.own {
+  --cht-bubble-tail: #e8e8e8;
+  background: #e8e8e8;
+  box-shadow: 0 6px 16px -12px rgba(0, 0, 0, 0.25);
+  color: #0a0a0a;
+}
+
+/* Досымдікі — ақ, жұқа жиекпен */
+.light-theme .chat-message.other:not(.emoji),
+.light-theme .chat-message.text.other {
+  --cht-bubble-tail: #ffffff;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e4e4e7, 0 4px 14px -10px rgba(0, 0, 0, 0.18);
+}
+
+.light-theme .chat-message.text.is-failed {
+  box-shadow: 0 0 0 1.5px var(--cht-danger);
+}
+
+/* Өзімдікінің уақыты мен «оқылды» белгісі — оқылатын сұр, оқылғанда көк */
+.light-theme .chat-message.own .chat-message-footer,
+.light-theme .chat-message.own .chat-message-footer:has(.message-status.read) {
+  color: #52525b;
+  opacity: 1;
+}
+
+.light-theme .chat-message.own .message-status.read {
+  color: var(--hub-blue);
+}
+
+/* ---------- Жазу өрісі — Қасқырдың өрісі сияқты ---------- */
+
+.light-theme .message-input-form {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0, 0 8px 24px -12px rgba(0, 0, 0, 0.14);
+}
+
+.light-theme .message-input-form:hover {
+  box-shadow: inset 0 0 0 1px #d4d4d8, 0 8px 24px -12px rgba(0, 0, 0, 0.14);
+}
+
+.light-theme .message-input-form:focus-within {
+  box-shadow: inset 0 0 0 1px transparent, 0 10px 28px -12px rgba(0, 0, 0, 0.18);
+}
+
+/* Фокустағы айналатын жиек — қара емес, көк (басты беттегі .sai__box сияқты) */
+.light-theme .message-input-form::before {
+  background: conic-gradient(
+    from var(--cht-stroke-angle),
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 0%,
+    var(--hub-blue) 10%,
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 25%,
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 50%,
+    var(--hub-blue) 60%,
+    color-mix(in srgb, var(--hub-blue) 20%, transparent) 75%
+  );
+}
+
+.light-theme .message-attach-btn:hover:not(:disabled),
+.light-theme .message-emoji-btn:hover,
+.light-theme .message-send-btn--mic:hover:not(:disabled) {
+  background: #f4f4f5;
+}
+
+.light-theme .message-attach-btn.is-open {
+  background: #e8e8e8;
+}
+
+.light-theme .message-textarea::placeholder {
+  color: #a1a1aa;
+}
+
+.light-theme .message-send-btn:not(:disabled):not(.message-send-btn--mic) {
+  color: var(--hub-blue);
+}
+
+.light-theme .message-send-btn:disabled {
+  color: #d4d4d8;
+}
+
+.light-theme .message-attach-item__icon {
+  background: #f4f4f5;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
+.light-theme .message-attach-item:hover .message-attach-item__icon,
+.light-theme .message-attach-item:focus-visible .message-attach-item__icon {
+  background: #e8e8e8;
+  color: #0a0a0a;
+}
+
+/* ---------- Қалқымалы мәзірлер мен терезелер ---------- */
+
+.light-theme .cht-pop {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 0 0 1px #e0e0e0, 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.light-theme .cht-overlay {
+  background: rgba(9, 9, 11, 0.35);
+}
+
+.light-theme .cht-modal {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e4e4e7, 0 30px 80px -20px rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- Бос күй / сәлемдесу ---------- */
+
+.light-theme .cht-state__icon,
+.light-theme .cht-hint__icon {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e0e0e0, 0 6px 16px -6px rgba(0, 0, 0, 0.18);
+  color: var(--hub-blue);
+}
+
+.light-theme .cht-state__icon--lg {
+  background: #e8e8e8;
+  box-shadow: 0 0 0 6px #f4f4f5, 0 12px 30px -12px rgba(0, 0, 0, 0.2);
+  color: #0a0a0a;
+}
+
+/* Жиналған тізімдегі оқылмаған нүкте */
+.light-theme .is-collapsed .cht-item.has-unread::after {
+  background: var(--hub-blue);
+  box-shadow: 0 0 0 2px #ffffff;
+}

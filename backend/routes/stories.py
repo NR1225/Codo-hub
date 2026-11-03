@@ -87,7 +87,7 @@ async def mention_info(request: Request, user_id: str, user: User = Depends(get_
 @limiter.limit("6/minute")
 async def review_opinion(request: Request, body: OpinionReviewBody, user: User = Depends(get_current_user),
                          db: Session = Depends(get_db)):
-    """Бүркіт шағымды дәлелімен тексереді; қабылдаса — жариялауға токен береді"""
+    """Codo шағымды дәлелімен тексереді; қабылдаса — жариялауға токен береді"""
     return await opinion_service.review_complaint(user, _target(db, body.mentionId), body.text, body.evidence, body.projectId)
 
 

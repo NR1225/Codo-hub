@@ -8,6 +8,7 @@ import {
   faFileLines, faUsers, faClock, faTriangleExclamation, faEllipsisVertical, faPen, faShareNodes,
 } from '@fortawesome/free-solid-svg-icons';
 import { apiService, CodeFile } from '../../utils/api';
+import { useViewPath } from '../../utils/viewPath';
 import { useConfirm } from '../../contexts/ToastContext';
 import { formatDate } from '../../utils/dateFormatter';
 import { langColor } from '../vibecoding/langColors';
@@ -23,6 +24,7 @@ type Status = 'idle' | 'saving' | 'saved' | 'copied' | 'error';
 const SettingsProjects: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const viewPath = useViewPath();
   const confirm = useConfirm();
 
   const [projects, setProjects] = useState<CodeFile[] | null>(null);
@@ -355,7 +357,7 @@ const SettingsProjects: React.FC = () => {
                   <button
                     type="button"
                     className="prj-row__main"
-                    onClick={() => navigate(`/view/${project.id}`)}
+                    onClick={() => navigate(viewPath(project.id))}
                     title={t('viewCode.title')}
                   >
                     <span className="prj-row__icon">

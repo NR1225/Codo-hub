@@ -140,6 +140,10 @@
 
 /* Light Theme — қараңғы тақырыптың айнасы: ақ фон, монохром палитра */
 .light-theme {
+  /* Хедердегі көк (қара тақырыптағы ховер жиегімен бірдей) және бренд атауының көгі */
+  --hub-blue: color-mix(in srgb, #1a3a55 70%, #00AFCA);
+  --hub-brand-blue: #38bdf8;
+
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;
   --bg-hover: #ebebeb;
@@ -408,3 +412,23 @@
   --mono-fafafa: #09090b;
   --mono-ffffff: #09090b;
 }
+
+/* Тақырып ауысқан сәтте барлық элементтер бірден жаңа түске өтеді
+   (body-ның өз opacity әсері сақталады — ол body-ның ішіндегілерге ғана қолданылмайды) */
+html.theme-switching body *,
+html.theme-switching body *::before,
+html.theme-switching body *::after {
+  transition: none !important;
+}
+
+/* Тақырып ауысу анимациясы (View Transitions): диагональ бойынша (clip-path JS-те).
+   Ақ → қара: ескі (ақ) кадр ортадағы диагональға жиырылады.
+   Қара → ақ: ескі (қара) кадр бұрыштарға қарай кішірейеді — ақ ортадан ашылады. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+/* Екі бағытта да ескі кадр үстіде (clip-path JS-те анимацияланады) */
+::view-transition-old(root) { z-index: 2; }
+::view-transition-new(root) { z-index: 1; }

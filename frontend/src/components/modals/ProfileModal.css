@@ -32,13 +32,6 @@
   align-items: center;
 }
 
-.light-theme .profile-dropdown-content {
-  background: #ffffff;
-  border-color: rgba(251, 191, 36, 0.3);
-  box-shadow: 
-    0 12.8px 38.4px rgba(0, 0, 0, 0.1);
-}
-
 .profile-dropdown-item {
   display: flex;
   align-items: center;
@@ -77,40 +70,16 @@
   background: var(--bg-secondary);
   color: var(--text-primary);
   transform: translateX(4px) translateY(-2px);
-  border-color: var(--border-color);
+  border-color: var(--hub-blue, color-mix(in srgb, #1a3a55 70%, #00AFCA));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.light-theme .profile-dropdown-item {
-  background: #ffffff;
-  border-color: rgba(251, 191, 36, 0.3);
-  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.1);
-}
-
-.light-theme .profile-dropdown-item::before {
-  display: none;
-}
-
-.light-theme .profile-dropdown-item:hover {
-  background: #f9fafb;
-  border-color: var(--border-color);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  color: var(--text-primary);
 }
 
 .profile-dropdown-item.active {
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-weight: 700;
-  border-color: var(--border-color);
+  border-color: var(--hub-blue, color-mix(in srgb, #1a3a55 70%, #00AFCA));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.light-theme .profile-dropdown-item.active {
-  background: #f9fafb;
-  border-color: var(--border-color);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  color: var(--text-primary);
 }
 
 .profile-dropdown-item:active {
@@ -141,18 +110,6 @@
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
 }
 
-.light-theme .profile-dropdown-item.logout-item {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-.light-theme .profile-dropdown-item.logout-item:hover {
-  background: linear-gradient(135deg, 
-    rgba(239, 68, 68, 0.18) 0%, 
-    rgba(220, 38, 38, 0.12) 100%);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
 .nav-icon,
 .theme-icon {
   font-size: 1.15rem;
@@ -181,12 +138,6 @@
 .light-theme .theme-icon {
   background: transparent;
   color: var(--text-primary);
-}
-
-.light-theme .profile-dropdown-item:hover .nav-icon,
-.light-theme .profile-dropdown-item:hover .theme-icon {
-  background: transparent;
-  box-shadow: none;
 }
 
 .profile-dropdown-item.logout-item .nav-icon {

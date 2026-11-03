@@ -1,4 +1,4 @@
-// Vibecoding панельдері арасындағы көпір (терминал → Бүркіт, терминал → редактор).
+// Vibecoding панельдері арасындағы көпір (терминал → Codo, терминал → редактор).
 // Қабылдаушы панель әлі ашылмаған болуы мүмкін, сондықтан сұраныс модульде
 // күтіп тұрады: панель ашылғанда (mount) немесе оқиға келгенде өзі алады.
 
@@ -7,7 +7,7 @@ export const EDITOR_REVEAL_EVENT = 'vibecoding:editor-reveal';
 
 let pendingQuestion: string | null = null;
 
-/** Бүркітке сұрақ жіберу (чат панелі ашылғанда автоматты түрде жіберіледі) */
+/** Codo-ға сұрақ жіберу (чат панелі ашылғанда автоматты түрде жіберіледі) */
 export function askBurkit(text: string): void {
   pendingQuestion = text;
   window.dispatchEvent(new CustomEvent(BURKIT_ASK_EVENT));
@@ -41,7 +41,7 @@ export function takeReveal(path: string): RevealRequest | null {
   return req;
 }
 
-// ── Бүркіт → терминал: команданы жобаның терминалында орындау ──
+// ── Codo → терминал: команданы жобаның терминалында орындау ──
 
 export const TERMINAL_RUN_EVENT = 'vibecoding:terminal-run';
 

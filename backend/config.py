@@ -64,13 +64,14 @@ TERMINAL_RLIMIT_NPROC = int(os.getenv("TERMINAL_RLIMIT_NPROC", "64"))
 TERMINAL_RLIMIT_FSIZE_MB = int(os.getenv("TERMINAL_RLIMIT_FSIZE_MB", "100"))
 
 # ── Ортақ пакеттер (services/shared_packages.py) ──
-# Жоба қолданатын npm / Python пакеттері серверде бір рет орнатылып, барлық жобаға ортақ болады.
-# Осынша күн ешбір жоба қолданбаған жиынтық «ұйықтатылады» (дискіден өшіріледі, кэш қалады). 0 — ешқашан.
+# Әр npm / Python пакеті серверде бір рет сақталады (pnpm store, uv кэші) және барлық жобаға
+# hardlink арқылы қосылады. Терминалда орнатылған пакеттер де тұрақты (requirements.txt / package.json-ға жазылады).
+# Осынша күн ашылмаған жобаның node_modules / .venv-і өшіріледі (пакеттер қоймада қалады). 0 — ешқашан.
 SHARED_PACKAGES_IDLE_DAYS = float(os.getenv("SHARED_PACKAGES_IDLE_DAYS", "14"))
 # Python пакеттерін (requirements.txt немесе import-тар бойынша) автоматты орнату
 SHARED_PACKAGES_AUTO_PYTHON = os.getenv("SHARED_PACKAGES_AUTO_PYTHON", "true").lower() == "true"
 
-# ── Бүркіт (Google Gemini) ──
+# ── Codo (Google Gemini) ──
 # Әр қолданушы өз кілтін енгізеді (базада шифрланып сақталады). Сервердің ортақ
 # кілті (GEMINI_API_KEY) тек BURKIT_SHARED_KEY_USER_IDS тізіміндегі аккаунттарға
 # беріледі — ID бойынша, өйткені username ауыстыруға болады.
@@ -91,6 +92,17 @@ MODERATOR_USER_IDS = {
 ADMIN_USER_IDS = {
     uid.strip() for uid in os.getenv("ADMIN_USER_IDS", "").split(",") if uid.strip()
 }
+# Әкімші панелінің қорғанысы (services/admin_guard.py)
+# Панель тек осы IP-лерден ашылады (үтірмен; бос — шектеу жоқ)
+ADMIN_ALLOWED_IPS = {
+    ip.strip() for ip in os.getenv("ADMIN_ALLOWED_IPS", "").split(",") if ip.strip()
+}
+# Прокси артында (Cloud Run т.б.) нақты IP қай заголовокта: мысалы x-forwarded-for (оң жақтағы — прокси қосқаны)
+ADMIN_IP_HEADER = os.getenv("ADMIN_IP_HEADER", "").strip().lower()
+# Әкімшіде authenticator (2FA) қосулы болуы міндетті
+ADMIN_REQUIRE_2FA = os.getenv("ADMIN_REQUIRE_2FA", "true").lower() != "false"
+# Қайта растау қанша минут жарамды
+ADMIN_STEPUP_MINUTES = max(5, min(240, int(os.getenv("ADMIN_STEPUP_MINUTES", "30") or 30)))
 # Шабуыл белгісі байқалғанда хат баратын пошта (бос болса — хат жіберілмейді)
 ADMIN_ALERT_EMAIL = os.getenv("ADMIN_ALERT_EMAIL", "").strip()
 # Тест аккаунттары (username не email, үтірмен): кез келген 6 таңбалы кодпен кіреді.

@@ -1,6 +1,6 @@
 import React from 'react';
 
-/* Бүркіт ЖИ белгісі — сайт логосы (header-дегімен бірдей) */
+/* Codo ЖИ белгісі — сайт логосы (header-дегімен бірдей) */
 const BurkitLogo: React.FC<{ size?: number }> = ({ size = 18 }) => (
   <img
     src="/logo.png"

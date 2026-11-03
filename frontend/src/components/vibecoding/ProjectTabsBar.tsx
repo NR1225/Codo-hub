@@ -3,8 +3,26 @@ import { useTranslation } from 'react-i18next';
 import { useVibecoding, projectTabIds } from '../../contexts/VibecodingContext';
 import { PlusIcon, CloseIcon, ChevronDownIcon, FolderIcon, SearchIcon } from './icons';
 
+/* Жабылған табтар тізімі (браузердегідей Alt+Shift+T — соңғысын қайта ашу).
+   Бетті жаңартқанда да сақталады. */
+const CLOSED_TABS_KEY = 'vibecoding.closedProjectTabs';
+const CLOSED_TABS_LIMIT = 20;
+type ClosedTab = { id: string; index: number };
+const loadClosedTabs = (): ClosedTab[] => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CLOSED_TABS_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter((x) => x && typeof x.id === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+const saveClosedTabs = (list: ClosedTab[]) => {
+  try { localStorage.setItem(CLOSED_TABS_KEY, JSON.stringify(list)); } catch { /* сақталмаса да жұмыс істейді */ }
+};
+
 /* Хедер астындағы жоба табтары: бірнеше жобада қатар жұмыс істеу.
-   Жылдам ауысу: Alt+1…9, Alt+PageUp/PageDown, Alt+Shift+N — жаңа жоба, Alt+W — табты жабу. */
+   Жылдам ауысу: Alt+1…9, Alt+PageUp/PageDown, Alt+Shift+N — жаңа жоба, Alt+W — табты жабу,
+   Alt+Shift+T — жабылған табты қайта ашу. */
 const ProjectTabsBar: React.FC = () => {
   const { t } = useTranslation();
   const { state, dispatch } = useVibecoding();
@@ -20,6 +38,54 @@ const ProjectTabsBar: React.FC = () => {
   const [dragId, setDragId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const stateRef = useRef({ tabIds, active: state.activeProjectId });
+  stateRef.current = { tabIds, active: state.activeProjectId };
+
+  /* ── Жабылған табтар: табтар тізімінен жоғалған (бірақ жойылмаған) жобаны жазып аламыз ── */
+  const closedRef = useRef<ClosedTab[]>(loadClosedTabs());
+  const [closedCount, setClosedCount] = useState(closedRef.current.length);
+  const prevTabsRef = useRef<string[] | null>(null);
+  const tabsKey = tabIds.join('|');
+  useEffect(() => {
+    const prev = prevTabsRef.current;
+    prevTabsRef.current = tabIds;
+    if (!prev) return;
+    const projectIds = new Set(state.projects.map((p) => p.id));
+    let list = closedRef.current.filter((c) => projectIds.has(c.id) && !tabIds.includes(c.id));
+    prev.forEach((id, index) => {
+      if (!tabIds.includes(id) && projectIds.has(id)) {
+        list = [...list.filter((c) => c.id !== id), { id, index }];
+      }
+    });
+    list = list.slice(-CLOSED_TABS_LIMIT);
+    closedRef.current = list;
+    setClosedCount(list.length);
+    saveClosedTabs(list);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabsKey, state.projects]);
+
+  const reopenClosed = useCallback(() => {
+    const { tabIds: ids } = stateRef.current;
+    const projectIds = new Set(state.projects.map((p) => p.id));
+    const list = [...closedRef.current];
+    let target: ClosedTab | undefined;
+    while (list.length) {
+      const c = list.pop()!;
+      if (projectIds.has(c.id) && !ids.includes(c.id)) { target = c; break; }
+    }
+    closedRef.current = list;
+    setClosedCount(list.length);
+    saveClosedTabs(list);
+    if (!target) return;
+    // Жоба табқа соңынан қосылады — кейін бұрынғы орнына қоямыз
+    dispatch({ type: 'SWITCH_PROJECT', payload: { projectId: target.id } });
+    const order = ids.filter((id) => id !== target!.id);
+    order.splice(Math.min(target.index, order.length), 0, target.id);
+    dispatch({ type: 'REORDER_PROJECT_TABS', payload: { projectIds: order } });
+    setMenuOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, state.projects]);
 
   const switchTo = useCallback((projectId: string) => {
     dispatch({ type: 'SWITCH_PROJECT', payload: { projectId } });
@@ -49,8 +115,6 @@ const ProjectTabsBar: React.FC = () => {
   };
 
   /* ── Пернелер ── */
-  const stateRef = useRef({ tabIds, active: state.activeProjectId });
-  stateRef.current = { tabIds, active: state.activeProjectId };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey) return;
@@ -74,6 +138,11 @@ const ProjectTabsBar: React.FC = () => {
         switchTo(ids[(idx + step + ids.length) % ids.length]);
         return;
       }
+      if (e.shiftKey && e.code === 'KeyT') {
+        e.preventDefault();
+        reopenClosed();
+        return;
+      }
       if (e.shiftKey && e.code === 'KeyN') {
         e.preventDefault();
         createProject();
@@ -86,7 +155,7 @@ const ProjectTabsBar: React.FC = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [switchTo, closeTab, createProject]);
+  }, [switchTo, closeTab, createProject, reopenClosed]);
 
   // Белсенді таб әрқашан көрінсін
   useEffect(() => {
@@ -154,7 +223,7 @@ const ProjectTabsBar: React.FC = () => {
                 if (e.key === 'F2') startRename(project.id, project.name);
               }}
             >
-              <FolderIcon size={13} open={active} />
+              <FolderIcon size={12} open={active} />
               {renamingId === project.id ? (
                 <input
                   className="vibe-ptab__input"
@@ -184,7 +253,7 @@ const ProjectTabsBar: React.FC = () => {
                     closeTab(project.id);
                   }}
                 >
-                  <CloseIcon size={11} />
+                  <CloseIcon size={10} />
                 </button>
               ) : dirty ? (
                 <span className="vibe-ptab__dot" />
@@ -200,7 +269,7 @@ const ProjectTabsBar: React.FC = () => {
         onClick={createProject}
         title={`${t('vibecoding.projectTabs.new', 'Жаңа жоба')} (Alt+Shift+N)`}
       >
-        <PlusIcon size={14} />
+        <PlusIcon size={13} />
       </button>
 
       {/* Барлық жобалар — табта жоғын ашу немесе бар табқа өту */}
@@ -212,7 +281,7 @@ const ProjectTabsBar: React.FC = () => {
           title={t('vibecoding.projectTabs.all', 'Барлық жобалар')}
           aria-expanded={menuOpen}
         >
-          <ChevronDownIcon size={14} />
+          <ChevronDownIcon size={13} />
         </button>
         {menuOpen && (
           <div className="vibe-ptabs__menu">
@@ -252,6 +321,13 @@ const ProjectTabsBar: React.FC = () => {
                 <div className="vibe-ptabs__empty">{t('vibecoding.projectTabs.notFound', 'Жоба табылмады')}</div>
               )}
             </div>
+            {closedCount > 0 && (
+              <button type="button" className="vibe-ptabs__menu-item vibe-ptabs__menu-new" onClick={reopenClosed}>
+                <FolderIcon size={13} />
+                <span className="vibe-ptabs__menu-name">{t('vibecoding.projectTabs.reopen', 'Жабылған жобаны қайта ашу')}</span>
+                <span className="vibe-ptabs__menu-hint">Alt+Shift+T</span>
+              </button>
+            )}
             <button type="button" className="vibe-ptabs__menu-item vibe-ptabs__menu-new" onClick={createProject}>
               <PlusIcon size={13} />
               <span className="vibe-ptabs__menu-name">{t('vibecoding.projectTabs.new', 'Жаңа жоба')}</span>

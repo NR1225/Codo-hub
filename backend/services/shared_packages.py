@@ -1,31 +1,35 @@
-"""Терминал жобаларына ортақ пакеттер (npm + Python) — автоматты орнату және «ұйықтату».
+"""Терминал жобаларына ортақ пакеттер (npm + Python): әр пакет серверде бір рет.
 
-Жоба терминалға жазылғанда (``terminal_workspace.push``) оның қандай пакеттер
-қолданатыны анықталады:
-
-* **npm** — әр ``package.json`` (+ ``package-lock.json``);
-* **Python** — ``requirements.txt``; ол жоқ болса — ``.py`` файлдарындағы
-  ``import``-тар (тек белгілі пакеттер тізімі бойынша, ``_IMPORT_TO_PIP``).
-
-Бір жиынтық серверде бір рет орнатылады —
-``<TERMINAL_WORKSPACE_DIR>/.shared/{node,python}/<кілт>/`` — және жобаның
-``node_modules`` / ``.venv`` папкасы осы ортақ папкаға сілтеме (Windows-та
-junction, басқа жерде symlink) болады. Бар болса — бірден қолданылады, жоқ
-болса — фонда орнатылып, сақталып қалады.
-
-* Кілт — манифест мазмұнының хэші: файлдар өзгерсе, жаңа жиынтық бөлек
-  орнатылады, ескісін қолданып жүрген жобалар бұзылмайды.
-* Қауіпсіздік: npm ``--ignore-scripts``-пен, pip ``--only-binary=:all:``-мен
-  (тек дайын wheel, setup.py іске қосылмайды) және құпиясыз env-пен жүреді.
-  requirements.txt-тағы ``-r``/``--index-url``/URL/жергілікті жол жолдары алынып тасталады.
-* Жобада өзінің нағыз ``node_modules`` / ``.venv`` папкасы болса — тиіспейміз.
-* **Ұйықтату**: ``SHARED_PACKAGES_IDLE_DAYS`` күн бойы ешбір жоба қолданбаған
-  жиынтық дискіден өшіріледі (``sweep``). Жүктелген файлдардың кэші
-  (``npm-cache``, ``pip-cache``) қалады, сондықтан жоба қайта ашылғанда жиынтық
-  интернетсіз дерлік тез «оянады» (қайта орнатылады).
+Модель
+------
+* **Ортақ қойма** — ``<TERMINAL_WORKSPACE_DIR>/.shared/``:
+  ``uv-cache`` (Python, uv) және ``pnpm-store`` (npm, pnpm). Әр пакеттің әр
+  нұсқасы серверде **бір рет** жүктеліп сақталады — қанша қолданушы, қанша
+  жоба қолданса да.
+* **Жобаның өз** ``node_modules`` / ``.venv`` папкасы — қоймадағы файлдарға
+  hardlink. Пакет қоймада бар болса — жүктелмей, бірден (секундтың бөлігінде)
+  қосылады; жоқ болса — бір рет жүктеліп, қоймаға түседі де, келесі жобалар
+  оны қайта қолданады. Hardlink диск орнын алмайды.
+* **Тұрақтылық**: терминалдағы ``pip`` / ``pip3`` / ``python -m pip`` / ``npm``
+  / ``yarn`` / ``pnpm`` командалары ``pkg_shim.py`` арқылы осы қоймаға
+  орнатады және пакетті ``requirements.txt`` / ``package.json``-ға жазады.
+  Сондықтан кез келген пакет (PyPI / npm-дағы кез келгені — тек белгілі
+  тізімдегілер емес) жобамен бірге сақталады: жоба қайта ашылғанда ол
+  ``attach`` арқылы қоймадан бірден қайта қосылады.
+* Жоба ашылғанда (``terminal_workspace.push`` → ``attach``) манифест бойынша
+  ``node_modules`` / ``.venv`` фонда толықтырылады; манифест өзгермесе — ештеңе
+  істелмейді (``.codo-deps`` маркері).
+* Қауіпсіздік: орнату құпиясыз env-пен жүреді; бөтен адамның коды (кодты көру
+  бетінен іске қосу, ``trusted=False``) үшін npm скрипттері өшірулі, Python
+  тек дайын wheel-ден. requirements.txt-тағы ``-r``/``--index-url``/URL/жол
+  жолдары автоматты орнатуда алынып тасталады.
+* **Ұйықтату**: ``SHARED_PACKAGES_IDLE_DAYS`` күн ашылмаған жобаның
+  ``node_modules`` / ``.venv``-і өшіріледі (``sweep``) — пакеттер қоймада
+  қалады, жоба қайта ашылғанда бірден қалпына келеді.
 """
 import ast
 import hashlib
+import json
 import logging
 import os
 import re
@@ -49,20 +53,23 @@ IS_WINDOWS = sys.platform == "win32"
 # ".shared" — нүктесі бар, ал user_root() атаудан нүктені алып тастайды,
 # сондықтан ешбір қолданушының папкасымен соқтығыспайды
 SHARED_ROOT = os.path.abspath(os.path.join(TERMINAL_WORKSPACE_DIR, ".shared"))
-NODE_STORE = os.path.join(SHARED_ROOT, "node")
-PY_STORE = os.path.join(SHARED_ROOT, "python")
+UV_CACHE = os.path.join(SHARED_ROOT, "uv-cache")
+PNPM_STORE = os.path.join(SHARED_ROOT, "pnpm-store")
 NPM_CACHE = os.path.join(SHARED_ROOT, "npm-cache")
-PIP_CACHE = os.path.join(SHARED_ROOT, "pip-cache")
+TOOLS_DIR = os.path.join(SHARED_ROOT, "tools")
+BIN_DIR = os.path.join(SHARED_ROOT, "bin")
 _TMP = os.path.join(SHARED_ROOT, "tmp")
+# Бұрынғы «жиынтық» моделінің қалдықтары (жобалар енді оларға сілтеме жасамайды)
+_LEGACY = ("node", "python", "pip-cache", "trash")
 
+PNPM_VERSION = "9.15.9"
 VENV_DIR = ".venv"
-INSTALL_TIMEOUT_SECONDS = 600
+MARKER = ".codo-deps"
+INSTALL_TIMEOUT_SECONDS = 900
 MAX_SCAN_DEPTH = 3          # жобаның түбірі + 3 деңгей ішкі папка
 MAX_PY_SCAN_FILES = 300
 MAX_PY_FILE_BYTES = 512 * 1024
 MAX_REQUIREMENTS = 100
-_READY = ".ready"
-_LAST_USED = ".last_used"
 _SKIP_DIRS = {
     "node_modules", ".git", "__pycache__", ".venv", "venv", "env", "dist", "build",
     ".next", ".nuxt", ".cache", ".npm", ".yarn", ".pnpm-store",
@@ -77,7 +84,8 @@ _ENV_KEEP = (
 
 # import атауы → PyPI атауы. Тек осы тізімдегілер import бойынша автоматты
 # орнатылады (typosquatting пакеттерінен қорғау + өте ауыр пакеттер — torch,
-# tensorflow — кездейсоқ орнатылмасын). Басқасы керек болса — requirements.txt.
+# tensorflow — кездейсоқ орнатылмасын). Басқа кез келген пакетті терминалда
+# `pip install <ат>` орнатады — ол requirements.txt-қа жазылып, тұрақты сақталады.
 _IMPORT_TO_PIP = {
     # web / API
     "flask": "flask", "flask_cors": "flask-cors", "flask_sqlalchemy": "flask-sqlalchemy",
@@ -117,18 +125,14 @@ _IMPORT_TO_PIP = {
     "pyjokes": "pyjokes", "wikipedia": "wikipedia", "serial": "pyserial", "pytest": "pytest",
 }
 
-# Орнатылып жатқан кілттер және орнату біткенде сілтеме алатын папкалар.
-# Кілттер "node:<hash>" / "python:<hash>" түрінде — екі қойма соқтығыспайды.
-_pending: Dict[str, Set[str]] = {}
-_pending_names: Dict[str, List[str]] = {}
+
+# Орнатылып жатқан папкалар (dest → {eco, packages}), кезектегі тапсырма және нәтижелер
+_pending: Dict[str, Dict[str, object]] = {}
+_queued: Dict[str, tuple] = {}
+_results: Dict[str, Dict[str, object]] = {}
 _guard = threading.Lock()
-# Ашық терминалдардың папкалары (cwd → сессия саны): олар қолданып тұрған жиынтық
-# ұйықтатылмайды және «тазаланбайды»
+# Ашық терминалдардың папкалары (cwd → сессия саны): олардың пакеттері ұйықтатылмайды
 _active_cwds: Dict[str, int] = {}
-TRASH = os.path.join(SHARED_ROOT, "trash")
-_CONTENTS = ".contents"
-# Іске қосылғанда құралдар өздері жасайтын кэштер — «бұзылу» емес
-_RUNTIME_ENTRIES = {".vite", ".cache", "__pycache__", ".package-lock.json", ".modules.yaml"}
 
 
 # ───────────────────────────── жалпы ─────────────────────────────
@@ -149,20 +153,6 @@ def _hash(*parts: Optional[bytes]) -> str:
     return h.hexdigest()[:20]
 
 
-def _is_ready(store: str, key: str) -> bool:
-    return os.path.isfile(os.path.join(store, key, _READY))
-
-
-def _touch(store: str, key: str) -> None:
-    """Жиынтық қолданылды — ұйықтату таймері қайта басталады"""
-    path = os.path.join(store, key, _LAST_USED)
-    try:
-        with open(path, "w") as f:
-            f.write(str(int(time.time())))
-    except OSError:
-        pass
-
-
 def _link_target(path: str) -> Optional[str]:
     """Сілтеме (symlink / junction) болса — оның мақсаты, әйтпесе None"""
     try:
@@ -175,65 +165,49 @@ def _link_target(path: str) -> Optional[str]:
 
 
 def is_shared_link(path: str) -> bool:
+    """Бұрынғы модельдің ортақ жиынтыққа сілтемесі ме"""
     target = _link_target(path)
     root = os.path.normcase(SHARED_ROOT) + os.sep
     return bool(target and target.startswith(root))
 
 
 def unlink(path: str) -> None:
-    """Сілтемені ғана өшіру — ортақ папканың ішіне тиіспейді"""
+    """Сілтемені ғана өшіру — мақсатының ішіне тиіспейді"""
     if IS_WINDOWS:
         os.rmdir(path)  # junction-ды өшіреді, мақсатын емес
     else:
         os.unlink(path)
 
 
-def _make_link(target: str, dest: str) -> None:
-    if IS_WINDOWS:
-        import _winapi
-        _winapi.CreateJunction(target, dest)  # әкімші құқығын қажет етпейді
-    else:
-        os.symlink(target, dest, target_is_directory=True)
+def _drop_legacy_link(dest: str) -> None:
+    if is_shared_link(dest):
+        try:
+            unlink(dest)
+        except OSError as e:
+            logger.info("Ескі ортақ сілтеме алынбады (%s): %s", dest, e)
 
 
-def _attach_link(dest: str, target: str) -> None:
-    """``dest`` → ``target`` сілтемесі. Жобаның өз папкасы болса — тиіспейміз."""
-    want = os.path.normcase(target)
-    current = _link_target(dest)
-    if current == want:
-        return
-    if current is not None:
-        if not is_shared_link(dest):
-            return  # қолданушының өз сілтемесі
-        unlink(dest)  # манифест өзгерді — ескі жиынтыққа сілтеме
-    elif os.path.exists(dest):
-        return  # жобаның өз папкасы бар
-    os.makedirs(target, exist_ok=True)  # junction мақсаты бар болуы керек
-    _make_link(target, dest)
+def _marker(dest: str) -> Optional[str]:
+    if os.path.islink(dest) or is_shared_link(dest):
+        return None
+    data = _read(os.path.join(dest, MARKER))
+    return data.decode("ascii", "replace").strip() if data else None
 
 
-def _env() -> Dict[str, str]:
-    env = {k: os.environ[k] for k in _ENV_KEEP if os.environ.get(k)}
-    os.makedirs(_TMP, exist_ok=True)
-    env["npm_config_cache"] = NPM_CACHE
-    env["PIP_CACHE_DIR"] = PIP_CACHE
-    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-    env["PIP_NO_INPUT"] = "1"
-    env["PYTHONIOENCODING"] = "utf-8"
-    if IS_WINDOWS:
-        env["TEMP"] = env["TMP"] = _TMP
-    else:
-        env["HOME"] = SHARED_ROOT
-        env["TMPDIR"] = _TMP
-    return env
+def _write_marker(dest: str, key: str) -> None:
+    try:
+        with open(os.path.join(dest, MARKER), "w") as f:
+            f.write(key)
+    except OSError:
+        pass
 
 
-def _run(cmd: List[str], cwd: str) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=cwd, env=_env(), capture_output=True, timeout=INSTALL_TIMEOUT_SECONDS)
-
-
-def _tail(result: subprocess.CompletedProcess) -> str:
-    return (result.stderr or result.stdout or b"").decode("utf-8", "replace")[-2000:]
+def _touch_marker(dest: str) -> None:
+    """Жоба ашылды — ұйықтату таймері қайта басталады"""
+    try:
+        os.utime(os.path.join(dest, MARKER))
+    except OSError:
+        pass
 
 
 def _walk(root: str) -> Iterable[Tuple[str, List[str], List[str]]]:
@@ -249,256 +223,58 @@ def _walk(root: str) -> Iterable[Tuple[str, List[str], List[str]]]:
         yield dirpath, dirnames, filenames
 
 
-def _schedule(eco: str, store: str, key: str, dest: str, names: List[str], worker, *args) -> None:
-    """Жиынтық дайын болса — бірден сілтеме, әйтпесе фонда орнатуды бастау"""
-    target_of = _NODE_TARGET if eco == "node" else _PY_TARGET
-    if _is_ready(store, key) and _is_dirty(eco, store, key) and not _in_use(target_of(key)):
-        _retire(eco, store, key)  # терминалда қолмен өзгертілген — таза нұсқасы қайта орнатылады
-    if _is_ready(store, key):
-        _touch(store, key)
-        try:
-            _attach_link(dest, target_of(key))
-        except OSError as e:
-            logger.error("Сілтеме жасалмады (%s): %s", dest, e)
-        return
-    if os.path.exists(dest) and not is_shared_link(dest):
-        return  # жобаның өз папкасы бар — ортақ жиынтық керек емес
-    pending_key = f"{eco}:{key}"
-    with _guard:
-        started = pending_key in _pending
-        _pending.setdefault(pending_key, set()).add(dest)
-        _pending_names[pending_key] = names
-    if not started:
-        os.makedirs(store, exist_ok=True)
-        threading.Thread(
-            target=_install_wrapper, args=(eco, store, key, worker, *args),
-            name=f"shared-{eco}-{key}", daemon=True,
-        ).start()
+# ───────────────────────────── құралдар (uv, pnpm, шимдер) ─────────────────────────────
+
+_tools_lock = threading.Lock()
+_tools: Dict[str, Optional[str]] = {}
+_tools_started = False
 
 
-def _install_wrapper(eco: str, store: str, key: str, worker, *args) -> None:
-    final = os.path.join(store, key)
+def _uv_bin() -> Optional[str]:
+    found = shutil.which("uv")
+    if found:
+        return found
     try:
-        shutil.rmtree(final, ignore_errors=True)  # бұрынғы сәтсіз әрекеттің / ұйықтаған жиынтықтың қалдығы
-        os.makedirs(final, exist_ok=True)
-        if worker(final, *args):
-            _write_contents(eco, final)
-            with open(os.path.join(final, _READY), "w") as f:
-                f.write("ok")
-            _touch(store, key)
-            logger.info("Ортақ %s пакеттері дайын: %s", eco, key)
-        else:
-            shutil.rmtree(final, ignore_errors=True)
-    except Exception as e:
-        logger.error("Ортақ %s пакеттерін орнату қатесі (%s): %s", eco, key, e)
-        shutil.rmtree(final, ignore_errors=True)
-    finally:
-        with _guard:
-            waiting = _pending.pop(f"{eco}:{key}", set())
-            _pending_names.pop(f"{eco}:{key}", None)
-        if _is_ready(store, key):
-            target = (_NODE_TARGET if eco == "node" else _PY_TARGET)(key)
-            for dest in waiting:
-                try:
-                    _attach_link(dest, target)
-                except OSError as e:
-                    logger.error("Сілтеме жасалмады (%s): %s", dest, e)
+        import uv  # pip install uv — backend/requirements.txt
+        path = uv.find_uv_bin()
+        return path if os.path.isfile(path) else None
+    except Exception:
+        return None
 
 
-# ──────────────── тазалық: терминалда қолмен өзгертілген жиынтықтар ────────────────
-# Жобаның node_modules / .venv — ортақ папкаға сілтеме. Терминалда біреу
-# ``pip install x`` / ``npm install x`` / ``rm -r node_modules/y`` жасаса, өзгеріс
-# ортақ жиынтыққа түседі де, басқа жобаларға «қоқыс» болып өтеді. Сондықтан орнату
-# біткенде жиынтықтың құрамы (жоғарғы деңгейдегі атаулар) жазылып қойылады; кейін
-# құрамы өзгерсе — ешбір ашық терминал қолданбай тұрғанда ол алынып тасталып, таза
-# нұсқасы қайта орнатылады.
-
-def _content_dirs(eco: str, final: str) -> List[str]:
-    if eco == "node":
-        return [os.path.join(final, "node_modules")]
-    venv = os.path.join(final, "venv")
-    if IS_WINDOWS:
-        return [os.path.join(venv, "Lib", "site-packages")]
-    lib = os.path.join(venv, "lib")
-    try:
-        return [os.path.join(lib, d, "site-packages") for d in os.listdir(lib) if d.startswith("python")]
-    except OSError:
-        return []
+def _node_bin() -> Optional[str]:
+    return shutil.which("node")
 
 
-def _snapshot(eco: str, final: str) -> str:
-    entries = []
-    for d in _content_dirs(eco, final):
-        try:
-            entries += [n for n in os.listdir(d) if n not in _RUNTIME_ENTRIES]
-        except OSError:
-            pass
-    lock = os.path.join(final, "node_modules", ".package-lock.json")
-    if eco == "node" and os.path.isfile(lock):
-        # npm install / update пакеттің нұсқасын ауыстырса — атаулар сол, бірақ осы файл өзгереді
-        entries.append(_hash(_read(lock)))
-    return _hash("\n".join(sorted(entries)).encode("utf-8"))
-
-
-def _write_contents(eco: str, final: str) -> None:
-    with open(os.path.join(final, _CONTENTS), "w") as f:
-        f.write(_snapshot(eco, final))
-
-
-def _is_dirty(eco: str, store: str, key: str) -> bool:
-    final = os.path.join(store, key)
-    saved = _read(os.path.join(final, _CONTENTS))
-    if saved is None:
-        return False  # ескі нұсқада жасалған жиынтық — салыстыратын ештеңе жоқ
-    return saved.decode("ascii", "replace").strip() != _snapshot(eco, final)
-
-
-def _retire(eco: str, store: str, key: str) -> None:
-    """Бұзылған жиынтықты қоқыс себетіне жылжыту (Windows-та файл ашық болса — келесі жолы)"""
-    os.makedirs(TRASH, exist_ok=True)
-    try:
-        os.replace(os.path.join(store, key), os.path.join(TRASH, f"{eco}-{key}-{int(time.time())}"))
-        logger.warning("Ортақ %s жиынтығы терминалда өзгертілген — таза нұсқасы қайта орнатылады: %s", eco, key)
-    except OSError as e:
-        logger.info("Бұзылған жиынтық әзірге алынбады (%s): %s", key, e)
-
-
-def session_opened(cwd: str) -> None:
-    with _guard:
-        _active_cwds[cwd] = _active_cwds.get(cwd, 0) + 1
-
-
-def session_closed(cwd: str) -> None:
-    with _guard:
-        n = _active_cwds.get(cwd, 0) - 1
-        if n > 0:
-            _active_cwds[cwd] = n
-        else:
-            _active_cwds.pop(cwd, None)
-
-
-def _links_in(root: str) -> Iterable[Tuple[str, str]]:
-    """(сілтеме, мақсаты) — жобадағы барлық ортақ node_modules / .venv"""
-    for dirpath, _dirs, _files in _walk(root):
-        for name in ("node_modules", VENV_DIR):
-            dest = os.path.join(dirpath, name)
-            target = _link_target(dest)
-            if target:
-                yield dest, target
-
-
-def _in_use(target: str) -> bool:
-    """Ашық терминалдың жобасы осы жиынтыққа сілтеме жасап тұр ма"""
-    want = os.path.normcase(target)
-    with _guard:
-        cwds = list(_active_cwds)
-    return any(t == want for cwd in cwds for _d, t in _links_in(cwd))
-
-
-def _node_names(manifest: bytes) -> List[str]:
-    import json
-    try:
-        pkg = json.loads(manifest.decode("utf-8", "replace"))
-    except ValueError:
-        return []
-    names: List[str] = []
-    if isinstance(pkg, dict):
-        for field in ("dependencies", "devDependencies"):
-            deps = pkg.get(field)
-            if isinstance(deps, dict):
-                names += [n for n in deps if isinstance(n, str)]
-    return names
-
-
-def pending(root: str) -> List[Dict[str, object]]:
-    """Жобада орнатылып жатқан жиынтықтар: [{path, eco, packages}]"""
-    prefix = os.path.normcase(os.path.abspath(root)) + os.sep
-    out: List[Dict[str, object]] = []
-    with _guard:
-        items = [(k, set(v), list(_pending_names.get(k, []))) for k, v in _pending.items()]
-    for pending_key, dests, names in items:
-        eco = pending_key.split(":", 1)[0]
-        for dest in dests:
-            if os.path.normcase(dest).startswith(prefix):
-                out.append({"path": dest, "eco": eco, "packages": names})
-    return out
-
-
-def result(dest: str) -> Dict[str, object]:
-    """Орнату біткеннен кейін: {"ok": bool, "failed": [орнатылмаған пакеттер]}"""
-    target = _link_target(dest)
-    if not target or not os.path.isdir(target):
-        return {"ok": False, "failed": []}
-    final = os.path.dirname(target)
-    failed = (_read(os.path.join(final, "failed.txt")) or b"").decode("utf-8", "replace").split()
-    return {"ok": os.path.isfile(os.path.join(final, _READY)), "failed": failed}
-
-
-# ───────────────────────────── npm ─────────────────────────────
-
-def _NODE_TARGET(key: str) -> str:
-    return os.path.join(NODE_STORE, key, "node_modules")
-
-
-def _npm_command() -> Optional[List[str]]:
+def _npm_cli() -> Optional[str]:
     """npm-ді node арқылы тікелей шақыру: Windows-тағы npm.cmd орағышы
     шектелген env-пен npm сәтті біткенде де 1 кодын қайтарады"""
-    node = shutil.which("node")
+    node = _node_bin()
     if node:
-        cli = os.path.join(os.path.dirname(node), "node_modules", "npm", "bin", "npm-cli.js")
-        if os.path.isfile(cli):
-            return [node, cli]
-    npm = shutil.which("npm")
-    return [npm] if npm else None
+        for base in (os.path.dirname(node), os.path.join(os.path.dirname(node), "..", "lib")):
+            cli = os.path.abspath(os.path.join(base, "node_modules", "npm", "bin", "npm-cli.js"))
+            if os.path.isfile(cli):
+                return cli
+    return None
 
 
-def _install_node(final: str, manifest: bytes, lock: Optional[bytes]) -> bool:
-    # Тікелей соңғы папкаға орнатамыз (Windows үлкен папканы атын өзгертуге
-    # жиі бермейді); дайын екенін тек .ready маркері білдіреді
-    npm = _npm_command()
-    if not npm:
-        logger.warning("npm табылмады — ортақ npm пакеттері орнатылмайды")
-        return False
-    with open(os.path.join(final, "package.json"), "wb") as f:
-        f.write(manifest)
-    if lock:
-        with open(os.path.join(final, "package-lock.json"), "wb") as f:
-            f.write(lock)
-    cmd = [*npm, "ci" if lock else "install", "--ignore-scripts", "--no-audit", "--no-fund"]
-    result = _run(cmd, final)
-    if result.returncode != 0:
-        logger.error("Ортақ npm пакеттері орнатылмады: %s", _tail(result))
-        return False
-    # Тәуелділігі жоқ package.json-да npm node_modules жасамайды
-    os.makedirs(os.path.join(final, "node_modules"), exist_ok=True)
-    return True
-
-
-def _attach_node(root: str) -> None:
-    for dirpath, _dirs, filenames in _walk(root):
-        if "package.json" not in filenames:
-            continue
-        manifest = _read(os.path.join(dirpath, "package.json"))
-        if not manifest:
-            continue
-        lock = _read(os.path.join(dirpath, "package-lock.json"))
-        key = _hash(manifest, lock)
-        _schedule("node", NODE_STORE, key, os.path.join(dirpath, "node_modules"),
-                  _node_names(manifest), _install_node, manifest, lock)
-
-
-# ───────────────────────────── Python ─────────────────────────────
-
-def _PY_TARGET(key: str) -> str:
-    return os.path.join(PY_STORE, key, "venv")
-
-
-def venv_python(venv: str) -> str:
-    return os.path.join(venv, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(venv, "bin", "python")
-
-
-def venv_bin(venv: str) -> str:
-    return os.path.join(venv, "Scripts") if IS_WINDOWS else os.path.join(venv, "bin")
+def _pnpm_cli() -> Optional[str]:
+    """pnpm (ортақ қойма + hardlink). Серверде жоқ болса — бір рет tools/ ішіне орнатылады."""
+    path = os.path.join(TOOLS_DIR, "node_modules", "pnpm", "bin", "pnpm.cjs")
+    if os.path.isfile(path):
+        return path
+    node, npm_cli = _node_bin(), _npm_cli()
+    if not node:
+        return None
+    os.makedirs(TOOLS_DIR, exist_ok=True)
+    npm = [node, npm_cli] if npm_cli else [shutil.which("npm") or "npm"]
+    result = _run([*npm, "install", f"pnpm@{PNPM_VERSION}", "--prefix", TOOLS_DIR,
+                   "--no-audit", "--no-fund", "--ignore-scripts"], TOOLS_DIR)
+    if result.returncode != 0 or not os.path.isfile(path):
+        logger.error("pnpm орнатылмады — npm пакеттері ортақ қоймасыз орнатылады: %s", _tail(result))
+        return None
+    logger.info("pnpm %s ортақ құралдарға орнатылды", PNPM_VERSION)
+    return path
 
 
 _base_python_cache: Optional[str] = None
@@ -522,6 +298,334 @@ def _base_python() -> Optional[str]:
             return path
     return None
 
+
+_SHIM_TOOLS = ("pip", "pip3", "npm", "yarn", "pnpm")
+
+
+def _write_shims(python: str) -> None:
+    os.makedirs(BIN_DIR, exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pkg_shim.py"),
+                    os.path.join(BIN_DIR, "pkg_shim.py"))
+    shim = os.path.join(BIN_DIR, "pkg_shim.py")
+    for tool in _SHIM_TOOLS:
+        if IS_WINDOWS:
+            path = os.path.join(BIN_DIR, f"{tool}.cmd")
+            body = f'@"{python}" -I "{shim}" {tool} %*\r\n'
+        else:
+            path = os.path.join(BIN_DIR, tool)
+            body = f'#!/bin/sh\nexec "{python}" -I "{shim}" {tool} "$@"\n'
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(body)
+        if not IS_WINDOWS:
+            os.chmod(path, 0o755)
+
+
+def powershell_functions() -> str:
+    """PowerShell терминалы үшін pip / npm / yarn / pnpm функциялары.
+
+    Функция ``.cmd``-ден басым әрі exit кодын дұрыс береді (cmd AutoRun орнатылған
+    серверде ``.cmd`` сәтті біткенде де 1 қайтарады). Шимдер дайын болмаса — бос жол.
+    """
+    shim = os.path.join(BIN_DIR, "pkg_shim.py")
+    python = _tools.get("python") if _tools else None
+    if not python or not os.path.isfile(shim):
+        return ""
+
+    def q(value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    return "".join(
+        f"function {tool} {{ & {q(python)} -I {q(shim)} {tool} @args }};" for tool in _SHIM_TOOLS
+    )
+
+
+def ensure_tools() -> Dict[str, Optional[str]]:
+    """uv, pnpm және терминал шимдерін дайындау (бір рет; қайта шақыру арзан)"""
+    with _tools_lock:
+        if _tools:
+            return _tools
+        for d in (UV_CACHE, PNPM_STORE, NPM_CACHE, _TMP):
+            os.makedirs(d, exist_ok=True)
+        tools = {
+            "uv": _uv_bin(),
+            "python": _base_python(),
+            "node": _node_bin(),
+            "npm_cli": _npm_cli(),
+            "pnpm": _pnpm_cli(),
+            "uv_cache": UV_CACHE,
+            "pnpm_store": PNPM_STORE,
+            "npm_cache": NPM_CACHE,
+        }
+        if not tools["uv"]:
+            logger.warning("uv табылмады (pip install uv) — Python пакеттері ортақ қоймасыз орнатылады")
+        try:
+            if tools["python"]:
+                os.makedirs(BIN_DIR, exist_ok=True)
+                with open(os.path.join(BIN_DIR, "shim.json"), "w", encoding="utf-8") as f:
+                    json.dump(tools, f, ensure_ascii=False, indent=1)
+                _write_shims(tools["python"])
+        except OSError as e:
+            logger.error("Терминал пакет шимдері жазылмады: %s", e)
+        _tools.update(tools)
+        return _tools
+
+
+def ensure_tools_async() -> None:
+    """Сервер іске қосылғанда — фонда (pnpm-ді бірінші рет жүктеу бірнеше секунд)"""
+    global _tools_started
+    if _tools or _tools_started:
+        return
+    _tools_started = True
+    threading.Thread(target=ensure_tools, name="shared-tools", daemon=True).start()
+
+
+def _env(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    env = {k: os.environ[k] for k in _ENV_KEEP if os.environ.get(k)}
+    os.makedirs(_TMP, exist_ok=True)
+    env["npm_config_cache"] = NPM_CACHE
+    env["UV_CACHE_DIR"] = UV_CACHE
+    env["UV_LINK_MODE"] = "hardlink"
+    env["UV_PYTHON_DOWNLOADS"] = "never"
+    env["UV_NO_PROGRESS"] = "1"
+    env["PIP_CACHE_DIR"] = os.path.join(UV_CACHE, "pip")
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    env["PIP_NO_INPUT"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    if IS_WINDOWS:
+        env["TEMP"] = env["TMP"] = _TMP
+    else:
+        env["HOME"] = SHARED_ROOT
+        env["TMPDIR"] = _TMP
+    env.update(extra or {})
+    return env
+
+
+def _run(cmd: List[str], cwd: str, extra: Optional[Dict[str, str]] = None) -> subprocess.CompletedProcess:
+    try:
+        return subprocess.run(cmd, cwd=cwd, env=_env(extra), capture_output=True, timeout=INSTALL_TIMEOUT_SECONDS)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return subprocess.CompletedProcess(cmd, 1, b"", str(e).encode("utf-8", "replace"))
+
+
+def _tail(result: subprocess.CompletedProcess) -> str:
+    return ((result.stderr or b"") + b"\n" + (result.stdout or b"")).decode("utf-8", "replace")[-2000:]
+
+
+# ───────────────────────────── кезек ─────────────────────────────
+
+def _schedule(eco: str, dest: str, key: str, names: List[str], worker, *args) -> None:
+    """Пакеттер дайын болса — ештеңе жасамау, әйтпесе фонда орнату (бір папкаға бір жұмыс)"""
+    if _marker(dest) == key and os.path.isdir(dest):
+        _touch_marker(dest)
+        return
+    with _guard:
+        running = dest in _pending
+        _pending[dest] = {"eco": eco, "packages": names}
+        _queued[dest] = (key, worker, args)
+        _results.pop(dest, None)
+    if not running:
+        threading.Thread(target=_drain, args=(dest,), name=f"shared-{eco}", daemon=True).start()
+
+
+def _drain(dest: str) -> None:
+    while True:
+        with _guard:
+            job = _queued.pop(dest, None)
+            if job is None:
+                _pending.pop(dest, None)
+                return
+        key, worker, args = job
+        try:
+            _drop_legacy_link(dest)
+            ok, failed = worker(*args)
+        except Exception as e:
+            logger.error("Пакеттерді орнату қатесі (%s): %s", dest, e)
+            ok, failed = False, []
+        if ok:
+            _write_marker(dest, key)
+        with _guard:
+            _results[dest] = {"ok": ok, "failed": failed}
+
+
+def pending(root: str) -> List[Dict[str, object]]:
+    """Жобада орнатылып жатқан папкалар: [{path, eco, packages}]"""
+    prefix = os.path.normcase(os.path.abspath(root)) + os.sep
+    with _guard:
+        items = [(d, dict(v)) for d, v in _pending.items()]
+    return [{"path": d, **v} for d, v in items if os.path.normcase(d).startswith(prefix)]
+
+
+def result(dest: str) -> Dict[str, object]:
+    """Орнату біткеннен кейін: {"ok": bool, "failed": [орнатылмаған пакеттер]}"""
+    with _guard:
+        res = _results.get(dest)
+    return dict(res) if res else {"ok": _marker(dest) is not None, "failed": []}
+
+
+def session_opened(cwd: str) -> None:
+    with _guard:
+        _active_cwds[cwd] = _active_cwds.get(cwd, 0) + 1
+
+
+def session_closed(cwd: str) -> None:
+    with _guard:
+        n = _active_cwds.get(cwd, 0) - 1
+        if n > 0:
+            _active_cwds[cwd] = n
+        else:
+            _active_cwds.pop(cwd, None)
+
+
+# ───────────────────────────── npm ─────────────────────────────
+
+def _node_names(manifest: bytes) -> List[str]:
+    try:
+        pkg = json.loads(manifest.decode("utf-8", "replace"))
+    except ValueError:
+        return []
+    names: List[str] = []
+    if isinstance(pkg, dict):
+        for field in ("dependencies", "devDependencies"):
+            deps = pkg.get(field)
+            if isinstance(deps, dict):
+                names += [n for n in deps if isinstance(n, str)]
+    return names
+
+
+def _install_node(project_dir: str, trusted: bool) -> Tuple[bool, List[str]]:
+    tools = ensure_tools()
+    node, pnpm = tools.get("node"), tools.get("pnpm")
+    if not node:
+        logger.warning("node табылмады — npm пакеттері орнатылмайды")
+        return False, []
+    if pnpm:
+        # Әр пакет pnpm-store-да бір рет; node_modules — қарапайым (hoisted) құрылым, файлдары hardlink
+        cmd = [node, pnpm, "install", "--store-dir", PNPM_STORE,
+               "--config.node-linker=hoisted", "--config.package-import-method=hardlink",
+               "--config.confirm-modules-purge=false", "--config.auto-install-peers=true",
+               "--config.strict-peer-dependencies=false", "--reporter=append-only"]
+    else:
+        npm_cli = tools.get("npm_cli")
+        cmd = [*([node, npm_cli] if npm_cli else ["npm"]), "install", "--no-audit", "--no-fund"]
+    if not trusted:
+        cmd.append("--ignore-scripts")  # бөтен адамның коды — install-скрипттер іске қосылмайды
+    result = _run(cmd, project_dir)
+    if result.returncode != 0:
+        logger.error("npm пакеттері орнатылмады (%s): %s", project_dir, _tail(result))
+        return False, []
+    os.makedirs(os.path.join(project_dir, "node_modules"), exist_ok=True)
+    return True, []
+
+
+def _attach_node(root: str, trusted: bool) -> None:
+    for dirpath, _dirs, filenames in _walk(root):
+        if "package.json" not in filenames:
+            continue
+        manifest = _read(os.path.join(dirpath, "package.json"))
+        if not manifest:
+            continue
+        names = _node_names(manifest)
+        dest = os.path.join(dirpath, "node_modules")
+        if not names and not os.path.exists(dest):
+            continue  # тәуелділігі жоқ package.json — орнататын ештеңе жоқ
+        key = _hash(manifest, b"trusted" if trusted else b"safe")
+        _schedule("node", dest, key, names, _install_node, dirpath, trusted)
+
+
+# ───────────────────────────── Python ─────────────────────────────
+
+def venv_python(venv: str) -> str:
+    return os.path.join(venv, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(venv, "bin", "python")
+
+
+def venv_bin(venv: str) -> str:
+    return os.path.join(venv, "Scripts") if IS_WINDOWS else os.path.join(venv, "bin")
+
+
+def _site_packages(venv: str) -> Optional[str]:
+    if IS_WINDOWS:
+        return os.path.join(venv, "Lib", "site-packages")
+    lib = os.path.join(venv, "lib")
+    try:
+        return next(os.path.join(lib, d, "site-packages") for d in os.listdir(lib) if d.startswith("python"))
+    except (OSError, StopIteration):
+        return None
+
+
+def _install_pip_proxy(venv: str) -> None:
+    """``python -m pip`` те ортақ қоймаға орнатсын (uv venv-інде нағыз pip жоқ)"""
+    site = _site_packages(venv)
+    if not site or os.path.isdir(os.path.join(site, "pip", "_internal")):
+        return  # нағыз pip бар
+    pkg = os.path.join(site, "pip")
+    os.makedirs(pkg, exist_ok=True)
+    shim = os.path.join(BIN_DIR, "pkg_shim.py")
+    code = (
+        "import subprocess, sys\n"
+        f"sys.exit(subprocess.call([sys.executable, '-I', {shim!r}, 'pip', *sys.argv[1:]]))\n"
+    )
+    for name, body in (("__init__.py", ""), ("__main__.py", code)):
+        with open(os.path.join(pkg, name), "w", encoding="utf-8") as f:
+            f.write(body)
+
+
+def ensure_venv(project_dir: str) -> Optional[str]:
+    """Жобаның ``.venv``-і (жоқ болса — uv арқылы жасалады, бірнеше миллисекунд)"""
+    venv = os.path.join(project_dir, VENV_DIR)
+    _drop_legacy_link(venv)
+    if os.path.isfile(venv_python(venv)):
+        return venv
+    tools = ensure_tools()
+    base = tools.get("python")
+    if not base:
+        logger.warning("Python табылмады — Python пакеттері орнатылмайды")
+        return None
+    if tools.get("uv"):
+        result = _run([tools["uv"], "venv", "--quiet", "--allow-existing", "--python", base, venv], project_dir)
+    else:
+        result = _run([base, "-m", "venv", venv], project_dir)
+    if result.returncode != 0:
+        logger.error("venv жасалмады (%s): %s", venv, _tail(result))
+        return None
+    if tools.get("uv"):
+        _install_pip_proxy(venv)
+    return venv
+
+
+def _install_python(project_dir: str, requirements: List[str], trusted: bool) -> Tuple[bool, List[str]]:
+    venv = ensure_venv(project_dir)
+    if not venv:
+        return False, []
+    uv = ensure_tools().get("uv")
+    if uv:
+        install = [uv, "pip", "install", "--python", venv]
+    else:
+        install = [venv_python(venv), "-m", "pip", "install", "--no-input"]
+    if not trusted:
+        # Бөтен адамның коды — setup.py іске қосылмасын, тек дайын wheel
+        install.append("--no-build" if uv else "--only-binary=:all:")
+    os.makedirs(_TMP, exist_ok=True)
+    req_file = os.path.join(_TMP, f"req-{_hash(venv.encode('utf-8'))}.txt")
+    with open(req_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(requirements) + "\n")
+    try:
+        result = _run([*install, "-r", req_file], project_dir)
+    finally:
+        try:
+            os.remove(req_file)
+        except OSError:
+            pass
+    if result.returncode == 0:
+        return True, []
+    # Бір пакет орнатылмаса да қалғандары жұмыс істесін — біртіндеп орнатамыз
+    logger.warning("Python пакеттері бірге орнатылмады, біртіндеп қайталанады: %s", _tail(result))
+    failed = [req for req in requirements if _run([*install, req], project_dir).returncode != 0]
+    if failed:
+        logger.error("Орнатылмаған Python пакеттері: %s", ", ".join(failed))
+    return len(failed) < len(requirements), failed
+
+
+# ───────── requirements.txt / import-тар ─────────
 
 _NAME_RE = r"[A-Za-z0-9][A-Za-z0-9._-]*"
 _REQ_RE = re.compile(
@@ -601,82 +705,63 @@ def detect_imports(root: str) -> List[str]:
     return sorted(found, key=str.lower)
 
 
-def _install_python(final: str, requirements: List[str]) -> bool:
-    base = _base_python()
-    if not base:
-        logger.warning("Python табылмады — ортақ Python пакеттері орнатылмайды")
-        return False
-    venv = os.path.join(final, "venv")
-    result = _run([base, "-m", "venv", venv], final)
-    if result.returncode != 0:
-        logger.error("venv жасалмады: %s", _tail(result))
-        return False
-    req_file = os.path.join(final, "requirements.txt")
-    with open(req_file, "w", encoding="utf-8") as f:
-        f.write("\n".join(requirements) + "\n")
-    pip = [venv_python(venv), "-m", "pip", "install", "--only-binary=:all:", "--no-input"]
-    result = _run([*pip, "-r", req_file], final)
-    if result.returncode == 0:
-        return True
-    # Бір пакеттің wheel-і жоқ болса да қалғандары жұмыс істесін — біртіндеп орнатамыз
-    logger.warning("Python пакеттері бірге орнатылмады, біртіндеп қайталанады: %s", _tail(result))
-    failed = []
-    for req in requirements:
-        if _run([*pip, req], final).returncode != 0:
-            failed.append(req)
-    if failed:
-        with open(os.path.join(final, "failed.txt"), "w", encoding="utf-8") as f:
-            f.write("\n".join(failed) + "\n")
-        logger.error("Орнатылмаған Python пакеттері: %s", ", ".join(failed))
-    return len(failed) < len(requirements)
-
-
-def _python_key(requirements: List[str]) -> str:
+def _python_key(requirements: List[str], trusted: bool) -> str:
     base = _base_python() or ""
-    return _hash("\n".join(requirements).encode("utf-8"), base.lower().encode("utf-8"))
+    return _hash("\n".join(requirements).encode("utf-8"), base.lower().encode("utf-8"),
+                 b"trusted" if trusted else b"safe")
 
 
-def _attach_python(root: str) -> None:
+def _req_names(reqs: List[str]) -> Set[str]:
+    out = set()
+    for r in reqs:
+        m = re.match(_NAME_RE, r)
+        if m:
+            out.add(re.sub(r"[-_.]+", "-", m.group(0)).lower())
+    return out
+
+
+def _attach_python(root: str, trusted: bool) -> None:
     if not SHARED_PACKAGES_AUTO_PYTHON:
         return
-    req_dirs = []
+    targets: Dict[str, List[str]] = {}
     for dirpath, _dirs, filenames in _walk(root):
         if "requirements.txt" in filenames:
-            req_dirs.append(dirpath)
-    targets: List[Tuple[str, List[str]]] = []
-    for dirpath in req_dirs:
-        text = (_read(os.path.join(dirpath, "requirements.txt")) or b"").decode("utf-8", "replace")
-        reqs = clean_requirements(text)
+            text = (_read(os.path.join(dirpath, "requirements.txt")) or b"").decode("utf-8", "replace")
+            targets[dirpath] = clean_requirements(text)
+    # Түбірдегі .py файлдарының import-тары да (requirements.txt-та жоқтары) қосылады
+    detected = detect_imports(root)
+    if detected:
+        have = _req_names(targets.get(root, []))
+        extra = [n for n in detected if re.sub(r"[-_.]+", "-", n).lower() not in have]
+        if extra and (root in targets or not targets):
+            targets[root] = targets.get(root, []) + extra
+    for dirpath, reqs in targets.items():
         if reqs:
-            targets.append((dirpath, reqs))
-    if not req_dirs:
-        # requirements.txt жоқ — import-тардан табамыз (бір venv жобаның түбірінде)
-        reqs = detect_imports(root)
-        if reqs:
-            targets.append((root, reqs))
-    for dirpath, reqs in targets:
-        key = _python_key(reqs)
-        _schedule("python", PY_STORE, key, os.path.join(dirpath, VENV_DIR), reqs, _install_python, reqs)
+            _schedule("python", os.path.join(dirpath, VENV_DIR), _python_key(reqs, trusted), reqs,
+                      _install_python, dirpath, reqs, trusted)
 
 
 # ───────────────────────────── жария API ─────────────────────────────
 
-def attach(root: str) -> None:
-    """Жоба қолданатын пакеттерді ортақ жиынтықтарға қосу.
+def attach(root: str, trusted: bool = True) -> None:
+    """Жоба қолданатын пакеттерді қосу: қоймада бары бірден (hardlink), жоғы — фонда бір рет жүктеліп.
 
-    Жиынтық дайын болса — бірден сілтеме; жоқ болса — фонда орнатылып, біткенде
-    сілтеме қосылады.
+    ``trusted=False`` — бөтен адамның коды (install-скрипттер / құрастыру өшірулі).
     """
     for fn in (_attach_node, _attach_python):
         try:
-            fn(root)
+            fn(root, trusted)
         except Exception as e:
             logger.error("%s сәтсіз (%s): %s", fn.__name__, root, e)
 
 
 def detach(root: str) -> None:
-    """Жоба папкасын өшірмес бұрын ортақ сілтемелерді алып тастау"""
-    for dirpath, dirnames, _files in _walk(root):
+    """Жоба папкасын өшірмес бұрын бұрынғы ортақ сілтемелерді алып тастау.
+
+    Жаңа модельдегі нағыз папкалар қалыпты өшіріледі: hardlink өшсе, қоймадағы
+    түпнұсқа файл қалады.
+    """
+    for dirpath, _dirnames, _files in _walk(root):
         for name in ("node_modules", VENV_DIR):
             dest = os.path.join(dirpath, name)
             if is_shared_link(dest):
@@ -688,25 +773,25 @@ def detach(root: str) -> None:
 
 _MESSAGES = {
     "kk": {
-        "installing": "Пакеттер орнатылуда ({what}) — бірінші рет бір минуттай алады. Дайын болғанда хабарлаймын…",
+        "installing": "Пакеттер қосылуда ({what}) — серверде бары бірден қосылады, жоғы бір рет жүктеледі…",
         "ready": "Пакеттер дайын ({what}) — енді іске қосуға болады.",
         "partial": "Кейбір пакеттер орнатылмады: {what}",
         "failed": "Пакеттер орнатылмады ({what}). Терминалда қолмен орнатып көріңіз.",
-        "hint": "Жаңа пакет керек болса — requirements.txt / package.json-ға жазыңыз (терминалда қолмен орнатылғаны уақытша).",
+        "hint": "Терминалда pip install / npm install арқылы орнатқан кез келген пакет серверде сақталады және requirements.txt / package.json-ға жазылады.",
     },
     "ru": {
-        "installing": "Устанавливаются пакеты ({what}) — в первый раз это займёт около минуты. Сообщу, когда будет готово…",
+        "installing": "Подключаются пакеты ({what}) — имеющиеся на сервере подключаются сразу, остальные скачиваются один раз…",
         "ready": "Пакеты готовы ({what}) — можно запускать.",
         "partial": "Не удалось установить некоторые пакеты: {what}",
         "failed": "Пакеты не установились ({what}). Попробуйте установить вручную в терминале.",
-        "hint": "Нужен новый пакет — добавьте его в requirements.txt / package.json (установленное вручную в терминале временно).",
+        "hint": "Любой пакет, установленный в терминале через pip install / npm install, сохраняется на сервере и записывается в requirements.txt / package.json.",
     },
     "en": {
-        "installing": "Installing packages ({what}) — the first time takes about a minute. I'll let you know when it's ready…",
+        "installing": "Linking packages ({what}) — ones already on the server are linked instantly, the rest are downloaded once…",
         "ready": "Packages ready ({what}) — you can run the project now.",
         "partial": "Some packages could not be installed: {what}",
         "failed": "Packages failed to install ({what}). Try installing them manually in the terminal.",
-        "hint": "Need a new package? Add it to requirements.txt / package.json (anything installed by hand in the terminal is temporary).",
+        "hint": "Any package you install in the terminal with pip install / npm install is kept on the server and saved to requirements.txt / package.json.",
     },
 }
 
@@ -730,100 +815,112 @@ def terminal_notice(kind: str, lang: str, what: str = "") -> str:
     return f"\r\n\x1b[{color}m{icon} {text}\x1b[0m\r\n"
 
 
-def status(root: str) -> Dict[str, str]:
-    """Жобадағы ортақ жиынтықтардың күйі: {"node_modules": "ready"|"installing"} т.б."""
-    out: Dict[str, str] = {}
-    with _guard:
-        waiting = {d for dests in _pending.values() for d in dests}
-    for dirpath, _dirs, _files in _walk(root):
-        for name in ("node_modules", VENV_DIR):
-            dest = os.path.join(dirpath, name)
-            rel = os.path.relpath(dest, root).replace(os.sep, "/")
-            if dest in waiting:
-                out[rel] = "installing"
-            elif is_shared_link(dest) and os.path.isdir(dest):
-                out[rel] = "ready"
-    return out
+def _has_python(root: str) -> bool:
+    for _dirpath, _dirs, filenames in _walk(root):
+        if any(f.endswith(".py") or f == "requirements.txt" for f in filenames):
+            return True
+    return False
 
 
-def terminal_env(cwd: str, env: Dict[str, str]) -> None:
-    """Терминал жобаның ішінде ашылса — ``python``/``pip`` жобаның ``.venv``-інен.
-
-    ``.venv`` әлі орнатылып жатса да PATH-қа қосамыз: орнату біткен сәттен бастап
-    ``python main.py`` пакеттерді көреді (shell PATH-ты әр командада қайта іздейді).
+def terminal_env(cwd: str, env: Dict[str, str], is_project: bool = True) -> None:
+    """Терминалдың PATH-ы: алдымен пакет шимдері (pip/npm/yarn/pnpm → ортақ қойма),
+    жобаның ішінде — оның ``.venv``-і (``python`` / ``python -m pip`` содан).
     """
-    venv = os.path.join(cwd, VENV_DIR)
-    with _guard:
-        installing = any(venv in dests for dests in _pending.values())
-    if not (os.path.isdir(venv) or installing):
-        return
-    env["VIRTUAL_ENV"] = venv
-    env["PATH"] = venv_bin(venv) + os.pathsep + env.get("PATH", "")
-    env["PIP_CACHE_DIR"] = PIP_CACHE
+    tools = ensure_tools() if _tools else {}
+    if not tools:
+        ensure_tools_async()  # сервер енді ғана іске қосылды — келесі сессияларда дайын
+    paths = []
+    if os.path.isfile(os.path.join(BIN_DIR, "pkg_shim.py")):
+        paths.append(BIN_DIR)
+    if is_project:
+        venv = os.path.join(cwd, VENV_DIR)
+        with _guard:
+            installing = venv in _pending
+        if not os.path.isdir(venv) and not installing and tools.get("uv") and _has_python(cwd):
+            ensure_venv(cwd)  # uv venv — бірнеше миллисекунд; `python -m pip` бірден жұмыс істесін
+        if os.path.isdir(venv) or installing:
+            env["VIRTUAL_ENV"] = venv
+            paths.append(venv_bin(venv))
+    env["PATH"] = os.pathsep.join([*paths, env.get("PATH", "")])
+    env["npm_config_cache"] = NPM_CACHE
 
 
-def _last_used(path: str) -> float:
-    for marker in (_LAST_USED, _READY):
-        try:
-            return os.path.getmtime(os.path.join(path, marker))
-        except OSError:
-            continue
-    try:
-        return os.path.getmtime(path)
-    except OSError:
-        return time.time()
+def _managed_dirs() -> Iterable[str]:
+    """Барлық қолданушы жобаларындағы біз басқаратын node_modules / .venv (маркері барлар)"""
+    base = os.path.abspath(TERMINAL_WORKSPACE_DIR)
+    base_depth = base.rstrip(os.sep).count(os.sep)
+    for dirpath, dirnames, _files in os.walk(base):
+        depth = dirpath.count(os.sep) - base_depth
+        if depth == 0:
+            dirnames[:] = [d for d in dirnames if d != os.path.basename(SHARED_ROOT)]
+        for name in ("node_modules", VENV_DIR):
+            if name in dirnames:
+                dest = os.path.join(dirpath, name)
+                if not os.path.islink(dest) and os.path.isfile(os.path.join(dest, MARKER)):
+                    yield dest
+        if depth >= MAX_SCAN_DEPTH + 2:  # қолданушы / жоба / + жобаның ішкі папкалары
+            dirnames[:] = []
+        else:
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not os.path.islink(os.path.join(dirpath, d))]
 
 
 def sweep(idle_days: Optional[float] = None) -> List[str]:
-    """Ұзақ қолданылмаған жиынтықтарды «ұйықтату» (дискіден өшіру).
+    """Ұзақ ашылмаған жобалардың ``node_modules`` / ``.venv``-ін өшіру.
 
-    Жүктеу кэші қалады — жоба қайта ашылғанда жиынтық тез қайта орнатылады
-    (жобадағы сілтеме сол жолға қарайды, сондықтан өзі қайта жалғанады).
-    Қайтарады: ұйықтатылған жиынтықтар ("node/<кілт>").
+    Пакеттердің өзі ортақ қоймада қалады — жоба қайта ашылғанда бірден қалпына
+    келеді. Ешбір жоба қолданбайтын пакеттер қоймадан тазаланады (pnpm store
+    prune, uv cache prune). Қайтарады: өшірілген папкалар.
     """
     days = SHARED_PACKAGES_IDLE_DAYS if idle_days is None else idle_days
-    if days <= 0:
-        return []
-    cutoff = time.time() - days * 86400
-    slept: List[str] = []
+    removed: List[str] = []
     with _guard:
         busy = set(_pending)
-    for eco, store in (("node", NODE_STORE), ("python", PY_STORE)):
-        try:
-            keys = os.listdir(store)
-        except OSError:
-            continue
-        for key in keys:
-            path = os.path.join(store, key)
-            if f"{eco}:{key}" in busy or not os.path.isdir(path):
+        active = [os.path.normcase(os.path.abspath(c)) + os.sep for c in _active_cwds]
+    if days > 0:
+        cutoff = time.time() - days * 86400
+        for dest in list(_managed_dirs()):
+            norm = os.path.normcase(dest)
+            if dest in busy or any(norm.startswith(a) for a in active):
                 continue
-            if _last_used(path) >= cutoff:
-                continue
-            if _in_use(_NODE_TARGET(key) if eco == "node" else _PY_TARGET(key)):
-                _touch(store, key)
-                continue
-            shutil.rmtree(path, ignore_errors=True)
-            slept.append(f"{eco}/{key}")
-    # Бұзылған жиынтықтардың себеті және орнатудың уақытша файлдары (бір күннен ескі)
-    for folder in (TRASH, _TMP):
-        try:
-            names = os.listdir(folder)
-        except OSError:
-            continue
-        for name in names:
-            path = os.path.join(folder, name)
             try:
-                old = os.path.getmtime(path) < time.time() - 86400 or folder == TRASH
+                idle = os.path.getmtime(os.path.join(dest, MARKER)) < cutoff
             except OSError:
                 continue
-            if old:
-                if os.path.isdir(path) and not os.path.islink(path):
-                    shutil.rmtree(path, ignore_errors=True)
-                else:
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
-    if slept:
-        logger.info("Ұйықтатылған пакет жиынтықтары (%d): %s", len(slept), ", ".join(slept))
-    return slept
+            if idle:
+                shutil.rmtree(dest, ignore_errors=True)
+                removed.append(dest)
+        if removed:
+            tools = ensure_tools()
+            if tools.get("node") and tools.get("pnpm"):
+                _run([tools["node"], tools["pnpm"], "store", "prune", "--store-dir", PNPM_STORE], SHARED_ROOT)
+            if tools.get("uv"):
+                _run([tools["uv"], "cache", "prune"], SHARED_ROOT)
+    # Бұрынғы «жиынтық» моделінің қалдықтары — ешбір терминал ашық болмағанда
+    if not active and not busy:
+        for name in _LEGACY:
+            path = os.path.join(SHARED_ROOT, name)
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+                logger.info("Бұрынғы ортақ пакет жиынтықтары өшірілді: %s", path)
+    # Орнатудың уақытша файлдары (бір күннен ескі)
+    try:
+        names = os.listdir(_TMP)
+    except OSError:
+        names = []
+    for name in names:
+        path = os.path.join(_TMP, name)
+        try:
+            if os.path.getmtime(path) >= time.time() - 86400:
+                continue
+        except OSError:
+            continue
+        if os.path.isdir(path) and not os.path.islink(path):
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    if removed:
+        logger.info("Ұйықтатылған жоба пакеттері (%d): %s", len(removed), ", ".join(removed))
+    return removed

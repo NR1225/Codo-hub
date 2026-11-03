@@ -7,7 +7,7 @@ import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
   faFolder, faInfoCircle, faFolderOpen, faBook, faList, faLock, faEnvelope,
   faSliders, faUserShield, faTriangleExclamation, faRightFromBracket, faChevronRight, faGlobe,
-  faCircleHalfStroke, faBell, faShieldHalved, faArrowUpRightFromSquare, faTerminal, faComments,
+  faCircleHalfStroke, faBell, faShieldHalved, faArrowUpRightFromSquare, faTerminal, faComments, faWandMagicSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,11 +21,12 @@ import SettingsCliTokens from '../components/settings/SettingsCliTokens';
 import SettingsChat from '../components/settings/SettingsChat';
 import SettingsGithub from '../components/settings/SettingsGithub';
 import SettingsProjects from '../components/settings/SettingsProjects';
+import SettingsMotion from '../components/settings/SettingsMotion';
 import { isInfoDoc } from '../components/settings/infoDocs';
 import './Settings.css';
 
 // Әр қойындының өз адресі бар: /settings/<tab>; жай /settings — «Жалпы»
-const SETTINGS_TABS = ['general', 'account', 'chat', 'folders', 'terminal', 'info'] as const;
+const SETTINGS_TABS = ['general', 'motion', 'account', 'chat', 'folders', 'terminal', 'info'] as const;
 type SettingsTab = typeof SETTINGS_TABS[number];
 
 // «Аккаунт» қойындысының бір карточкадағы бөлімдері (бөлек адресі жоқ)
@@ -183,6 +184,7 @@ const Settings: React.FC = () => {
 
   const tabs: { key: SettingsTab; label: string; desc: string; icon: IconDefinition }[] = [
     { key: 'general', label: t('settings.general'), desc: t('settings.generalDesc'), icon: faSliders },
+    { key: 'motion', label: t('settings.motionTab'), desc: t('settings.motionDesc'), icon: faWandMagicSparkles },
     { key: 'account', label: t('settings.account'), desc: t('settings.accountDesc'), icon: faUserShield },
     { key: 'chat', label: t('settings.chatTab'), desc: t('settings.chatDesc'), icon: faComments },
     { key: 'folders', label: t('settings.folderTab'), desc: t('settings.folderDesc'), icon: faFolder },
@@ -350,6 +352,9 @@ const Settings: React.FC = () => {
                 </section>
               </div>
             )}
+
+            {/* Animations Tab — әр беттің анимациясы бөлек, құрылғыға қарай авто */}
+            {activeTab === 'motion' && <SettingsMotion />}
 
             {/* Account Tab — барлық бөлім бір карточкада, әрқайсысы өз орнында ашылады */}
             {activeTab === 'account' && (

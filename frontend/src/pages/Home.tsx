@@ -110,7 +110,7 @@ const Home: React.FC = () => {
   useEffect(() => setVibeStars(readVibeStars(user?.id)), [user?.id]);
 
   // Vibecoding жобалары серверден (тек өзімдікі); сервер қолжетімсіз болса — браузердегі көшірме.
-  // Бүркіт жоба жасаса/өшірсе (VIBE_PROJECTS_EVENT) — тізім қайта жүктеледі
+  // Codo жоба жасаса/өшірсе (VIBE_PROJECTS_EVENT) — тізім қайта жүктеледі
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -288,7 +288,7 @@ const Home: React.FC = () => {
   };
 
   // Бүкіл бетті мөлдірден шығармаймыз (animate-fade-in жоқ) — әйтпесе артындағы түсті body фоны
-  // тұман болып көрінеді; ішкі бөліктердің (sidebar, Бүркіт) өз анимациялары қара фон үстінде ойнайды
+  // тұман болып көрінеді; ішкі бөліктердің (sidebar, Codo) өз анимациялары қара фон үстінде ойнайды
   return (
     <div className="home-page">
       <div className={`home-layout ${sidebarCollapsed ? 'is-collapsed' : ''}`}>

@@ -1,4 +1,16 @@
 """Codo Hub Backend API - Main application file"""
+# `python main.py` глобал Python-мен іске қосылса, venv ішіндегі Python-ға ауысу
+if __name__ == "__main__":
+    import os as _os, sys as _sys, subprocess as _sp
+    _here = _os.path.dirname(_os.path.abspath(__file__))
+    _venv_py = _os.path.join(_here, "venv", "Scripts" if _os.name == "nt" else "bin",
+                             "python.exe" if _os.name == "nt" else "python")
+    if _sys.prefix == _sys.base_prefix and _os.path.exists(_venv_py):
+        try:
+            _sys.exit(_sp.call([_venv_py, _os.path.abspath(__file__), *_sys.argv[1:]]))
+        except KeyboardInterrupt:
+            _sys.exit(0)
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -78,6 +90,8 @@ async def lifespan(app: FastAPI):
     # Ұзақ қолданылмаған ортақ пакет жиынтықтарын ұйықтату (іске қосылғанда және 6 сағат сайын)
     async def sweep_shared_packages():
         from services import shared_packages
+        # uv / pnpm / терминал шимдері (pnpm бірінші рет бірнеше секундта жүктеледі)
+        shared_packages.ensure_tools_async()
         while True:
             try:
                 await asyncio.to_thread(shared_packages.sweep)

@@ -232,9 +232,10 @@ def push(user_id: str, project_id: str, project_name: str, files: List[dict],
         manifest["files"] = new_files
         manifest["folders"] = new_folders
         _save_manifest(user_id, project_id, manifest)
-        # node_modules — барлық қолданушыға ортақ бір жиынтыққа сілтеме
+        # node_modules / .venv — пакеттер серверде бір рет, жобаға hardlink арқылы.
+        # "code-…" — бөтен адамның жүктелген коды: install-скрипттерсіз, тек дайын wheel
         try:
-            shared_packages.attach(root)
+            shared_packages.attach(root, trusted=not str(project_id).startswith("code-"))
         except Exception as e:
             logger.error("Shared packages attach failed for %s: %s", root, e)
         return root

@@ -1,8 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { FolderIcon, PanelIcon, PlusIcon, SearchIcon, StarIcon } from './icons';
+import { ArrowUpIcon, FolderIcon, PlusIcon, SearchIcon, StarIcon } from './icons';
+import { SideToggleIcon } from '../chat/SideIcons';
 import { monogram } from './monogram';
+
+/** Бүгінгі күннің реттік нөмірі (жергілікті уақыт) — сөз күн сайын ауысады */
+function dayIndex(): number {
+  const now = new Date();
+  return Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86_400_000);
+}
 import './HomeSidebar.css';
 
 /* Басты беттегі жобалар sidebar-ы — қалқымалы панель.
@@ -60,9 +67,25 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
   const { t } = useTranslation();
   const [tip, setTip] = useState<Tip | null>(null);
   const asideRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const [showTop, setShowTop] = useState(false);
+
+  // Тақырып орнындағы қысқа сөз — күн сайын басқасы
+  const tips = t('home.dailyTips', { returnObjects: true }) as unknown;
+  const dailyTip =
+    Array.isArray(tips) && tips.length > 0 ? String(tips[dayIndex() % tips.length]) : t('home.projects');
 
   // Ашылып-жабылғанда ескі кеңес қалып қоймасын
   useEffect(() => setTip(null), [collapsed]);
+
+  const handleListScroll = () => {
+    setTip(null);
+    setShowTop((listRef.current?.scrollTop ?? 0) > 120);
+  };
+
+  const scrollListToTop = () => {
+    listRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Жабық күйде мәтін жоқ — атауды оң жақта қалқымалы кеңеспен көрсетеміз
   const showTip = (target: EventTarget | null) => {
@@ -102,13 +125,12 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
           data-tip={`${toggleLabel} · Ctrl+B`}
         >
           <span className="hsb__slot">
-            <PanelIcon />
+            <SideToggleIcon />
           </span>
         </button>
-        <h2 className="hsb__title hsb__label">
-          {t('home.projects')}
-          <span className="hsb__count">{items.length}</span>
-        </h2>
+        <p className="hsb__tagline hsb__label" title={dailyTip}>
+          {dailyTip}
+        </p>
       </div>
 
       <div id="home-sidebar-body" className="hsb__body">
@@ -147,6 +169,12 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
 
           <div className="hsb__divider" role="separator" style={{ '--d': 3 } as React.CSSProperties} />
 
+          {/* «Жобалар» тақырыбы — іздеудің астында, тізімнің үстінде (ашық күйде) */}
+          <h2 className="hsb__title hsb__label" style={{ '--d': 3 } as React.CSSProperties}>
+            {t('home.projects')}
+            <span className="hsb__count">{items.length}</span>
+          </h2>
+
           {error && (
             <div className="hsb__error" role="alert">
               <span>{error}</span>
@@ -156,7 +184,8 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
             </div>
           )}
 
-          <nav className="hsb__list" onScroll={() => setTip(null)}>
+          <div className="hsb__list-wrap">
+          <nav className="hsb__list" ref={listRef} onScroll={handleListScroll}>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="hsb__skeleton">
@@ -210,6 +239,19 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
               })
             )}
           </nav>
+
+          {/* Төмен түскенде — «Жобалар» басына қайтаратын жебе */}
+          <button
+            type="button"
+            className={`hsb__to-top ${showTop && !collapsed ? 'is-visible' : ''}`}
+            onClick={scrollListToTop}
+            aria-label={t('home.projects')}
+            title={t('home.projects')}
+            tabIndex={showTop && !collapsed ? 0 : -1}
+          >
+            <ArrowUpIcon />
+          </button>
+          </div>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PaperclipIcon, ImageIcon, FileIcon, FolderIcon, CloseIcon } from './home/icons';
 import type { Attachment } from '../utils/burkitAttachments';
 
-/* Бүркітке фото / файл / папка тіркеу — басты бет пен Vibecoding-ке ортақ.
+/* Codo-ға фото / файл / папка тіркеу — басты бет пен Vibecoding-ке ортақ.
    cls — CSS класс түбірі (sai немесе vx-ai): әр жерде өз дизайнымен. */
 
 // Тіркеме белгісі: сурет — кішкене көрінісімен, файл/папка — атымен

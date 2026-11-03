@@ -1,0 +1,735 @@
+/* ==========================================================================
+   Кіру / тіркелу — жаңа дизайн (auth-v2). Auth.css-тен кейін жүктеледі.
+   Қара тақырып: ғарыш фоны (метеорлар мен параллакс баптаулардан өшіріледі),
+                 мөлдір «шыны» карта.
+   Жарық тақырып: тыныш ақ фон, анимациясыз, ақ карта.
+   ========================================================================== */
+
+.auth-v2 {
+  --a2-fg: #fafafa;
+  --a2-muted: rgba(250, 250, 250, 0.58);
+  --a2-line: rgba(255, 255, 255, 0.12);
+  --a2-line-strong: rgba(255, 255, 255, 0.28);
+  --a2-card: rgba(12, 12, 14, 0.58);
+  --a2-field: rgba(255, 255, 255, 0.04);
+  --a2-field-hover: rgba(255, 255, 255, 0.07);
+  --a2-btn-bg: #fafafa;
+  --a2-btn-fg: #09090b;
+  --a2-btn-hover: #e4e4e7;
+  --a2-mark-bg: #fafafa;
+  --a2-mark-fg: #09090b;
+  background: #030303;
+}
+
+.light-theme .auth-v2 {
+  --a2-fg: #09090b;
+  --a2-muted: #71717a;
+  --a2-line: #e4e4e7;
+  --a2-line-strong: #a1a1aa;
+  --a2-card: #ffffff;
+  --a2-field: #fafafa;
+  --a2-field-hover: #ffffff;
+  --a2-btn-bg: #09090b;
+  --a2-btn-fg: #ffffff;
+  --a2-btn-hover: #27272a;
+  --a2-mark-bg: #09090b;
+  --a2-mark-fg: #ffffff;
+  background: #f4f4f5;
+}
+
+/* ---------- Фон ---------- */
+
+.auth-v2 .auth-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+  z-index: 0;
+}
+
+/* Ескі ереже мобильде .landing-hero-ді жасырады — жаңа фон әрқашан көрінеді */
+.auth-v2 .auth-backdrop--dark {
+  display: block;
+  background: radial-gradient(120% 90% at 50% 0%, #15151a 0%, #060607 55%, #000 100%);
+}
+
+.auth-v2 .auth-backdrop--dark::before {
+  opacity: 0.45;
+}
+
+.auth-v2 .auth-backdrop__vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(60% 55% at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.55) 100%);
+  z-index: 1;
+}
+
+/* Параллакс өшік болса — сахна орнында тұрады */
+.auth-v2 .auth-backdrop--dark:not(.is-parallax) #parallax-scene,
+.auth-v2 .auth-backdrop--light #parallax-scene {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Жарық тақырып: ауа тәрізді параллакс сахна ---------- */
+
+.auth-v2 .auth-backdrop--light {
+  background:
+    radial-gradient(70% 55% at 88% 0%, #fdfefb 0%, rgba(253, 254, 251, 0) 70%),
+    radial-gradient(60% 50% at 0% 100%, rgba(226, 238, 229, 0.55) 0%, rgba(226, 238, 229, 0) 70%),
+    linear-gradient(180deg, #fbfcfc 0%, #f4f6f6 100%);
+}
+
+/* Орталықты таза ұстайтын жұмсақ ақ перде */
+.auth-v2 .al-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(38% 42% at 50% 50%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* Бұлттар */
+.auth-v2 .al-cloud {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(38px);
+  background:
+    radial-gradient(closest-side at 30% 55%, #ffffff 0%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(closest-side at 65% 45%, #ffffff 0%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(closest-side at 50% 65%, rgba(232, 236, 240, 0.9) 0%, rgba(232, 236, 240, 0) 100%);
+}
+
+.auth-v2 .al-cloud--1 { top: 10%; left: 8%;  width: 46vmax; height: 18vmax; }
+.auth-v2 .al-cloud--2 { top: 60%; left: 60%; width: 52vmax; height: 20vmax; opacity: 0.9; }
+.auth-v2 .al-cloud--3 { top: 72%; left: 4%;  width: 38vmax; height: 15vmax; opacity: 0.8; }
+.auth-v2 .al-cloud--4 { top: 18%; left: 62%; width: 30vmax; height: 12vmax; opacity: 0.7; }
+
+/* Күн мен сәулелер — жоғарғы оң бұрыш */
+.auth-v2 .al-sun {
+  position: absolute;
+  top: 6%;
+  right: 8%;
+  width: 46vmax;
+  height: 46vmax;
+  transform: translate(35%, -35%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 253, 240, 0.95) 0%, rgba(250, 252, 240, 0.5) 40%, rgba(255, 255, 255, 0) 100%);
+}
+
+.auth-v2 .al-rays {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: blur(14px);
+  opacity: 0.75;
+  background: conic-gradient(
+    from 200deg at 92% 6%,
+    rgba(255, 255, 255, 0) 0deg,
+    rgba(253, 251, 236, 0.85) 6deg,
+    rgba(255, 255, 255, 0) 12deg,
+    rgba(255, 255, 255, 0) 20deg,
+    rgba(240, 247, 238, 0.7) 25deg,
+    rgba(255, 255, 255, 0) 32deg,
+    rgba(255, 255, 255, 0) 41deg,
+    rgba(253, 251, 236, 0.6) 45deg,
+    rgba(255, 255, 255, 0) 52deg,
+    rgba(255, 255, 255, 0) 360deg
+  );
+  mask-image: radial-gradient(90% 90% at 92% 6%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(90% 90% at 92% 6%, #000 0%, transparent 75%);
+}
+
+.auth-v2 .is-ambient .al-rays {
+  animation: al-rays-breathe 9s ease-in-out infinite;
+}
+
+@keyframes al-rays-breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
+
+/* Шыны пішіндер */
+.auth-v2 .al-glass {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.14) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 24px 60px -18px rgba(100, 116, 139, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -10px 24px rgba(214, 230, 220, 0.25);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.auth-v2 .al-glass--pill {
+  top: 22%;
+  left: 13%;
+  width: 190px;
+  height: 74px;
+  border-radius: 999px;
+  transform: rotate(-16deg);
+}
+
+.auth-v2 .al-glass--orb {
+  top: 58%;
+  left: 74%;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.65) 0%, rgba(214, 234, 221, 0.22) 100%);
+}
+
+.auth-v2 .al-glass--tile {
+  top: 66%;
+  left: 18%;
+  width: 96px;
+  height: 96px;
+  border-radius: 26px;
+  transform: rotate(14deg);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(226, 232, 240, 0.2) 100%);
+}
+
+.auth-v2 .al-glass--orb-sm {
+  top: 20%;
+  left: 72%;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+}
+
+/* Жарық тозаңы */
+.auth-v2 .al-dust {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, #ffffff 0%, rgba(236, 244, 238, 0.9) 45%, rgba(255, 255, 255, 0) 100%);
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.9), 0 0 2px rgba(148, 163, 158, 0.35);
+  opacity: 0.85;
+}
+
+.auth-v2 .al-dust--near {
+  filter: blur(1px);
+  opacity: 0.7;
+}
+
+.auth-v2 .is-ambient .al-dust {
+  animation: al-dust-float 11s ease-in-out infinite;
+}
+
+.auth-v2 .is-ambient .al-dust--near {
+  animation-duration: 14s;
+}
+
+@keyframes al-dust-float {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.45; }
+  50% { transform: translate3d(8px, -16px, 0); opacity: 0.95; }
+}
+
+/* Алдыңғы жапырақтар */
+.auth-v2 .al-leaf {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(1.5px) drop-shadow(0 18px 24px rgba(100, 130, 110, 0.18));
+  opacity: 0.85;
+}
+
+.auth-v2 .al-leaf--1 { top: 2%;  left: 2%;  width: 120px; transform: rotate(-38deg); }
+.auth-v2 .al-leaf--2 { top: 70%; left: 86%; width: 150px; transform: rotate(32deg); filter: blur(3px) drop-shadow(0 18px 24px rgba(100, 130, 110, 0.18)); }
+.auth-v2 .al-leaf--3 { top: 80%; left: 8%;  width: 74px;  transform: rotate(118deg); opacity: 0.7; }
+
+.auth-v2 .is-ambient .al-leaf--1 { animation: al-leaf-sway 12s ease-in-out infinite; }
+.auth-v2 .is-ambient .al-leaf--2 { animation: al-leaf-sway-2 14s ease-in-out infinite; }
+
+@keyframes al-leaf-sway {
+  0%, 100% { transform: rotate(-38deg); }
+  50% { transform: rotate(-31deg) translateY(4px); }
+}
+
+@keyframes al-leaf-sway-2 {
+  0%, 100% { transform: rotate(32deg); }
+  50% { transform: rotate(26deg) translateY(-5px); }
+}
+
+@media (max-width: 640px) {
+  .auth-v2 .al-glass--pill { width: 120px; height: 48px; left: 4%; top: 12%; }
+  .auth-v2 .al-glass--orb { width: 90px; height: 90px; left: 72%; top: 76%; }
+  .auth-v2 .al-glass--tile { width: 60px; height: 60px; left: 6%; top: 80%; border-radius: 18px; }
+  .auth-v2 .al-glass--orb-sm { left: 80%; top: 12%; }
+  .auth-v2 .al-leaf--1 { width: 80px; }
+  .auth-v2 .al-leaf--2 { width: 96px; left: 80%; }
+  .auth-v2 .al-leaf--3 { display: none; }
+}
+
+/* Параллакс: шыны пішіндер тышқанға қарай 3D еңкейеді, шыны жылтыры жылжиды */
+.auth-v2 .auth-backdrop--light #parallax-scene {
+  perspective: 900px;
+}
+
+.auth-v2 .auth-backdrop--light #parallax-scene > .parallax-layer {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.auth-v2 .auth-backdrop--light .al-glass {
+  --tilt-x: calc(var(--my, 0) * -14deg);
+  --tilt-y: calc(var(--mx, 0) * 18deg);
+}
+
+.auth-v2 .auth-backdrop--light .al-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      120% 90% at calc(30% + var(--mx, 0) * 30%) calc(20% + var(--my, 0) * 30%),
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0) 55%
+    );
+}
+
+.auth-v2 .auth-backdrop--light .al-glass--pill { transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) rotate(-16deg); }
+.auth-v2 .auth-backdrop--light .al-glass--orb { transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)); }
+.auth-v2 .auth-backdrop--light .al-glass--tile { transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) rotate(14deg); }
+.auth-v2 .auth-backdrop--light .al-glass--orb-sm { transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)); }
+
+/* Күн шуағы тышқанға қарай сәл жарқырайды */
+.auth-v2 .auth-backdrop--light .al-sun {
+  opacity: calc(0.85 + var(--mx, 0) * 0.1 - var(--my, 0) * 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-v2 .auth-backdrop--light .al-glass { --tilt-x: 0deg; --tilt-y: 0deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-v2 .is-ambient .al-rays,
+  .auth-v2 .is-ambient .al-dust,
+  .auth-v2 .is-ambient .al-leaf--1,
+  .auth-v2 .is-ambient .al-leaf--2 {
+    animation: none;
+  }
+}
+
+/* ---------- Карта ---------- */
+
+.auth-v2 .landing-auth {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.auth-v2 .landing-auth .auth-card,
+.auth-v2 .landing-auth .auth-card:hover,
+.light-theme .auth-v2 .landing-auth .auth-card,
+.light-theme .auth-v2 .landing-auth .auth-card:hover {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: 400px;
+  max-height: none;
+  margin: 0;
+  padding: 32px 32px 24px;
+  border-radius: 20px;
+  border: 1px solid var(--a2-line);
+  background: var(--a2-card);
+  color: var(--a2-fg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 30px 80px -20px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  overflow: visible;
+  pointer-events: auto;
+  animation: a2CardIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.light-theme .auth-v2 .landing-auth .auth-card,
+.light-theme .auth-v2 .landing-auth .auth-card:hover {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 24px 60px -24px rgba(0, 0, 0, 0.18);
+}
+
+.auth-v2 .auth-card::before {
+  display: none;
+}
+
+/* ---------- Кіру / тіркелу беттері: мөлдір карта ---------- */
+
+.auth-v2 .landing-auth .auth-card.auth-card--glass,
+.auth-v2 .landing-auth .auth-card.auth-card--glass:hover,
+.light-theme .auth-v2 .landing-auth .auth-card.auth-card--glass,
+.light-theme .auth-v2 .landing-auth .auth-card.auth-card--glass:hover {
+  background: color-mix(in srgb, var(--a2-card) 25%, transparent);
+  border-color: color-mix(in srgb, var(--a2-line) 70%, transparent);
+  backdrop-filter: blur(6px) saturate(130%);
+  -webkit-backdrop-filter: blur(6px) saturate(130%);
+  box-shadow: 0 20px 60px -24px rgba(0, 0, 0, 0.45);
+}
+
+.auth-v2 .landing-auth .auth-card.auth-card--glass .btn-primary,
+.light-theme .auth-v2 .landing-auth .auth-card.auth-card--glass .btn-primary {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #fff;
+}
+
+.auth-v2 .landing-auth .auth-card.auth-card--glass .btn-primary:hover:not(:disabled),
+.light-theme .auth-v2 .landing-auth .auth-card.auth-card--glass .btn-primary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.36) !important;
+}
+
+/* Жарық тақырып: батырмалар — жартылай мөлдір қара, жазуы қара */
+.light-theme .auth-v2 .landing-auth .auth-card.auth-card--glass .btn-primary {
+  background: rgba(9, 9, 11, 0.08) !important;
+  border-color: rgba(9, 9, 11, 0.18) !important;
+  color: #09090b;
+}
+
+.light-theme .auth-v2 .landing-auth .auth-card.auth-card--glass .btn-primary:hover:not(:disabled) {
+  background: rgba(9, 9, 11, 0.14) !important;
+  border-color: rgba(9, 9, 11, 0.28) !important;
+}
+
+.light-theme .auth-v2 .landing-auth .auth-card a.auth-switch-chip {
+  background: rgba(9, 9, 11, 0.08);
+  border-color: rgba(9, 9, 11, 0.18);
+  color: #09090b;
+}
+
+.light-theme .auth-v2 .landing-auth .auth-card a.auth-switch-chip:hover {
+  background: rgba(9, 9, 11, 0.14);
+  border-color: rgba(9, 9, 11, 0.28);
+}
+
+.auth-v2 .landing-auth .auth-title.auth-title--center,
+.light-theme .auth-v2 .landing-auth .auth-title.auth-title--center {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.auth-v2 .landing-auth .auth-card a.auth-switch-chip {
+  display: block;
+  width: fit-content;
+  margin: 18px auto 0;
+  padding: 8px 18px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.auth-v2 .landing-auth .auth-card a.auth-switch-chip:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.36);
+}
+
+.auth-v2 .landing-auth .auth-card a.auth-switch-chip:active {
+  transform: scale(0.97);
+}
+
+.auth-v2 .landing-auth .auth-card a.auth-switch-chip:focus-visible {
+  outline: 2px solid var(--a2-fg);
+  outline-offset: 3px;
+}
+
+@keyframes a2CardIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.auth-v2 .auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.auth-v2 .auth-brand__mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--a2-mark-bg);
+  color: var(--a2-mark-fg);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.auth-v2 .auth-brand__name {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  color: var(--a2-fg);
+}
+
+.auth-v2 .landing-auth .auth-title,
+.light-theme .auth-v2 .landing-auth .auth-title {
+  margin: 0 0 6px;
+  font-size: 1.75rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-align: left;
+  color: var(--a2-fg);
+  -webkit-text-fill-color: var(--a2-fg);
+  background: none;
+  animation: none;
+}
+
+.auth-v2 .auth-subtitle {
+  margin: 0 0 22px;
+  text-align: left;
+  font-size: 0.93rem;
+  font-weight: 500;
+  color: var(--a2-muted);
+  animation: none;
+}
+
+.auth-v2 .auth-form {
+  gap: 12px;
+  animation: none;
+}
+
+/* ---------- Өрістер ---------- */
+
+.auth-v2 .landing-auth .auth-card .form-group input,
+.light-theme .auth-v2 .landing-auth .auth-card .form-group input {
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--a2-line);
+  background: var(--a2-field) !important;
+  color: var(--a2-fg);
+  font-size: 0.98rem;
+  transform: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-v2 .landing-auth .auth-card .form-group input::placeholder,
+.light-theme .auth-v2 .landing-auth .auth-card .form-group input::placeholder {
+  color: var(--a2-muted);
+}
+
+.auth-v2 .landing-auth .auth-card .form-group input:hover,
+.light-theme .auth-v2 .landing-auth .auth-card .form-group input:hover {
+  background: var(--a2-field-hover) !important;
+  border-color: var(--a2-line-strong);
+}
+
+.auth-v2 .landing-auth .auth-card .form-group input:focus,
+.light-theme .auth-v2 .landing-auth .auth-card .form-group input:focus {
+  background: var(--a2-field-hover) !important;
+  border-color: var(--a2-fg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--a2-fg) 10%, transparent);
+  transform: none;
+}
+
+.auth-v2 .landing-auth .auth-card .form-group input.auth-code-input {
+  height: 56px;
+  text-align: center;
+  font-size: 1.5rem;
+  letter-spacing: 0.4em;
+}
+
+/* ---------- Батырмалар ---------- */
+
+.auth-v2 .landing-auth .auth-card .btn-primary,
+.light-theme .auth-v2 .landing-auth .auth-card .btn-primary {
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--a2-btn-bg) !important;
+  background: var(--a2-btn-bg) !important;
+  color: var(--a2-btn-fg);
+  box-shadow: none !important;
+  font-weight: 700;
+  transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+.auth-v2 .landing-auth .auth-card .btn-primary:hover:not(:disabled),
+.light-theme .auth-v2 .landing-auth .auth-card .btn-primary:hover:not(:disabled) {
+  background: var(--a2-btn-hover) !important;
+  border-color: var(--a2-btn-hover) !important;
+  transform: none;
+}
+
+.auth-v2 .landing-auth .auth-card .btn-primary:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.auth-v2 .landing-auth .auth-card .btn-primary:disabled {
+  opacity: 0.45;
+}
+
+.auth-v2 .btn-primary::before,
+.auth-v2 .btn-primary::after,
+.auth-v2 .btn-google::before {
+  display: none;
+}
+
+.auth-v2 .auth-divider {
+  margin: 18px 0 14px;
+}
+
+.auth-v2 .auth-divider::before,
+.auth-v2 .auth-divider::after {
+  background: var(--a2-line);
+}
+
+.auth-v2 .auth-divider span,
+.light-theme .auth-v2 .auth-divider span,
+.dark-theme .auth-v2 .auth-divider span {
+  padding: 0 12px;
+  background: transparent;
+  color: var(--a2-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 1;
+}
+
+.auth-v2 .btn-google,
+.dark-theme .auth-v2 .btn-google {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--a2-line);
+  background: transparent;
+  color: var(--a2-fg);
+  box-shadow: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.auth-v2 .btn-google:hover:not(:disabled),
+.dark-theme .auth-v2 .btn-google:hover:not(:disabled) {
+  background: var(--a2-field-hover);
+  border-color: var(--a2-line-strong);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------- Хабарлар ---------- */
+
+.auth-v2 .form-error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: none;
+  backdrop-filter: none;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.auth-v2 .auth-code-hint {
+  text-align: left;
+  font-size: 1.08rem;
+  line-height: 1.55;
+  color: var(--a2-muted);
+}
+
+.auth-v2 .auth-code-hint strong {
+  color: var(--a2-fg);
+}
+
+/* ---------- Төменгі сілтеме ---------- */
+
+.auth-v2 .auth-switch {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--a2-line);
+  font-size: 0.9rem;
+  color: var(--a2-muted);
+}
+
+.auth-v2 .auth-switch {
+  align-items: baseline;
+}
+
+.auth-v2 .auth-footer a.auth-switch__link {
+  position: static;
+  display: inline;
+  padding: 0;
+  margin: 0;
+  background: none;
+  color: var(--a2-fg);
+  font-weight: 700;
+  text-decoration: none;
+  transform: none;
+}
+
+.auth-v2 .auth-footer a.auth-switch__link::before {
+  display: none;
+}
+
+.auth-v2 .auth-switch__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-v2 .auth-switch__link:focus-visible {
+  outline: 2px solid var(--a2-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (max-width: 480px) {
+  .auth-v2 .landing-auth .auth-card,
+  .auth-v2 .landing-auth .auth-card:hover,
+  .light-theme .auth-v2 .landing-auth .auth-card,
+  .light-theme .auth-v2 .landing-auth .auth-card:hover {
+    padding: 24px 20px 20px;
+    border-radius: 18px;
+  }
+
+  .auth-v2 .landing-auth .auth-title,
+  .light-theme .auth-v2 .landing-auth .auth-title {
+    font-size: 1.5rem;
+  }
+}

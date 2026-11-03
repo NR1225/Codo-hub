@@ -21,6 +21,7 @@ import {
 } from './icons';
 import { FileTypeIcon, FolderTypeIcon } from './fileIcons';
 import { ARCHITECTURE_TEMPLATES, ArchitectureTemplate } from './architectureTemplates';
+import { VIBE_PATH_MIME } from './dragTypes';
 
 // ─── Папка ағашы ───────────────────────────────────────────────────
 
@@ -553,10 +554,12 @@ const FileExplorerPanel: React.FC = () => {
     setDropTarget(target);
   };
 
-  const onRowDragStart = (e: React.DragEvent, path: string) => {
+  const onRowDragStart = (e: React.DragEvent, path: string, folder = false) => {
     dragRef.current = { path };
-    e.dataTransfer.effectAllowed = 'move';
+    // move — ағаш ішінде жылжыту, copy — Codo-ның жазу картасына тастау (@сілтеме)
+    e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('text/plain', path);
+    e.dataTransfer.setData(VIBE_PATH_MIME, JSON.stringify({ path, folder }));
   };
 
   const onDragEnd = () => {
@@ -738,7 +741,7 @@ const FileExplorerPanel: React.FC = () => {
                 ]);
               }}
               draggable={!isRenaming}
-              onDragStart={(e) => onRowDragStart(e, dir.path)}
+              onDragStart={(e) => onRowDragStart(e, dir.path, true)}
               onDragEnd={onDragEnd}
               title={dir.path}
               role="treeitem"

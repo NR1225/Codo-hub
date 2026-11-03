@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CodeFile } from '../../utils/api';
+import { useViewPath } from '../../utils/viewPath';
 import { formatDate } from '../../utils/dateFormatter';
 import { FileIcon, FolderIcon, HeartIcon, CommentIcon, EyeIcon, LockIcon } from '../home/icons';
 import { monogram } from '../home/monogram';
@@ -20,6 +21,7 @@ interface CodeTileProps {
 
 const CodeTile: React.FC<CodeTileProps> = ({ code, index, view, menu }) => {
   const { t } = useTranslation();
+  const viewPath = useViewPath();
   const snippet = codeSnippet(code);
   const folder = folderEntries(code);
   const likes = code.likes?.length ?? 0;
@@ -28,7 +30,7 @@ const CodeTile: React.FC<CodeTileProps> = ({ code, index, view, menu }) => {
 
   const card = (
     <Link
-      to={`/view/${code.id}`}
+      to={viewPath(code.id)}
       className={`cdx-card cdx-card--${view} ${code.isFolder ? 'is-folder' : ''} ${menu ? 'has-menu' : ''}`}
       // Кезекпен пайда болу анимациясы
       style={{ '--d': Math.min(index, 12) } as React.CSSProperties}

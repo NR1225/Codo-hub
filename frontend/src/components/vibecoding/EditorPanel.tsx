@@ -12,14 +12,17 @@ import { useBurkitEdits, lineStats } from '../../contexts/BurkitEditsContext';
 import { setEditorState, setProblems } from '../../utils/vibeActivity';
 import { configureMonacoLocale } from './monacoLocale';
 import { EDITOR_REVEAL_EVENT, takeReveal } from '../../utils/vibeBridge';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Monaco жүктелмей тұрып тілін орнату (контекст мәзірі т.б. сайт тілінде шығуы үшін)
 configureMonacoLocale();
 
-// Monaco тақырыбы — беттің қара монохром палитрасымен бірдей
-const KH_THEME = 'kh-dark';
+// Monaco тақырыптары — беттің монохром палитрасымен бірдей:
+// қара тақырыпта — қара, жарық тақырыпта — ақ
+const KH_THEME_DARK = 'kh-dark';
+const KH_THEME_LIGHT = 'kh-light';
 const defineTheme: BeforeMount = (monaco) => {
-  monaco.editor.defineTheme(KH_THEME, {
+  monaco.editor.defineTheme(KH_THEME_DARK, {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -46,7 +49,41 @@ const defineTheme: BeforeMount = (monaco) => {
       'scrollbarSlider.hoverBackground': '#ffffff24',
       'scrollbarSlider.activeBackground': '#ffffff33',
       'minimap.background': '#0a0a0a',
-      // Бүркіт өзгерістерінің diff-і
+      // Codo өзгерістерінің diff-і
+      'diffEditor.insertedLineBackground': '#22c55e1a',
+      'diffEditor.insertedTextBackground': '#22c55e33',
+      'diffEditor.removedLineBackground': '#ef44441a',
+      'diffEditor.removedTextBackground': '#ef444433',
+    },
+  });
+  monaco.editor.defineTheme(KH_THEME_LIGHT, {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '8a8a8a', fontStyle: 'italic' },
+    ],
+    colors: {
+      'editor.background': '#ffffff',
+      'editor.foreground': '#1a1a1a',
+      'editorLineNumber.foreground': '#b5b5b5',
+      'editorLineNumber.activeForeground': '#2b2b2b',
+      'editor.lineHighlightBackground': '#f5f5f5',
+      'editor.lineHighlightBorder': '#00000000',
+      'editorCursor.foreground': '#0a0a0a',
+      'editor.selectionBackground': '#0000001f',
+      'editor.inactiveSelectionBackground': '#00000012',
+      'editorIndentGuide.background1': '#e8e8e8',
+      'editorIndentGuide.activeBackground1': '#c5c5c5',
+      'editorWidget.background': '#ffffff',
+      'editorWidget.border': '#e0e0e0',
+      'editorSuggestWidget.background': '#ffffff',
+      'editorSuggestWidget.border': '#e0e0e0',
+      'editorSuggestWidget.selectedBackground': '#f0f0f0',
+      'scrollbarSlider.background': '#00000014',
+      'scrollbarSlider.hoverBackground': '#00000024',
+      'scrollbarSlider.activeBackground': '#00000033',
+      'minimap.background': '#ffffff',
+      // Codo өзгерістерінің diff-і
       'diffEditor.insertedLineBackground': '#22c55e1a',
       'diffEditor.insertedTextBackground': '#22c55e33',
       'diffEditor.removedLineBackground': '#ef44441a',
@@ -55,7 +92,7 @@ const defineTheme: BeforeMount = (monaco) => {
   });
 };
 
-// Ctrl+K: Бүркіт қайта жазатын жолдар (endLine < startLine — жолдар алынбайды, тек кірістіріледі)
+// Ctrl+K: Codo қайта жазатын жолдар (endLine < startLine — жолдар алынбайды, тек кірістіріледі)
 interface InlineTarget {
   path: string;
   startLine: number;
@@ -64,6 +101,8 @@ interface InlineTarget {
 }
 
 const EditorPanel: React.FC = () => {
+  const { theme: siteTheme } = useTheme();
+  const editorTheme = siteTheme === 'light' ? KH_THEME_LIGHT : KH_THEME_DARK;
   const { t, i18n } = useTranslation();
   const [inline, setInline] = useState<InlineTarget | null>(null);
   const openInlineRef = useRef<(() => void) | null>(null);
@@ -71,7 +110,7 @@ const EditorPanel: React.FC = () => {
   const { dispatch, activeFile, activeProject, editorSettings } = useVibecoding();
   const { setMeta } = useEditorMeta();
   const burkitEdits = useBurkitEdits();
-  // Бүркіт өзгерткен, әлі қаралмаған файл — diff көрсетіледі
+  // Codo өзгерткен, әлі қаралмаған файл — diff көрсетіледі
   const pendingEdit = activeFile ? burkitEdits.pendingFor(activeFile.path) : undefined;
   const pendingStats = useMemo(
     () => (pendingEdit && activeFile ? lineStats(pendingEdit.original, activeFile.content) : null),
@@ -85,7 +124,7 @@ const EditorPanel: React.FC = () => {
   const handleEditorMount: OnMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
 
-    // Monaco модельдерінің URI-і = файл жолы (Editor path={...}); Бүркітке қай жол екенін береміз
+    // Monaco модельдерінің URI-і = файл жолы (Editor path={...}); Codo-ға қай жол екенін береміз
     const pathOf = (uri: { path?: string } | undefined) => String(uri?.path ?? '').replace(/^\//, '');
     const reportProblems = () => {
       const markers: { severity: number; resource: { path: string }; startLineNumber: number; startColumn: number; message: string }[] =
@@ -151,7 +190,7 @@ const EditorPanel: React.FC = () => {
     if (model) model.onDidChangeContent(updateMeta);
     updateMeta();
 
-    // Ctrl+K — Бүркітпен орнында өңдеу (Monaco-ның Ctrl+K аккордтарының орнына, Cursor сияқты)
+    // Ctrl+K — Codo-мен орнында өңдеу (Monaco-ның Ctrl+K аккордтарының орнына, Cursor сияқты)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => openInlineRef.current?.());
 
     // Format document event (from command palette)
@@ -183,7 +222,7 @@ const EditorPanel: React.FC = () => {
     }
   }, [activeFile, dispatch]);
 
-  // ─── Ctrl+K: Бүркітпен орнында өңдеу ───
+  // ─── Ctrl+K: Codo-мен орнында өңдеу ───
 
   const closeInline = useCallback(() => {
     const editor = editorRef.current;
@@ -246,7 +285,7 @@ const EditorPanel: React.FC = () => {
     const lines = content.split('\n');
     lines.splice(inline.startLine - 1, Math.max(0, inline.endLine - inline.startLine + 1), ...(code === '' ? [] : code.split('\n')));
     closeInline();
-    // Кәдімгі Бүркіт өзгерісі: редакторда diff, «Қабылдау / Қайтару»
+    // Кәдімгі Codo өзгерісі: редакторда diff, «Қабылдау / Қайтару»
     burkitEdits.applyEdit(inline.path, lines.join('\n'));
   }, [inline, i18n.language, burkitEdits, closeInline]);
 
@@ -375,7 +414,7 @@ const EditorPanel: React.FC = () => {
         <div className="vx-review">
           <BurkitLogo size={21} />
           <span className="vx-review__label">
-            {pendingEdit.original === null ? 'Бүркіт жасаған файл' : 'Бүркіттің өзгерісі'}
+            {pendingEdit.original === null ? 'Codo жасаған файл' : 'Codo-ның өзгерісі'}
           </span>
           <span className="vx-review__stat is-add">+{pendingStats.added}</span>
           <span className="vx-review__stat is-del">−{pendingStats.removed}</span>
@@ -409,7 +448,7 @@ const EditorPanel: React.FC = () => {
           <DiffEditor
             height="100%"
             language={editorLanguage}
-            theme={KH_THEME}
+            theme={editorTheme}
             beforeMount={defineTheme}
             original={pendingEdit.original ?? ''}
             modified={activeFile.content}
@@ -433,7 +472,7 @@ const EditorPanel: React.FC = () => {
         <Editor
           height="100%"
           language={editorLanguage}
-          theme={KH_THEME}
+          theme={editorTheme}
           beforeMount={defineTheme}
           value={activeFile.content}
           onChange={handleEditorChange}

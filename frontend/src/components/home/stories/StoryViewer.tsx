@@ -10,6 +10,7 @@ import {
   faPaperPlane, faLock,
 } from '@fortawesome/free-solid-svg-icons';
 import { apiService } from '../../../utils/api';
+import { useViewPath } from '../../../utils/viewPath';
 import type { StoryGroup, StoryItem, StoryViewer as StoryViewerEntry } from '../../../utils/api';
 import StoryShareSheet from './StoryShareSheet';
 import StickerGlyph from './StickerGlyph';
@@ -40,6 +41,7 @@ const StoryViewer: React.FC<Props> = ({
   groups, groupIndex, itemIndex, currentUserId, onChange, onShown, onDelete, onPatch, onClose,
 }) => {
   const { t } = useTranslation();
+  const viewPath = useViewPath();
   const group = groups[groupIndex];
   const item = group?.items[itemIndex];
   const isOwn = !!currentUserId && group?.authorId === currentUserId;
@@ -325,7 +327,7 @@ const StoryViewer: React.FC<Props> = ({
           {item.caption && !isText && <p className="sv__caption">{item.caption}</p>}
 
           {item.project && (
-            <Link to={`/view/${item.project.id}`} className="sv__cta"
+            <Link to={viewPath(item.project.id)} className="sv__cta"
               onClick={() => !isOwn && apiService.storyClick(item.id).catch(() => {})}>
               <span className="sv__cta-icon">
                 <FontAwesomeIcon icon={item.project.isFolder ? faFolder : faCode} />

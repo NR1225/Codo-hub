@@ -48,7 +48,7 @@ class User(Base):
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)  # Соңғы WebSocket қосылымы жабылған уақыт
-    burkit_api_key = Column(Text, nullable=True)  # Бүркіттің Gemini кілті — шифрланған (utils/secret_box)
+    burkit_api_key = Column(Text, nullable=True)  # Codo-ның Gemini кілті — шифрланған (utils/secret_box)
     # Кім жаза алады: open — бәрі тікелей чатқа, closed — бейтаныстар «сұрауға», friends — тек достар
     dm_privacy = Column(String(12), nullable=True)
     # Баптаулар → «Жобалар»: жаңа жобалар әдепкіде жабық болып жүктеледі
@@ -56,6 +56,10 @@ class User(Base):
     # GitHub OAuth: жабық репоны жүктеу үшін — токен шифрланған (utils/secret_box)
     github_token = Column(Text, nullable=True)
     github_login = Column(String(100), nullable=True)
+    # Әкімші панелі: бұғаттау (кіре алмайды, сессиялары жабылады) және рөл (moderator)
+    banned_at = Column(DateTime, nullable=True)
+    ban_reason = Column(String(300), nullable=True)
+    role = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -111,6 +115,12 @@ def _ensure_user_columns():
             conn.execute(text("ALTER TABLE users ADD COLUMN github_token TEXT"))
         if "github_login" not in existing:
             conn.execute(text("ALTER TABLE users ADD COLUMN github_login VARCHAR(100)"))
+        if "banned_at" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN banned_at DATETIME"))
+        if "ban_reason" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN ban_reason VARCHAR(300)"))
+        if "role" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(16)"))
 
 
 def _ensure_vibecoding_columns():
@@ -476,7 +486,7 @@ class StoryOpinion(Base):
     target_id = Column(String(12), nullable=False, index=True)
     kind = Column(String(12), nullable=False)  # praise | complaint
     text = Column(String(300), nullable=False)
-    # Шағымның дәлелі (мәтін + сол адамның жобасы) және Бүркіттің түсіндірмесі
+    # Шағымның дәлелі (мәтін + сол адамның жобасы) және Codo-ның түсіндірмесі
     evidence = Column(Text, nullable=True)
     evidence_project_id = Column(String(64), nullable=True)
     verdict = Column(String(300), nullable=True)
@@ -510,6 +520,33 @@ class CliToken(Base):
     site = Column(String(200), nullable=True)  # кілт жасалған сайттың адресі — CLI жоба сілтемесін шығарады
     created_at = Column(DateTime, default=func.now())
     last_used_at = Column(DateTime, nullable=True)
+
+
+class AdminSession(Base):
+    """Әкімші панелінің қайта расталған сессиясы (services/admin_guard.py).
+    Cookie-дің өзі сақталмайды — тек SHA-256 хэші. Кіру сессиясына және IP-ге байланған"""
+    __tablename__ = "admin_sessions"
+
+    token_hash = Column(String(64), primary_key=True)
+    user_id = Column(String(12), nullable=False, index=True)
+    session_id = Column(String(36), nullable=False)
+    ip = Column(String(64), nullable=True)
+    label = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+
+class AdminChallenge(Base):
+    """Әкімші панеліне кірер алдындағы растау: email коды немесе authenticator әрекеттері"""
+    __tablename__ = "admin_challenges"
+
+    user_id = Column(String(12), primary_key=True)
+    code_hash = Column(String(64), nullable=True)  # тек email әдісінде
+    expires_at = Column(DateTime, nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime, nullable=True)
+    last_totp = Column(String(12), nullable=True)  # бір кодты екі рет қолданбау үшін
+    last_sent_at = Column(DateTime, nullable=True)
 
 
 class CliLoginRequest(Base):

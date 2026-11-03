@@ -4,7 +4,7 @@ import { FileTypeIcon } from './fileIcons';
 import { historyGroupLabel as groupLabel, historyShortTime as shortTime } from './useBurkitHistory';
 import type { BurkitConversation } from './useBurkitHistory';
 
-/* Бүркіт тарихы: іздеу, күн бойынша топтар, бекіту, атын өзгерту,
+/* Codo тарихы: іздеу, күн бойынша топтар, бекіту, атын өзгерту,
    Markdown ретінде жүктеу, жою және тарихты тазалау */
 
 interface Props {
@@ -100,7 +100,7 @@ const BurkitHistory: React.FC<Props> = ({
               <HistoryIcon size={22} />
             </span>
             <p>Әзірге сөйлесу жоқ</p>
-            <small>Бүркітпен сөйлескен сайын мұнда сақталады</small>
+            <small>Codo-мен сөйлескен сайын мұнда сақталады</small>
             <button type="button" className="vx-hist__new" onClick={onNew}>
               <PlusIcon size={14} />
               Жаңа чат бастау
@@ -160,7 +160,7 @@ const BurkitHistory: React.FC<Props> = ({
                     </div>
                     {last && (
                       <p className="vx-hist__preview">
-                        {last.role === 'assistant' ? 'Бүркіт: ' : ''}
+                        {last.role === 'assistant' ? 'Codo: ' : ''}
                         {last.content.replace(/```[\s\S]*?```/g, '[код]').replace(/\s+/g, ' ').slice(0, 90)}
                       </p>
                     )}

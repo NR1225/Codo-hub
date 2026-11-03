@@ -4,17 +4,20 @@ import { EditorMetaProvider } from '../../contexts/EditorMetaContext';
 import { BurkitEditsProvider } from '../../contexts/BurkitEditsContext';
 import { useResizer } from '../../hooks/useResizer';
 import ResizeHandle from './ResizeHandle';
-import FileExplorerPanel from './FileExplorerPanel';
+import LeftSidebar from './git/LeftSidebar';
+import { GIT_DIFF_EVENT, type GitDiffTarget } from './git/gitEvents';
 import EditorPanel from './EditorPanel';
 import ChatPanel from './ChatPanel';
 import StatusBar from './StatusBar';
 import EditorSettings from './EditorSettings';
 import { DEV_SERVER_EVENT, DEV_SERVER_STOP_EVENT, devCommand, type DevServerInfo } from '../../utils/devServer';
 import { runInTerminal } from '../../utils/vibeBridge';
+import { apiService, type VibecodingRunPlan } from '../../utils/api';
 
 // TerminalPanel xterm-ді (~200KB) тартады — тек terminal ашылғанда жүктеу үшін lazy.
 const TerminalPanel = lazy(() => import('./TerminalPanel'));
 const PreviewPanel = lazy(() => import('./PreviewPanel'));
+const GitDiffView = lazy(() => import('./git/GitDiffView'));
 
 const TerminalFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full text-sm opacity-60">…</div>
@@ -40,19 +43,27 @@ function usePanelPresence(visible: boolean) {
 }
 
 const PREVIEW_LAYOUT_KEY = 'vibe-preview-layout';
+// AI сайдбары беттің ортасына дейін ғана созылады (% — IDE енінен)
+const AI_PANEL_MAX = 50;
 
 function loadPreviewLayout(): { open: boolean; width: number } {
   try {
     const raw = JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) || 'null');
     if (raw && typeof raw === 'object') {
       const width = Number(raw.width);
-      return { open: raw.open === true, width: width >= 20 && width <= 80 ? width : 45 };
+      return { open: raw.open === true, width: width >= 15 && width <= 90 ? width : 45 };
     }
   } catch { /* бұзылған жазба */ }
   return { open: false, width: 45 };
 }
 
-const IDELayout: React.FC = () => {
+interface IDELayoutProps {
+  /** Ортаңғы бағанның үстіндегі құралдар қатары (іздеу, палитра, панельдер) —
+      сайдбарлар оның қасынан жоба табтарына дейін көтеріледі */
+  centerToolbar?: React.ReactNode;
+}
+
+const IDELayout: React.FC<IDELayoutProps> = ({ centerToolbar }) => {
   const { state, dispatch, isMobile, isTablet, isDesktop, activeProject, flushProjects } = useVibecoding();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -74,6 +85,16 @@ const IDELayout: React.FC = () => {
     } catch { /* жеке терезе — тек осы сессияда */ }
   }, [previewOpen, previewWidth]);
   const [splitDragging, setSplitDragging] = useState(false);
+  // Көріністі редактордың орнына толық жаю
+  const [previewMax, setPreviewMax] = useState(false);
+  const togglePreviewMax = useCallback(() => setPreviewMax(v => !v), []);
+  useEffect(() => {
+    if (!previewOpen) setPreviewMax(false);
+  }, [previewOpen]);
+  const maxed = previewMax && isDesktop;
+  // Source Control-дан ашылған diff — редактордың үстінде көрсетіледі
+  const [gitDiff, setGitDiff] = useState<GitDiffTarget | null>(null);
+  const closeGitDiff = useCallback(() => setGitDiff(null), []);
   const splitRef = useRef<HTMLDivElement>(null);
 
   const onSplitDragStart = useCallback((e: React.MouseEvent) => {
@@ -84,7 +105,7 @@ const IDELayout: React.FC = () => {
     const onMove = (ev: MouseEvent) => {
       const rect = row.getBoundingClientRect();
       const pct = ((rect.right - ev.clientX) / rect.width) * 100;
-      setPreviewWidth(Math.min(80, Math.max(20, pct)));
+      setPreviewWidth(Math.min(90, Math.max(15, pct)));
     };
     const onUp = () => {
       setSplitDragging(false);
@@ -100,7 +121,12 @@ const IDELayout: React.FC = () => {
     minLeft: 10,
     minRight: 10,
     minBottom: 10,
-    minCenter: 25,
+    // Сайдбарларды қалағанша созуға болады — ортаға тек редактор сыйятын орын қалады
+    minCenter: 8,
+    minCenterPx: 260,
+    maxRight: AI_PANEL_MAX,
+    leftVisible: state.leftPanelVisible,
+    rightVisible: state.rightPanelVisible,
     onSizesChange: (newSizes) => {
       dispatch({ type: 'SET_PANEL_SIZES', payload: newSizes });
     },
@@ -113,7 +139,7 @@ const IDELayout: React.FC = () => {
 
   // Desktop: normal layout sizing
   const leftWidth = isDesktop && state.leftPanelVisible ? sizes.left : 0;
-  const rightWidth = isDesktop && state.rightPanelVisible ? sizes.right : 0;
+  const rightWidth = isDesktop && state.rightPanelVisible ? Math.min(sizes.right, AI_PANEL_MAX) : 0;
   const bottomHeight = state.bottomPanelVisible ? sizes.bottom : 0;
 
   const leftPresence = usePanelPresence(state.leftPanelVisible);
@@ -133,33 +159,59 @@ const IDELayout: React.FC = () => {
     dispatch({ type: 'SET_RIGHT_PANEL_VISIBLE', payload: false });
   }, [dispatch]);
 
-  // «Іске қосу»: package.json-да dev-скрипт болса — терминалда іске қосып, сервер адресін
-  // осы көрініс панелінде ашамыз; әйтпесе бұрынғыдай файлдардан жиналған көрініс
+  // «Іске қосу»: жоба қалай іске қосылатынын сервер анықтайды (run-plan):
+  //  • server  — команда терминалда орындалады (npm run dev, Django, Flask, FastAPI, Streamlit …),
+  //              ол басқан адрес осы көрініс панелінде ашылады;
+  //  • console — жай скрипт (python main.py): нәтижесі терминалда;
+  //  • web     — статикалық HTML: көрініс браузерде файлдардан құрастырылады.
+  const planningRef = useRef(false);
   const runRef = useRef<() => void>(() => {});
   runRef.current = () => {
-    setPreviewOpen(true);
-    const command = activeProject ? devCommand(activeProject.files) : null;
-    if (!activeProject || !command) {
+    const runStatic = () => {
+      setPreviewOpen(true);
       setDevServer(null);
       setDevStarting(false);
       setRunId(id => id + 1);
+    };
+    if (!activeProject) {
+      runStatic();
       return;
     }
-    const running = lastServers.current.get(activeProject.id);
-    if (running) {
-      setDevServer(running);
-      setRunId(id => id + 1); // көріністі қайта жүктеу
-      return;
-    }
-    if (devStarting) return;
-    setDevStarting(true);
-    dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: true });
     const projectId = activeProject.id;
+    const running = lastServers.current.get(projectId);
+    if (running) {
+      setPreviewOpen(true);
+      setDevServer(running);
+      // Алдымен соңғы өзгерістер сервер папкасына жетсін, содан кейін көріністі қайта жүктейміз
+      flushProjects()
+        .catch(() => {})
+        .then(() => setRunId(id => id + 1));
+      return;
+    }
+    if (devStarting || planningRef.current) return;
+    planningRef.current = true;
+    // Сервер қолжетімсіз болса — браузердегі файлдардан package.json-ды өзіміз қараймыз
+    const fallback = devCommand(activeProject.files);
     // Терминал папкасы серверде — соңғы өзгерістер алдымен сонда жетсін
     flushProjects()
       .catch(() => {})
-      .then(() => runInTerminal(projectId, command))
-      .catch(() => setDevStarting(false));
+      .then(() => apiService.getVibecodingRunPlan(projectId))
+      .catch((): VibecodingRunPlan => (fallback ? { kind: 'server', command: fallback } : { kind: 'web', command: null }))
+      .then(plan => {
+        if (!plan.command || (plan.kind !== 'server' && plan.kind !== 'console')) {
+          runStatic();
+          return;
+        }
+        dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: true });
+        if (plan.kind === 'server') {
+          setPreviewOpen(true);
+          setDevServer(null);
+          setDevStarting(true);
+        }
+        return runInTerminal(projectId, plan.command);
+      })
+      .catch(() => setDevStarting(false))
+      .finally(() => { planningRef.current = false; });
   };
 
   // Listen for settings open/toggle requests from shortcuts & command palette
@@ -180,6 +232,8 @@ const IDELayout: React.FC = () => {
       if (projectId && lastServers.current.get(projectId)?.port === port) lastServers.current.delete(projectId);
       setDevServer(prev => (prev && prev.port === port && prev.projectId === projectId ? null : prev));
     };
+    const onGitDiff = (e: Event) => setGitDiff((e as CustomEvent<GitDiffTarget>).detail);
+    window.addEventListener(GIT_DIFF_EVENT, onGitDiff);
     window.addEventListener(DEV_SERVER_EVENT, onDevServer);
     window.addEventListener(DEV_SERVER_STOP_EVENT, onDevServerStop);
     window.addEventListener('vibecoding:open-settings', onOpen);
@@ -191,6 +245,7 @@ const IDELayout: React.FC = () => {
       window.removeEventListener('vibecoding:toggle-settings', onToggle);
       window.removeEventListener('vibecoding:run', onRun);
       window.removeEventListener('vibecoding:close-preview', onClosePreview);
+      window.removeEventListener(GIT_DIFF_EVENT, onGitDiff);
       window.removeEventListener(DEV_SERVER_EVENT, onDevServer);
       window.removeEventListener(DEV_SERVER_STOP_EVENT, onDevServerStop);
     };
@@ -200,6 +255,7 @@ const IDELayout: React.FC = () => {
   useEffect(() => {
     setDevServer(prev => (prev && prev.projectId && prev.projectId !== activeProject?.id ? null : prev));
     setDevStarting(false);
+    setGitDiff(prev => (prev && prev.projectId !== activeProject?.id ? null : prev));
   }, [activeProject?.id]);
 
   return (
@@ -221,11 +277,11 @@ const IDELayout: React.FC = () => {
                 style={{
                   width: `${leftWidth}%`,
                   minWidth: state.leftPanelVisible ? '180px' : '0',
-                  maxWidth: state.leftPanelVisible ? '400px' : '0',
+                  maxWidth: state.leftPanelVisible ? '100%' : '0',
                   opacity: state.leftPanelVisible ? 1 : 0,
                 }}
               >
-                {leftPresence.mounted && <FileExplorerPanel />}
+                {leftPresence.mounted && <LeftSidebar />}
               </div>
 
               {state.leftPanelVisible && (
@@ -250,36 +306,54 @@ const IDELayout: React.FC = () => {
               <div
                 className="vibe-overlay vibe-overlay--left animate-slideInLeft"
               >
-                <FileExplorerPanel />
+                <LeftSidebar isOverlay />
               </div>
             </>
           )}
 
           {/* Center - Editor + Terminal */}
           <div className="vibe-panel-center flex-1 flex flex-col overflow-hidden" style={{ minWidth: 0 }}>
+            {centerToolbar}
             {/* Editor (+ іске қосылған жобаның көрінісі) — қалған биіктікті алады */}
             <div
               ref={splitRef}
               style={{ flex: '1 1 0', minHeight: 0 }}
               className={`vx-split flex overflow-hidden relative ${splitDragging ? 'is-dragging' : ''}`}
             >
-              <div style={{ flex: '1 1 0', minWidth: 0 }} className="overflow-hidden">
+              <div
+                style={maxed ? { display: 'none' } : { flex: '1 1 0', minWidth: 0 }}
+                className="overflow-hidden relative"
+              >
                 <EditorPanel />
+                {gitDiff && (
+                  <Suspense fallback={null}>
+                    <GitDiffView target={gitDiff} onClose={closeGitDiff} />
+                  </Suspense>
+                )}
               </div>
               {previewOpen && (
                 <>
-                  {isDesktop && <ResizeHandle type="vertical" onMouseDown={onSplitDragStart} />}
+                  {isDesktop && !maxed && (
+                    <ResizeHandle type="vertical" onMouseDown={onSplitDragStart} onDoubleClick={togglePreviewMax} />
+                  )}
                   <div
                     className={isDesktop ? 'overflow-hidden' : 'vx-preview-overlay'}
-                    style={isDesktop ? { width: `${previewWidth}%`, flexShrink: 0, minWidth: 0 } : undefined}
+                    style={isDesktop
+                      ? maxed
+                        ? { flex: '1 1 0', minWidth: 0 }
+                        : { width: `${previewWidth}%`, flexShrink: 0, minWidth: 0 }
+                      : undefined}
                   >
                     <Suspense fallback={<TerminalFallback />}>
                       <PreviewPanel
                         runId={runId}
                         serverUrl={devServer?.url ?? null}
+                        serverPort={devServer?.port ?? null}
                         serverStarting={devStarting}
                         onServerClose={() => setDevServer(null)}
                         onClose={() => setPreviewOpen(false)}
+                        maximized={maxed}
+                        onToggleMaximize={isDesktop ? togglePreviewMax : undefined}
                       />
                     </Suspense>
                   </div>
@@ -331,7 +405,7 @@ const IDELayout: React.FC = () => {
                 style={{
                   width: `${rightWidth}%`,
                   minWidth: state.rightPanelVisible ? '250px' : '0',
-                  maxWidth: state.rightPanelVisible ? '500px' : '0',
+                  maxWidth: state.rightPanelVisible ? '100%' : '0',
                   opacity: state.rightPanelVisible ? 1 : 0,
                 }}
               >

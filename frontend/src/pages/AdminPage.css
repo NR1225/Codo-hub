@@ -1,0 +1,329 @@
+/* ---------- Әкімші панелі (MonitoringPage.css-тегі .mon__* үстіне) ---------- */
+.adm { max-width: 1280px; }
+.adm__head { margin-bottom: 14px; }
+.adm__head h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1.5rem; }
+.adm__head p { margin: 6px 0 0; font-size: 0.86rem; }
+.mon--embedded { min-width: 0; }
+
+.adm__muted { color: var(--text-secondary); }
+.adm__notice {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px dashed var(--mon-warn);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* Бөлімдер */
+.adm__tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border-color);
+}
+.adm__tabs::-webkit-scrollbar { display: none; }
+.adm__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.adm__tab:hover { color: var(--text-primary); }
+.adm__tab.is-active { color: var(--text-primary); border-bottom-color: var(--mon-ok); font-weight: 600; }
+.adm__tabs--sub { margin-bottom: 12px; }
+.adm__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Құралдар жолағы */
+.adm__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.adm__toolbar h2 { margin: 0 auto 0 0; }
+.adm__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 240px;
+  max-width: 380px;
+  padding: 7px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+.adm__search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 0.86rem; outline: none; }
+.adm__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.adm__chip.is-active { color: var(--text-primary); border-color: var(--mon-ok); background: color-mix(in srgb, var(--mon-ok) 12%, transparent); }
+
+/* Кесте жолдары басылады */
+.adm__rows tbody tr { cursor: pointer; }
+.adm__rows tbody tr:hover td { background: var(--bg-secondary); }
+.adm__rows tr.is-banned td:first-child { box-shadow: inset 3px 0 0 var(--mon-err); }
+
+.adm__badges { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+.adm__badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.adm__badge--admin { color: var(--mon-ok); border-color: var(--mon-ok); }
+.adm__badge--bad { color: var(--mon-err); border-color: var(--mon-err); }
+.adm__badge--warn { color: var(--mon-warn); border-color: var(--mon-warn); }
+
+.adm__person { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
+
+.adm__pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; font-size: 0.84rem; color: var(--text-secondary); }
+.adm__pager .mon__btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Оң жақ панель */
+.adm__drawer-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+  animation: adm-fade 0.15s ease;
+}
+.adm__drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-left: 1px solid var(--border-color);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+  animation: adm-slide 0.18s ease;
+}
+.adm__drawer--wide { width: min(820px, 100%); }
+.adm__drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.adm__drawer-head h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; word-break: break-word; }
+.adm__drawer-body { flex: 1; overflow-y: auto; padding: 16px; }
+@keyframes adm-fade { from { opacity: 0; } }
+@keyframes adm-slide { from { transform: translateX(24px); opacity: 0.6; } }
+
+.adm__stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adm__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.adm__facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.adm__facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  min-width: 0;
+}
+.adm__facts span { font-size: 0.72rem; color: var(--text-secondary); }
+.adm__facts b { font-size: 0.86rem; word-break: break-word; }
+
+.adm__form { display: flex; flex-direction: column; gap: 10px; }
+.adm__form label { display: flex; flex-direction: column; gap: 5px; font-size: 0.8rem; color: var(--text-secondary); }
+.adm__form input, .adm__form textarea, .adm__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.88rem;
+}
+.adm__row .adm__input { flex: 1 1 220px; width: auto; }
+.adm__form label.adm__check { flex-direction: row; align-items: center; gap: 8px; color: var(--text-primary); }
+.adm__form label.adm__check input { width: auto; }
+.adm__code { font-family: Consolas, 'Courier New', monospace; font-size: 0.8rem; line-height: 1.5; tab-size: 2; }
+
+.adm__primary { border-color: var(--mon-ok); color: var(--mon-ok); }
+.adm__danger { border-color: var(--mon-err); color: var(--mon-err); }
+.mon__btn:disabled { opacity: 0.5; cursor: default; }
+.adm__back { align-self: flex-start; }
+
+.adm__panel { padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; }
+.adm__panel h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 0.92rem; }
+.adm__panel hr { border: 0; border-top: 1px solid var(--border-color); margin: 12px 0; }
+.adm__panel--danger { border-color: color-mix(in srgb, var(--mon-err) 50%, var(--border-color)); }
+.adm__panel p { margin: 0 0 8px; font-size: 0.84rem; }
+
+/* Тізімдер */
+.adm__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.adm__list-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.adm__list-btn:hover { border-color: var(--text-secondary); }
+.adm__list-btn span { font-size: 0.76rem; }
+.adm__list-row { display: flex; align-items: center; gap: 10px; font-size: 0.86rem; }
+.adm__list-row .mon__icon-btn { margin-left: auto; }
+
+/* Хабарламалар */
+.adm__chat { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+.adm__msg {
+  position: relative;
+  max-width: 85%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  font-size: 0.86rem;
+}
+.adm__msg.is-me { align-self: flex-end; border-color: color-mix(in srgb, var(--mon-ok) 45%, var(--border-color)); }
+.adm__msg.is-system { align-self: center; background: none; border-style: dashed; font-size: 0.78rem; color: var(--text-secondary); }
+.adm__msg-meta { display: flex; gap: 8px; align-items: baseline; font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 3px; }
+.adm__msg-meta b { color: var(--text-primary); }
+.adm__msg-body { white-space: pre-wrap; word-break: break-word; }
+.adm__msg-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 4px; opacity: 0.55; }
+.adm__msg:hover .adm__msg-actions { opacity: 1; }
+
+.adm__comment { position: relative; padding: 8px 40px 8px 10px; border-bottom: 1px solid var(--mon-grid); font-size: 0.86rem; }
+.adm__comment p { margin: 2px 0 0; white-space: pre-wrap; word-break: break-word; }
+.adm__comment > .mon__icon-btn { position: absolute; top: 8px; right: 0; }
+.adm__reply { margin: 6px 0 0 14px; padding-left: 10px; border-left: 2px solid var(--border-color); }
+
+/* Vibecoding файлдары */
+.adm__files { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 10px; min-height: 280px; }
+.adm__file-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; max-height: 60vh; }
+.adm__file-list button {
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  font-family: Consolas, monospace;
+  font-size: 0.76rem;
+  text-align: left;
+  word-break: break-all;
+  cursor: pointer;
+}
+.adm__file-list button.is-active, .adm__file-list button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.adm__pre {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  white-space: pre;
+}
+
+/* Әрекет нәтижесі */
+.adm__toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 1100;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100% - 32px));
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-size: 0.88rem;
+  cursor: pointer;
+  animation: adm-fade 0.15s ease;
+}
+.adm__toast--ok { border-color: var(--mon-good); }
+.adm__toast--err { border-color: var(--mon-err); color: var(--mon-err); }
+
+@media (max-width: 640px) {
+  .adm__files { grid-template-columns: 1fr; }
+  .adm__file-list { max-height: 160px; }
+  .adm__msg { max-width: 100%; }
+  .adm__drawer-body { padding: 12px; }
+}
+
+/* Кірер алдындағы растау */
+.adm__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.adm__session { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; }
+.adm-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 400px;
+  margin: 72px auto 0;
+  padding: 28px 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--bg-primary);
+  text-align: center;
+}
+.adm-gate h1 { margin: 0; font-size: 1.25rem; }
+.adm-gate p { margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+.adm-gate__icon { font-size: 2rem; color: var(--mon-ok); }
+.adm-gate__code {
+  width: 100%;
+  max-width: 220px;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+.adm-gate .mon__btn { justify-content: center; min-width: 160px; text-decoration: none; }
+.adm-gate .mon__error { width: 100%; box-sizing: border-box; margin: 0; }
+.adm-gate__hint { font-size: 0.78rem !important; }

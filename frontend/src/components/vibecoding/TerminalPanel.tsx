@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useTerminal, TerminalShortcut, TerminalSearchResult } from '../../hooks/useTerminal';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useVibecoding, WorkspaceChanges } from '../../contexts/VibecodingContext';
 import { askBurkit, requestReveal, TERMINAL_RUN_EVENT, peekTerminalRuns, takeTerminalRun } from '../../utils/vibeBridge';
 import { detectRunCommands, loadHistory, pushHistory, resolveProjectFile } from './terminalCommands';
@@ -111,8 +112,9 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
 }, ref) => {
   const { t } = useTranslation();
   const { getAccessToken } = useAuth();
+  const { theme: siteTheme } = useTheme();
   const { dispatch } = useVibecoding();
-  // Шығыста қате көрінсе — «Бүркітпен түсіндіру» батырмасы шығады (келесі командаға дейін)
+  // Шығыста қате көрінсе — «Codo-мен түсіндіру» батырмасы шығады (келесі командаға дейін)
   const [hasError, setHasError] = useState(false);
 
   // Терминалда жасалған/өзгерген/өшірілген файлдар — редакторға
@@ -123,6 +125,7 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
   const projectId = tab.projectId;
   const term = useTerminal({
     projectId,
+    theme: siteTheme,
     onFsChanges,
     fontSize,
     resolveFile: projectId ? (raw) => resolveFile(projectId, raw) : undefined,
@@ -212,7 +215,7 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
             }}
           >
             <SparkleIcon size={13} />
-            <span>{t('vibecoding.terminal.explainError', 'Қатені Бүркітпен түсіндіру')}</span>
+            <span>{t('vibecoding.terminal.explainError', 'Қатені Codo-мен түсіндіру')}</span>
           </button>
           <button
             type="button"
@@ -456,13 +459,13 @@ const TerminalPanel: React.FC = () => {
     activeView()?.sendText(cmd);
   };
 
-  // ─── Бүркіт пен редактор ───
+  // ─── Codo пен редактор ───
 
   const askAboutTerminal = useCallback((id: string, isError: boolean) => {
     const view = views.current.get(id);
     if (!view) return;
     const sel = view.getSelection().trim();
-    // Бүркітке тым ұзын мәтін жібермейміз — соңғы бөлігі жеткілікті
+    // Codo-ға тым ұзын мәтін жібермейміз — соңғы бөлігі жеткілікті
     const text = (sel || view.getRecentText(60)).slice(-6000);
     if (!text) return;
     const intro = isError && !sel
@@ -483,7 +486,7 @@ const TerminalPanel: React.FC = () => {
     setIsMaximized(false);
   }, [dispatch]);
 
-  // ─── Бүркіттің командалары ───
+  // ─── Codo-ның командалары ───
   // Сұраныс келгенде: жобаның қосулы терминалында орындаймыз; ондай терминал жоқ болса — ашамыз
   const [runTick, setRunTick] = useState(0);
   useEffect(() => {
@@ -712,7 +715,7 @@ const TerminalPanel: React.FC = () => {
               onClick={() => activeId && askAboutTerminal(activeId, false)}
               disabled={!activeTab}
               className="vx-term__action"
-              title={t('vibecoding.terminal.askBurkit', 'Бүркіттен сұрау')}
+              title={t('vibecoding.terminal.askBurkit', 'Codo-дан сұрау')}
             >
               <SparkleIcon size={14} />
             </button>
@@ -931,7 +934,7 @@ const TerminalPanel: React.FC = () => {
             onClick={() => { setMenu(null); askAboutTerminal(contextTab.id, false); }}
           >
             <SparkleIcon size={13} />
-            <span>{t('vibecoding.terminal.askBurkit', 'Бүркіттен сұрау')}</span>
+            <span>{t('vibecoding.terminal.askBurkit', 'Codo-дан сұрау')}</span>
           </button>
           <div className="vx-term__menu-sep" />
           <div className="vx-term__menu-zoom">
