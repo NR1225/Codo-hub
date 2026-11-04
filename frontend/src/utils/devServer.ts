@@ -36,6 +36,7 @@ export function devCommand(files: { path: string; content: string }[]): string |
     if (!script) continue;
     const dir = file.path.slice(0, -'package.json'.length).replace(/\/$/, '');
     const run = script === 'start' ? 'start' : `run ${script}`;
+    // --prefix: терминал қай папкада тұрса да (қайта басқанда да) дәл осы package.json іске қосылады
     return dir ? `npm --prefix ${dir} ${run}` : `npm ${run}`;
   }
   return null;

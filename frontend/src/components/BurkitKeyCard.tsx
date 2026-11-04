@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { apiService, BurkitStatus } from '../utils/api';
 
-/* Gemini кілтін енгізу/ауыстыру/өшіру картасы — Vibecoding-тегі (cls="vx-ai") және
+/* API кілтін енгізу/ауыстыру/өшіру картасы — Vibecoding-тегі (cls="vx-ai") және
    басты беттегі (cls="sai") Codo-ға ортақ. Сыныптар: `${cls}__key…` */
 
 const AI_STUDIO_URL = 'https://aistudio.google.com/apikey';
@@ -43,7 +43,7 @@ const BurkitKeyCard: React.FC<BurkitKeyCardProps> = ({ cls, status, onChange, on
   return (
     <form className={`${cls}__key`} onSubmit={save}>
       <div className={`${cls}__key-head`}>
-        <b>Gemini API кілті</b>
+        <b>API кілт қосу</b>
         {onClose && (
           <button type="button" className={closeClassName ?? `${cls}__key-close`} onClick={onClose} title="Жабу">
             {closeIcon}
@@ -51,6 +51,8 @@ const BurkitKeyCard: React.FC<BurkitKeyCardProps> = ({ cls, status, onChange, on
         )}
       </div>
       <p className={`${cls}__key-text`}>
+        Codo (AI көмекші) сіздің API кілтіңізбен жұмыс істейді. Қазір Google Gemini кілті
+        қолданылады — басқа провайдерлердің кілттері кейін қосылады.{' '}
         {status?.source === 'own' && <>Өз кілтіңіз қосулы: <code>{status.keyHint}</code></>}
         {status?.source === 'shared' && <>Сіз сайттың ортақ кілтін қолданып жатырсыз. Өз кілтіңізді қойсаңыз, сол қолданылады.</>}
         {(!status || status.source === 'none') && (
@@ -70,7 +72,7 @@ const BurkitKeyCard: React.FC<BurkitKeyCardProps> = ({ cls, status, onChange, on
           placeholder={status?.source === 'own' ? 'Жаңа кілт' : 'Кілтті осында қойыңыз'}
           autoComplete="off"
           spellCheck={false}
-          aria-label="Gemini API кілті"
+          aria-label="API кілт"
         />
         <button type="submit" className={`${cls}__key-btn`} disabled={busy || !value.trim()}>
           {busy ? '…' : 'Сақтау'}

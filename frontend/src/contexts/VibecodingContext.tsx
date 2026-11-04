@@ -25,6 +25,8 @@ export interface Project {
   folders?: string[];
   createdAt: string;
   updatedAt: string;
+  /** Жобалар бетіне жарияланған нұсқасының ID-і (қайта жариялағанда сол жаңарады) */
+  publishedCodeId?: string | null;
 }
 
 export interface PanelSizes {
@@ -79,6 +81,7 @@ type VibecodingAction =
   | { type: 'CLOSE_PROJECT_TAB'; payload: { projectId: string } }
   | { type: 'REORDER_PROJECT_TABS'; payload: { projectIds: string[] } }
   | { type: 'RENAME_PROJECT'; payload: { projectId: string; name: string } }
+  | { type: 'SET_PUBLISHED'; payload: { projectId: string; codeId: string | null } }
   | { type: 'CREATE_FILE'; payload: { name: string; path: string; content?: string } }
   | { type: 'DELETE_FILE'; payload: { fileId: string } }
   | { type: 'CREATE_FOLDER'; payload: { path: string } }
@@ -311,6 +314,15 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
           p.id === action.payload.projectId
             ? { ...p, name: action.payload.name, updatedAt: new Date().toISOString() }
             : p
+        ),
+      };
+    }
+
+    case 'SET_PUBLISHED': {
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === action.payload.projectId ? { ...p, publishedCodeId: action.payload.codeId } : p
         ),
       };
     }
@@ -775,6 +787,8 @@ interface VibecodingContextType {
   isDesktop: boolean;
   /** Сервердегі жобалар жүктеліп болды (немесе синхрондау қажет емес) */
   syncReady: boolean;
+  /** Серверге сақталмаған жобалар: projectId → себебі (мысалы, «Жоба тым үлкен») */
+  saveErrors: Record<string, string>;
   /** Күтіп тұрған өзгерістерді серверге дереу жіберу (мысалы, терминал ашылар алдында) */
   flushProjects: () => Promise<void>;
 }
@@ -907,6 +921,7 @@ export function fromServer(dto: VibecodingProjectDTO): Project {
     updatedAt: dto.updatedAt,
     files: dto.files.map(f => ({ ...f, isDirty: false })),
     folders: dto.folders ?? [],
+    publishedCodeId: dto.publishedCodeId ?? null,
   };
 }
 
@@ -967,6 +982,7 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
   const [remoteLoaded, setRemoteLoaded] = useState(false);
   const syncReady = !authLoading && (!isAuthenticated || remoteLoaded);
   const syncedRef = useRef<Map<string, string> | null>(null); // projectId → соңғы сақталған сурет
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -1028,9 +1044,18 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
       const snap = snapshotOf(project);
       if (synced.get(project.id) === snap) return;
       synced.set(project.id, snap); // қайталап жібермеу үшін алдын ала белгілейміз
-      saves.push(apiService.saveVibecodingProject(project.id, toServerPayload(project)).catch(err => {
+      saves.push(apiService.saveVibecodingProject(project.id, toServerPayload(project)).then(() => {
+        setSaveErrors(prev => {
+          if (!(project.id in prev)) return prev;
+          const next = { ...prev };
+          delete next[project.id];
+          return next;
+        });
+      }, err => {
         synced.delete(project.id); // келесі жолы қайта жіберіледі
         console.error('Vibecoding project save failed:', err);
+        const reason = err instanceof Error ? err.message : String(err);
+        setSaveErrors(prev => (prev[project.id] === reason ? prev : { ...prev, [project.id]: reason }));
       }));
     });
 
@@ -1105,8 +1130,9 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     isTablet,
     isDesktop,
     syncReady,
+    saveErrors,
     flushProjects: flushToServer,
-  }), [state, dispatch, activeProject, activeFile, openFiles, breakpoint, isMobile, isTablet, isDesktop, syncReady, flushToServer]);
+  }), [state, dispatch, activeProject, activeFile, openFiles, breakpoint, isMobile, isTablet, isDesktop, syncReady, saveErrors, flushToServer]);
 
   return (
     <VibecodingContext.Provider value={contextValue()}>

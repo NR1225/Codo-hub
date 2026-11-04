@@ -54,6 +54,8 @@ const GitDiffView: React.FC<{ target: GitDiffTarget; onClose: () => void }> = ({
     setError(null);
     const req = target.sha
       ? apiService.gitCommitDiff(target.projectId, target.sha, target.path)
+      : target.prId
+      ? apiService.prDiff(target.projectId, target.prId, target.path)
       : apiService.gitDiff(target.projectId, target.path, !!target.staged);
     req.then((d) => alive && setData(d)).catch((e) => alive && setError(e instanceof Error ? e.message : String(e)));
     return () => { alive = false; };

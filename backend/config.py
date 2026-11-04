@@ -49,6 +49,11 @@ TERMINAL_WORKSPACE_DIR = os.getenv(
     "TERMINAL_WORKSPACE_DIR",
     os.path.join(os.path.dirname(__file__), "data", "terminal_workspaces"),
 )
+# Codo репозиторийлері (жобаның «Codo-ға жіберілген» ресми нұсқасы, PR-лар) — bare git
+CODO_REPOS_DIR = os.getenv(
+    "CODO_REPOS_DIR",
+    os.path.join(os.path.dirname(__file__), "data", "codo_repos"),
+)
 TERMINAL_MAX_SESSIONS_PER_USER = int(os.getenv("TERMINAL_MAX_SESSIONS_PER_USER", "5"))
 TERMINAL_MAX_SESSIONS_TOTAL = int(os.getenv("TERMINAL_MAX_SESSIONS_TOTAL", "50"))
 TERMINAL_IDLE_TIMEOUT_SECONDS = int(os.getenv("TERMINAL_IDLE_TIMEOUT_SECONDS", "900"))      # 15 min

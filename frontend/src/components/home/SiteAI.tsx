@@ -1086,7 +1086,7 @@ const SiteAI: React.FC<SiteAIProps> = ({ codes }) => {
                 <ClockIcon size={16} />
                 <span>Тарих</span>
               </button>
-              <button type="button" className="sai__ghost" onClick={() => setKeyOpen((v) => !v)} title="Gemini API кілті">
+              <button type="button" className="sai__ghost" onClick={() => setKeyOpen((v) => !v)} title="API кілт қосу">
                 <span>Кілт</span>
               </button>
             </>

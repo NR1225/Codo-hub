@@ -232,7 +232,7 @@ async def root():
     return {
         "message": "Codo Hub Backend API",
         "note": "This is the backend server. Please use the frontend at http://localhost:5174",
-        "api": "http://localhost:3000/api",
+        "api": "http://localhost:8000/api",
         "frontend": "http://localhost:5174"
     }
 
@@ -492,6 +492,8 @@ async def terminal_websocket_endpoint(
 
     user_id = None
     project = None
+    # Жоба сұралып, бірақ терминал оның папкасында ашылмаса — себебі (клиент ескерту көрсетеді)
+    project_warning = None
     db = SessionLocal()
     try:
         try:
@@ -503,6 +505,8 @@ async def terminal_websocket_endpoint(
         if project_id:
             # Тек өз жобасы — бөтен жобаның ID-і берілсе, үй папкасында ашылады
             row = db.query(VibecodingProject).filter(VibecodingProject.id == project_id).first()
+            if not row or row.owner_id != user_id:
+                project_warning = "projectNotFound"
             if row and row.owner_id == user_id:
                 project = {
                     "id": row.id,
@@ -543,6 +547,7 @@ async def terminal_websocket_endpoint(
             except Exception as e:
                 logger.error(f"Terminal workspace sync failed for project {project['id']}: {e}")
                 project = None
+                project_warning = "projectSyncFailed"
         try:
             session = await terminal_manager.create_session(
                 user_id, cols, rows, cwd=cwd, project_id=project["id"] if project else None,
@@ -558,6 +563,7 @@ async def terminal_websocket_endpoint(
             "type": "connected",
             "sessionId": session.session_id,
             "projectId": session.project_id,
+            "projectWarning": project_warning,
             "mode": session.mode,
             "platform": sys.platform,
         })
@@ -734,8 +740,8 @@ _prioritize_terminal_route()
 
 
 if __name__ == "__main__":
-    # Default to 3000 for local development, 8080 for Cloud Run
-    port = int(os.getenv("PORT", 3000))
+    # Default to 8000 for local development, 8080 for Cloud Run
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(
         app, 
         host="0.0.0.0", 

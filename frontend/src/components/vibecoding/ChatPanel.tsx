@@ -25,7 +25,10 @@ import {
   TrashIcon,
   PlayIcon,
   FolderIcon,
+  GlobeIcon,
 } from './icons';
+import { runUiAction, describeUiAction, UI_READONLY_OPS, UI_CONFIRM_OPS, type UiHost } from './burkitUiTools';
+import { getPreviewOpen } from '../../utils/vibeControl';
 import { FileTypeIcon } from './fileIcons';
 import { BurkitAttachButton, BurkitAttachmentChip } from '../BurkitAttach';
 import { useBurkitAttachments } from '../useBurkitAttachments';
@@ -151,7 +154,10 @@ const SHELL_LANGS = new Set(['bash', 'sh', 'shell', 'zsh', 'console', 'powershel
 // Жауап аяқталған соң орындалатын блоктар: командалар (тек Agent) және сайттағы жоба әрекеттері
 function isActionBlock(block: CodeBlock, agent: boolean): boolean {
   const { action } = block;
-  return (action?.kind === 'run' && agent && !!block.code) || action?.kind === 'project';
+  return (action?.kind === 'run' && agent && !!block.code)
+    || action?.kind === 'project'
+    // Бетті басқару: Agent режимінде бәрі, Ask режимінде тек оқу (консоль, DOM, күй)
+    || (action?.kind === 'ui' && (agent || UI_READONLY_OPS.has(action.op)));
 }
 
 // Ask режимінде де сұраусыз орындалатын (ештеңені өзгертпейтін) жоба әрекеттері
@@ -159,6 +165,7 @@ const READONLY_OPS = new Set(['list', 'open']);
 
 function needsApproval(action: BlockAction | undefined, autoRun: boolean, agent: boolean): boolean {
   if (action?.kind === 'run') return !autoRun;
+  if (action?.kind === 'ui') return UI_CONFIRM_OPS.has(action.op) && !autoRun;
   if (action?.kind !== 'project') return false;
   if (!agent && !READONLY_OPS.has(action.op)) return true;
   return CONFIRM_OPS.has(action.op) && (!autoRun || ALWAYS_CONFIRM_OPS.has(action.op));
@@ -231,7 +238,7 @@ async function copyText(text: string) {
 
 const ChatPanel: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { dispatch, activeFile, activeProject, openFiles, isMobile, isTablet, syncReady, flushProjects } = useVibecoding();
+  const { dispatch, activeFile, activeProject, openFiles, isMobile, isTablet, syncReady, flushProjects, saveErrors } = useVibecoding();
   const history = useBurkitHistory();
 
   // Бет жаңартылса немесе панель жабылып-ашылса — сол чат пен көрініс қалпына келеді
@@ -329,12 +336,17 @@ const ChatPanel: React.FC = () => {
   }, []);
 
   const projectId = activeProject?.id;
+  // Жоба серверге сақталмаса (тым үлкен т.б.) — Notes сұрауы 404 береді, сондықтан жібермейміз
+  const notesBlocked = !!(projectId && saveErrors[projectId]);
   const refreshNotes = useCallback(() => {
-    if (!projectId) return;
-    apiService.getProjectNotes(projectId)
+    if (!projectId || !syncReady || notesBlocked) return;
+    // Жаңа жоба серверге бірнеше секундтан соң ғана сақталады — алдымен сақтап аламыз,
+    // әйтпесе сервер «Жоба серверде табылмады» (404) қайтарады
+    flushProjects().catch(() => {})
+      .then(() => apiService.getProjectNotes(projectId))
       .then((data) => { if (projectRef.current?.id === projectId) setProjectNotes(data); })
       .catch(() => setProjectNotes(null));
-  }, [projectId]);
+  }, [projectId, syncReady, notesBlocked, flushProjects]);
 
   useEffect(() => {
     setProjectNotes(null);
@@ -464,6 +476,23 @@ const ChatPanel: React.FC = () => {
     navigate,
   } : null), [user, dispatch, flushProjects, navigate]);
 
+  // Бетті басқару (ui блоктары): панельдер, көрініс, іске қосу
+  const vibeStateRef = useRef(vibeState);
+  vibeStateRef.current = vibeState;
+  const activeFileRef = useRef(activeFile);
+  activeFileRef.current = activeFile;
+  const uiHost = useMemo<UiHost>(() => ({
+    dispatch,
+    getLayout: () => ({
+      left: vibeStateRef.current.leftPanelVisible,
+      right: vibeStateRef.current.rightPanelVisible,
+      bottom: vibeStateRef.current.bottomPanelVisible,
+    }),
+    getProject: () => projectRef.current ?? null,
+    getActiveFile: () => activeFileRef.current?.path ?? null,
+    previewOpen: getPreviewOpen,
+  }), [dispatch]);
+
   const refreshSite = useCallback(() => {
     if (host) loadSiteContext(host).then(setSiteContext).catch(() => {});
   }, [host]);
@@ -475,6 +504,7 @@ const ChatPanel: React.FC = () => {
     setRunningAction(key);
     try {
       if (block.action?.kind === 'run') return await runCommand(block.code, signal);
+      if (block.action?.kind === 'ui') return await runUiAction(block.action, block.code, uiHost, signal);
       if (block.action?.kind !== 'project') return '';
       const label = describeProjectAction(block.action);
       if (!host) return `${label}: орындалмады — жүйеге кіру керек.`;
@@ -489,7 +519,7 @@ const ChatPanel: React.FC = () => {
     } finally {
       setRunningAction(null);
     }
-  }, [runCommand, host, refreshSite]);
+  }, [runCommand, host, refreshSite, uiHost]);
 
   // Құрал нәтижелерін Codo-ға жіберіп, жұмысты жалғастыру (агент циклі)
   const respondRef = useRef<((thread: BurkitMessage[], file: VirtualFile | null, resume?: BurkitMessage, step?: number) => void) | null>(null);
@@ -664,7 +694,7 @@ const ChatPanel: React.FC = () => {
         const { action } = blocks[i];
         if (done.includes(i) || !isActionBlock(blocks[i], agent)) continue;
         if (controller.signal.aborted) break;
-        if (action?.kind === 'run' && projectRef.current?.id !== project?.id) break;
+        if ((action?.kind === 'run' || action?.kind === 'ui') && projectRef.current?.id !== project?.id) break;
         if (needsApproval(action, autoRun, agent)) {
           held = true;
           continue;
@@ -1045,6 +1075,26 @@ const ChatPanel: React.FC = () => {
     );
   };
 
+  // Бетті басқару әрекеті (іске қосу, консоль, панель…) — бір жолдық карта, eval болса — коды
+  const renderUiAction = (
+    msg: BurkitMessage,
+    idx: number,
+    action: Extract<BlockAction, { kind: 'ui' }>,
+    code: string,
+    isLast: boolean
+  ) => (
+    <div key={`code-${idx}`} className={`vx-ai__code vx-ai__code--target vx-ai__code--ui ${action.op === 'eval' && code ? '' : 'vx-ai__code--compact'}`}>
+      <div className="vx-ai__code-bar">
+        <span className="vx-ai__code-lang">
+          {action.op === 'run' ? <PlayIcon size={13} /> : action.op === 'panel' || action.op === 'open' ? <FolderIcon size={14} /> : <GlobeIcon size={14} />}
+          {describeUiAction(action)}
+        </span>
+      </div>
+      {action.op === 'eval' && code && <pre className="ide-scrollbar"><code>{code}</code></pre>}
+      {renderActionState(msg, idx, isLast, 'Орындау')}
+    </div>
+  );
+
   const renderMessageContent = (msg: BurkitMessage) => {
     const elements: React.ReactNode[] = [];
     let inCodeBlock = false;
@@ -1082,6 +1132,10 @@ const ChatPanel: React.FC = () => {
         const target = actionLabel(action);
         if (action?.kind === 'project') {
           elements.push(renderProjectAction(msg, idx, action, block.code, isLast));
+          return;
+        }
+        if (action?.kind === 'ui') {
+          elements.push(renderUiAction(msg, idx, action, block.code, isLast));
           return;
         }
         const isRun = action?.kind === 'run';
@@ -1313,7 +1367,7 @@ const ChatPanel: React.FC = () => {
             type="button"
             onClick={() => setKeyOpen((v) => !v)}
             className={`vx-icon-btn vx-icon-btn--sm ${keyOpen ? 'is-on' : ''}`}
-            title="Gemini API кілті"
+            title="API кілт қосу"
           >
             <SettingsIcon size={16} />
           </button>

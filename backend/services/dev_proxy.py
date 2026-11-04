@@ -36,6 +36,10 @@ MAX_HTML_BYTES = 20 * 1024 * 1024
 CONNECT_TIMEOUT = 5.0
 
 BRIDGE_PATH = "/__codo_bridge.js"
+# Бет ішіндегі http://localhost:<порт>/… сұраулары (мысалы, жобаның backend-і) осы префикс
+# арқылы серверге бағытталады: /__codo_port/5000/api/x → 127.0.0.1:5000/api/x
+PORT_PREFIX = "/__codo_port/"
+_PORT_PATH_RE = re.compile(r"^/__codo_port/(\d{1,5})(/.*)?$")
 AUTH_PATH = "/__codo_auth"
 BRIDGE_TAG = b'<script src="/__codo_bridge.js"></script>'
 
@@ -58,7 +62,7 @@ def _bridge_js() -> bytes:
 def port_allowed(port: int) -> bool:
     if port < 1024 or port > 65535 or port in BLOCKED_PORTS:
         return False
-    own = int(os.getenv("PORT", "3000") or 3000)
+    own = int(os.getenv("PORT", "8000") or 8000)
     return port != own
 
 
@@ -219,11 +223,11 @@ class DevProxy:
             headers.append(("Cookie", "; ".join(kept)))
         return headers
 
-    async def _open_upstream(self):
+    async def _open_upstream(self, port: Optional[int] = None):
         last: Optional[Exception] = None
         for host in ("127.0.0.1", "::1"):
             try:
-                return await asyncio.wait_for(asyncio.open_connection(host, self.target_port), CONNECT_TIMEOUT)
+                return await asyncio.wait_for(asyncio.open_connection(host, port or self.target_port), CONNECT_TIMEOUT)
             except (OSError, asyncio.TimeoutError) as e:
                 last = e
         raise ConnectionError(str(last))
@@ -267,19 +271,37 @@ class DevProxy:
                 return
 
             if path == BRIDGE_PATH:
-                await _respond(cw, "200 OK", _bridge_js(), ctype="application/javascript; charset=utf-8")
+                # Көпір бет қай порттан ашылғанын білуі керек (localhost URL-дерін бұру үшін)
+                js = f"window.__codoTargetPort={self.target_port};".encode() + _bridge_js()
+                await _respond(cw, "200 OK", js, ctype="application/javascript; charset=utf-8")
                 return
 
+            # Басқа порт (жобаның backend-і): /__codo_port/<порт>/<жол>
+            port = self.target_port
+            via_port = False
+            m = _PORT_PATH_RE.match(path)
+            if m:
+                port = int(m.group(1))
+                if port != self.target_port:
+                    if port == self.port or not port_allowed(port):
+                        await _respond(cw, "403 Forbidden", f"Port {port} is not allowed".encode())
+                        return
+                    via_port = True
+                rest = (m.group(2) or "/") + (f"?{query}" if query else "")
+                first = f"{method} {rest} {_version}"
+
             upgrade = _get(headers, "upgrade") is not None
-            origin_host = f"localhost:{self.target_port}"
+            origin_host = f"localhost:{port}"
+            # Backend-тің CORS тексерісі үшін — Origin frontend dev-серверінікі болып көрінеді
+            page_origin = f"http://localhost:{self.target_port}"
             headers = self._strip_cookie(headers)
             headers = _drop(headers, "host", "proxy-connection", "keep-alive")
             headers.insert(0, ("Host", origin_host))
             if _get(headers, "origin"):
-                headers = _drop(headers, "origin") + [("Origin", f"http://{origin_host}")]
+                headers = _drop(headers, "origin") + [("Origin", page_origin)]
             ref = _get(headers, "referer")
             if ref:
-                headers = _drop(headers, "referer") + [("Referer", re.sub(r"^https?://[^/]+", f"http://{origin_host}", ref))]
+                headers = _drop(headers, "referer") + [("Referer", re.sub(r"^https?://[^/]+", page_origin, ref))]
 
             body = b""
             if not upgrade:
@@ -294,10 +316,11 @@ class DevProxy:
                 headers += [("Accept-Encoding", "identity"), ("Connection", "close")]
 
             try:
-                ur, uw = await self._open_upstream()
+                ur, uw = await self._open_upstream(port)
             except ConnectionError:
+                what = "Backend" if via_port else "Dev server"
                 await _respond(cw, "502 Bad Gateway",
-                               f"Dev server on port {self.target_port} is not reachable".encode())
+                               f"{what} on port {port} is not reachable (server is not running?)".encode())
                 return
 
             uw.write(_build_head(first, headers) + body)
@@ -317,14 +340,21 @@ class DevProxy:
             rh = _drop(rh, "x-frame-options", "connection", "keep-alive")
             loc = _get(rh, "location")
             if loc:
-                new_loc = re.sub(rf"^https?://(localhost|127\.0\.0\.1|\[::1\]):{self.target_port}", "", loc) or "/"
-                rh = _drop(rh, "location") + [("Location", new_loc)]
+                new_loc = re.sub(rf"^https?://(localhost|127\.0\.0\.1|\[::1\]):{self.target_port}(?=/|$)", "", loc)
+                new_loc = re.sub(r"^https?://(localhost|127\.0\.0\.1|\[::1\]):(\d+)", lambda mm: PORT_PREFIX + mm.group(2), new_loc)
+                if via_port and new_loc.startswith("/") and not new_loc.startswith(PORT_PREFIX):
+                    new_loc = f"{PORT_PREFIX}{port}{new_loc}"
+                rh = _drop(rh, "location") + [("Location", new_loc or "/")]
+            if via_port:
+                # Backend cookie-лері прокси хостында жұмыс істеуі үшін Domain-ді алып тастаймыз;
+                # CORS тақырыптары керек емес (сұрау бет origin-інен келеді)
+                rh = [(k, re.sub(r";\s*Domain=[^;]*", "", v, flags=re.I) if k.lower() == "set-cookie" else v) for k, v in rh]
             rh.append(("Connection", "close"))
 
             ctype = (_get(rh, "content-type") or "").lower()
             encoding = (_get(rh, "content-encoding") or "").lower()
             is_html = (
-                "text/html" in ctype and method.upper() != "HEAD"
+                not via_port and "text/html" in ctype and method.upper() != "HEAD"
                 and status_code not in (204, 304) and encoding in ("", "identity", "gzip", "deflate")
             )
             if is_html:

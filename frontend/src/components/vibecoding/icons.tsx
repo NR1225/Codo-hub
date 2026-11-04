@@ -425,3 +425,20 @@ export const SplitIcon: React.FC<P> = ({ size }) => (
     <path d="M12 4.5v15" />
   </Icon>
 );
+
+export const StopIcon: React.FC<P> = ({ size }) => (
+  <Icon size={size}>
+    <rect x="6.5" y="6.5" width="11" height="11" rx="2" />
+  </Icon>
+);
+
+/* Хедердегі «Көрініс» панелі — редактордың оң жағындағы браузер терезесі */
+export const PanelPreviewIcon: React.FC<PanelP> = ({ size, active }) => (
+  <Icon size={size}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <rect className="vx-panel-fill vx-panel-fill--right" data-active={!!active} x="12" y="8.5" width="8.5" height="11" rx="1.5" fill="currentColor" stroke="none" />
+    <path d="M3.5 8.5h17" />
+    <circle cx="6" cy="6.5" r="0.4" />
+    <circle cx="8" cy="6.5" r="0.4" />
+  </Icon>
+);

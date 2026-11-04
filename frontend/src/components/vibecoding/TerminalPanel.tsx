@@ -5,7 +5,9 @@ import { useTerminal, TerminalShortcut, TerminalSearchResult } from '../../hooks
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useVibecoding, WorkspaceChanges } from '../../contexts/VibecodingContext';
-import { askBurkit, requestReveal, TERMINAL_RUN_EVENT, peekTerminalRuns, takeTerminalRun } from '../../utils/vibeBridge';
+import {
+  askBurkit, requestReveal, TERMINAL_RUN_EVENT, TERMINAL_STOP_EVENT, peekTerminalRuns, takeTerminalRun,
+} from '../../utils/vibeBridge';
 import { detectRunCommands, loadHistory, pushHistory, resolveProjectFile } from './terminalCommands';
 import {
   PlugIcon, CloseIcon, TerminalIcon, ExpandIcon, CollapseIcon,
@@ -33,6 +35,8 @@ interface TermTab {
   group: string;
   /** Қолданушы берген ат (жоқ болса — жобаның аты) */
   title?: string;
+  /** «Іске қосу» батырмасының табы — dev-сервер/скрипт осында жүреді */
+  role?: 'run';
 }
 
 let tabSeq = 0;
@@ -54,6 +58,7 @@ function loadTabs(): { tabs: TermTab[]; activeId: string | null } {
           projectId: typeof x.projectId === 'string' ? x.projectId : null,
           group: typeof x.group === 'string' ? x.group : x.id,
           title: typeof x.title === 'string' && x.title.trim() ? x.title.slice(0, 40) : undefined,
+          role: x.role === 'run' ? 'run' as const : undefined,
         }));
       const activeId = tabs.some(x => x.id === raw.activeId) ? raw.activeId : tabs[0]?.id ?? null;
       return { tabs, activeId };
@@ -76,6 +81,7 @@ interface TerminalViewHandle {
   clear: () => void;
   focus: () => void;
   sendText: (text: string) => void;
+  interrupt: () => void;
   copySelection: () => boolean;
   paste: () => void;
   selectAll: () => void;
@@ -113,9 +119,11 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
   const { t } = useTranslation();
   const { getAccessToken } = useAuth();
   const { theme: siteTheme } = useTheme();
-  const { dispatch } = useVibecoding();
+  const { dispatch, saveErrors } = useVibecoding();
   // Шығыста қате көрінсе — «Codo-мен түсіндіру» батырмасы шығады (келесі командаға дейін)
   const [hasError, setHasError] = useState(false);
+  // Жоба папкасында ашылмады деген ескерту жабылған сессия
+  const [warnDismissed, setWarnDismissed] = useState<string | null>(null);
 
   // Терминалда жасалған/өзгерген/өшірілген файлдар — редакторға
   const onFsChanges = useCallback((projectId: string, changes: WorkspaceChanges) => {
@@ -135,14 +143,30 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
     onSubmit: (command) => {
       setHasError(false);
       onSubmit(tab.id, command);
+      // Команда орындалған соң Git панелін жаңарту (git add/commit т.б.)
+      [800, 2500].forEach((ms) => window.setTimeout(
+        () => window.dispatchEvent(new Event('vibecoding:git-refresh')), ms,
+      ));
     },
   });
   const { terminalRef, status, connect, focus, fit, searchResult } = term;
+
+  // Терминал жоба папкасында емес, түбірде (~) ашылды ма — себебімен
+  const session = term.session;
+  const warnCode = session && session.sessionId !== warnDismissed
+    ? session.projectWarning || (projectId && !session.projectId ? 'projectNotFound' : null)
+    : null;
+  const saveError = projectId ? saveErrors[projectId] : undefined;
+  const warnText = !warnCode ? null
+    : warnCode === 'projectNotFound' && saveError
+      ? t('vibecoding.terminal.msg.projectSaveFailed', { reason: saveError })
+      : t(`vibecoding.terminal.msg.${warnCode}`, { defaultValue: t('vibecoding.terminal.msg.projectNotFound') });
 
   useImperativeHandle(ref, () => ({
     clear: term.clear,
     focus: term.focus,
     sendText: term.sendText,
+    interrupt: term.interrupt,
     copySelection: term.copySelection,
     paste: term.paste,
     selectAll: term.selectAll,
@@ -151,7 +175,7 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
     findNext: term.findNext,
     findPrevious: term.findPrevious,
     clearSearch: term.clearSearch,
-  }), [term.clear, term.focus, term.sendText, term.copySelection, term.paste, term.selectAll,
+  }), [term.clear, term.focus, term.sendText, term.interrupt, term.copySelection, term.paste, term.selectAll,
     term.getSelection, term.getRecentText, term.findNext, term.findPrevious, term.clearSearch]);
 
   // Токен 5 минут сайын жаңарады — қайта қосылу әрқашан ең соңғысын алсын
@@ -203,6 +227,20 @@ const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(({
         ref={(el) => { (terminalRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         className="vx-term__screen"
       />
+      {warnText && status === 'open' && (
+        <div className="vx-term__notice" role="status" onMouseDown={(e) => e.stopPropagation()}>
+          <span className="vx-term__notice-icon" aria-hidden>!</span>
+          <span className="vx-term__notice-text">{warnText}</span>
+          <button
+            type="button"
+            className="vx-term__ask-close"
+            onClick={() => setWarnDismissed(session?.sessionId ?? null)}
+            aria-label={t('common.close', 'Жабу')}
+          >
+            <CloseIcon size={11} />
+          </button>
+        </div>
+      )}
       {hasError && status === 'open' && (
         <div className="vx-term__float">
           <button
@@ -250,10 +288,27 @@ type Menu =
 
 const TerminalPanel: React.FC = () => {
   const { t } = useTranslation();
-  const { state, dispatch, activeProject, flushProjects } = useVibecoding();
+  const { state, dispatch, activeProject, flushProjects, syncReady } = useVibecoding();
   const [initialTabs] = useState(loadTabs);
   const [tabs, setTabs] = useState<TermTab[]>(initialTabs.tabs);
   const [activeId, setActiveId] = useState<string | null>(initialTabs.activeId);
+
+  // Жобалар серверден жүктелмей тұрып терминал қосылса, activeProject әлі null болады да,
+  // shell жоба папкасында емес, түбір (~) папкада ашылады. Сондықтан алдымен жобаларды күтеміз,
+  // қалпына келген табтарды тексереміз, содан кейін ғана сессияларды қосамыз.
+  const [tabsReady, setTabsReady] = useState(false);
+  useEffect(() => {
+    if (tabsReady || !syncReady) return;
+    const known = new Set(state.projects.map(p => p.id));
+    const fallback = activeProject?.id ?? null;
+    if (fallback) {
+      // Жобасыз немесе жойылған жобаға байланған табтар — белсенді жобада ашылады
+      setTabs(prev => prev.map(tab => (
+        tab.projectId && known.has(tab.projectId) ? tab : { ...tab, projectId: fallback }
+      )));
+    }
+    setTabsReady(true);
+  }, [tabsReady, syncReady, state.projects, activeProject?.id]);
 
   useEffect(() => {
     try {
@@ -303,8 +358,8 @@ const TerminalPanel: React.FC = () => {
   }, []);
 
   /** split — белсенді терминалдың жанына (сол жобада) ашады */
-  const addTab = useCallback(async (split = false) => {
-    if (tabs.length >= MAX_TABS || opening) return;
+  const addTab = useCallback(async (split = false, role?: 'run') => {
+    if (tabs.length >= MAX_TABS || opening || !tabsReady) return;
     const base = split ? activeTab : null;
     if (split && (!base || tabs.filter(x => x.group === base.group).length >= MAX_SPLIT)) return;
     setOpening(true);
@@ -315,7 +370,12 @@ const TerminalPanel: React.FC = () => {
     const id = newTabId();
     const tab: TermTab = base
       ? { id, projectId: base.projectId, group: base.group }
-      : { id, projectId: activeProject?.id ?? null, group: id };
+      : {
+          id,
+          projectId: activeProject?.id ?? null,
+          group: id,
+          ...(role && { role, title: t('vibecoding.terminal.runTab', '▶ Іске қосу') }),
+        };
     setTabs(prev => {
       if (!base) return [...prev, tab];
       // Топтың соңғы табынан кейін қоямыз — табтар қатарында бірге тұрсын
@@ -327,9 +387,9 @@ const TerminalPanel: React.FC = () => {
     });
     setActiveId(id);
     setOpening(false);
-  }, [tabs, opening, activeTab, flushProjects, activeProject?.id]);
+  }, [tabs, opening, tabsReady, activeTab, flushProjects, activeProject?.id, t]);
 
-  const closeTab = useCallback((id: string) => {
+  const closeTab = useCallback((id: string, keepPanel = false) => {
     const idx = tabs.findIndex(tab => tab.id === id);
     const closing = tabs[idx];
     const next = tabs.filter(tab => tab.id !== id);
@@ -347,13 +407,15 @@ const TerminalPanel: React.FC = () => {
     if (editingId === id) setEditingId(null);
     views.current.delete(id);
     // Соңғы терминал жабылса — панель де жабылады (VS Code сияқты)
-    if (next.length === 0) dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: false });
+    if (next.length === 0 && !keepPanel) dispatch({ type: 'SET_BOTTOM_PANEL_VISIBLE', payload: false });
   }, [tabs, activeId, editingId, dispatch]);
+  const closeTabRef = useRef(closeTab);
+  closeTabRef.current = closeTab;
 
   // Панель ашылғанда терминал жоқ болса — бірден жаңасын ашамыз (VS Code: Ctrl+`)
   useEffect(() => {
-    if (state.bottomPanelVisible && tabs.length === 0 && !opening) void addTab();
-  }, [state.bottomPanelVisible, tabs.length, opening, addTab]);
+    if (tabsReady && state.bottomPanelVisible && tabs.length === 0 && !opening) void addTab();
+  }, [tabsReady, state.bottomPanelVisible, tabs.length, opening, addTab]);
 
   // ─── Іздеу (Ctrl+F) ───
 
@@ -499,7 +561,9 @@ const TerminalPanel: React.FC = () => {
     const queue = peekTerminalRuns();
     if (queue.length === 0) return;
     const req = queue[0];
-    const own = tabs.filter(tab => tab.projectId === req.projectId);
+    const isRun = req.role === 'run';
+    // «Іске қосу» — тек өз табында; басқа командалар — сервер жүріп тұрған run-табқа емес, кәдімгі табқа
+    const own = tabs.filter(tab => tab.projectId === req.projectId && (isRun ? tab.role === 'run' : tab.role !== 'run'));
     const ready = own.find(tab => tab.id === activeId && statuses[tab.id]?.status === 'on')
       ?? own.find(tab => statuses[tab.id]?.status === 'on');
     const view = ready && views.current.get(ready.id);
@@ -507,22 +571,42 @@ const TerminalPanel: React.FC = () => {
       takeTerminalRun(req);
       setActiveId(ready.id);
       setIsMaximized(false);
-      view.sendText(req.command);
+      if (isRun) {
+        // Алдыңғы іске қосу (сервер) әлі жүріп тұруы мүмкін — тоқтатып, сосын қайта бастаймыз
+        view.interrupt();
+        window.setTimeout(() => view.sendText(req.command), 350);
+      } else {
+        view.sendText(req.command);
+      }
       req.resolve();
       setRunTick(n => n + 1); // кезектегі келесісі
       return;
     }
     // Терминал жоқ (немесе бәрі ажыраған) — жаңасы ашылады; қосылып жатса — күтеміз
     const connecting = own.some(tab => statuses[tab.id]?.status !== 'off');
-    // Панель бос ашылса, бірінші табты жоғарыдағы эффект өзі ашады
-    const autoOpening = state.bottomPanelVisible && tabs.length === 0;
-    if (autoOpening) return;
-    if (!connecting && !opening && activeProject?.id === req.projectId && tabs.length < MAX_TABS) void addTab();
-    else if (!connecting && !opening && (activeProject?.id !== req.projectId || tabs.length >= MAX_TABS)) {
+    // Панель бос ашылса, бірінші табты жоғарыдағы эффект өзі ашады (run-таб бөлек ашылады)
+    const autoOpening = !isRun && state.bottomPanelVisible && tabs.length === 0;
+    if (autoOpening || connecting || opening) return;
+    // Ажыраған run-таб — орнына жаңасын ашамыз
+    if (isRun) own.forEach(tab => closeTabRef.current(tab.id, true));
+    const roomy = tabs.length - (isRun ? own.length : 0) < MAX_TABS;
+    if (activeProject?.id === req.projectId && roomy) void addTab(false, req.role);
+    else {
       takeTerminalRun(req);
-      req.reject(new Error(tabs.length >= MAX_TABS ? 'Терминал табтарының шегі толды' : 'Жоба ауысып кетті'));
+      req.reject(new Error(!roomy ? 'Терминал табтарының шегі толды' : 'Жоба ауысып кетті'));
     }
   }, [runTick, tabs, statuses, activeId, opening, activeProject?.id, addTab, state.bottomPanelVisible]);
+
+  // «Тоқтату»: run-табтағы процесс Ctrl+C алады
+  useEffect(() => {
+    const onStop = (e: Event) => {
+      const { projectId } = (e as CustomEvent<{ projectId: string }>).detail;
+      tabs.filter(tab => tab.role === 'run' && tab.projectId === projectId)
+        .forEach(tab => views.current.get(tab.id)?.interrupt());
+    };
+    window.addEventListener(TERMINAL_STOP_EVENT, onStop);
+    return () => window.removeEventListener(TERMINAL_STOP_EVENT, onStop);
+  }, [tabs]);
 
   // ─── Табтар: ат беру, сүйреп ауыстыру ───
 
@@ -818,7 +902,7 @@ const TerminalPanel: React.FC = () => {
             </div>
           )}
 
-          {paneOrder.map(tab => (
+          {tabsReady && paneOrder.map(tab => (
             <TerminalView
               key={tab.id}
               ref={(h) => { if (h) views.current.set(tab.id, h); }}

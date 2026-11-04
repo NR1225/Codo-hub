@@ -1,5 +1,6 @@
 import type { Project, VirtualFile } from '../../contexts/VibecodingContext';
 import { normalizePath } from '../../contexts/VibecodingContext';
+import CONSOLE_BRIDGE from './previewConsoleBridge.js?raw';
 
 /* Жобаны браузердің өзінде іске қосу (npm/dev-серверсіз).
 
@@ -161,12 +162,8 @@ const jsonForScript = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c')
    жоба файлдарына бағыттау, құрастыру кезіндегі ескертулерді консольге шығару. */
 function bridgeScript(entryPath: string, assets: Record<string, string>, notes: string[]): string {
   return `<script>(function(){
-var T=${jsonForScript(PREVIEW_MSG)},BASE=${jsonForScript(dirOf(entryPath))},A=${jsonForScript(assets)},N=${jsonForScript(notes)};
-function fmt(v){try{if(v instanceof Error)return v.stack||String(v);if(v===undefined)return 'undefined';if(typeof v==='function')return String(v).slice(0,500);if(typeof Node!=='undefined'&&v instanceof Node)return (v.outerHTML||v.textContent||String(v)).slice(0,2000);if(typeof v==='object'&&v!==null)return JSON.stringify(v,null,2);return String(v);}catch(e){return String(v);}}
-function send(level,args){try{parent.postMessage({source:T,type:'console',level:level,text:Array.prototype.map.call(args,fmt).join(' ')},'*');}catch(e){}}
-['log','info','warn','error','debug'].forEach(function(l){var o=console[l];console[l]=function(){send(l,arguments);return o&&o.apply(console,arguments);};});
-window.addEventListener('error',function(e){if(e.target&&e.target!==window&&e.target.tagName){var s=e.target.src||e.target.href||'';send('error',['Жүктелмеді: <'+e.target.tagName.toLowerCase()+'> '+s.slice(0,200)]);return;}send('error',[(e.message||'Error')+(e.lineno?' ('+e.lineno+':'+e.colno+')':'')]);},true);
-window.addEventListener('unhandledrejection',function(e){send('error',['Unhandled promise rejection: '+fmt(e.reason)]);});
+var T=${jsonForScript(PREVIEW_MSG)},P=parent,BASE=${jsonForScript(dirOf(entryPath))},A=${jsonForScript(assets)},N=${jsonForScript(notes)};
+${CONSOLE_BRIDGE}
 function mem(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null;},setItem:function(k,v){d[k]=String(v);},removeItem:function(k){delete d[k];},clear:function(){d={};},key:function(i){return Object.keys(d)[i]||null;},get length(){return Object.keys(d).length;}};}
 ['localStorage','sessionStorage'].forEach(function(n){try{window[n].length;}catch(e){try{Object.defineProperty(window,n,{value:mem(),configurable:true});}catch(e2){}}});
 if(!window.process)window.process={env:{NODE_ENV:'development'}};if(!window.global)window.global=window;
@@ -191,7 +188,7 @@ net({phase:'end',id:id,status:v.local&&x.status===0?200:x.status,statusText:x.st
 net({phase:'body',id:id,size:t.length,preview:t.slice(0,20000)});});}
 return XS.apply(this,arguments);};
 try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){if(e.initiatorType==='fetch'||e.initiatorType==='xmlhttprequest'||/^(data|blob):/.test(e.name))return;net({phase:'resource',id:'r'+(++NID),kind:e.initiatorType||'other',method:'GET',url:e.name,status:e.responseStatus||0,time:e.duration,size:e.transferSize||e.encodedBodySize||e.decodedBodySize||0});});}).observe({type:'resource',buffered:true});}catch(e){}
-window.addEventListener('message',function(e){if(e.source!==parent)return;var d=e.data;if(!d||d.source!==T)return;if(d.type==='body'&&typeof d.url==='string'&&F){F.call(window,d.url).then(function(r){return r.text();}).then(function(t){net({phase:'body',id:d.id,preview:t.slice(0,20000)});},function(er){net({phase:'body',id:d.id,preview:'('+String((er&&er.message)||er)+')'});});return;}if(d.type!=='eval')return;try{var r=(0,eval)(String(d.code));if(r&&typeof r.then==='function'){r.then(function(v){send('result',[v]);},function(er){send('error',[er]);});}else send('result',[r]);}catch(er){send('error',[er]);}});
+window.addEventListener('message',function(e){if(e.source!==parent)return;var d=e.data;if(!d||d.source!==T)return;if(d.type==='body'&&typeof d.url==='string'&&F){F.call(window,d.url).then(function(r){return r.text();}).then(function(t){net({phase:'body',id:d.id,preview:t.slice(0,20000)});},function(er){net({phase:'body',id:d.id,preview:'('+String((er&&er.message)||er)+')'});});}});
 function patch(C,attr){try{var d=Object.getOwnPropertyDescriptor(C.prototype,attr);if(!d||!d.set)return;Object.defineProperty(C.prototype,attr,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){d.set.call(this,look(String(v))||v);}});}catch(e){}}
 [[window.HTMLImageElement,'src'],[window.HTMLMediaElement,'src'],[window.HTMLSourceElement,'src'],[window.HTMLVideoElement,'poster']].forEach(function(x){if(x[0])patch(x[0],x[1]);});
 if(window.Audio){var AU=window.Audio;window.Audio=function(s){return new AU(s!=null?(look(String(s))||s):undefined);};window.Audio.prototype=AU.prototype;}

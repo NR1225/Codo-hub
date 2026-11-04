@@ -77,7 +77,7 @@ export function lineStats(original: string | null, current: string): { added: nu
 const inside = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
 export const BurkitEditsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { dispatch, activeProject } = useVibecoding();
+  const { dispatch, activeProject, flushProjects } = useVibecoding();
   // projectId → path → өзгеріс. Ref — шынайы көзі (бір кадрда бірнеше өзгеріс бір-бірін көреді)
   const [byProject, setByProject] = useState<Record<string, Record<string, PendingEdit>>>({});
   const byProjectRef = useRef(byProject);
@@ -113,12 +113,14 @@ export const BurkitEditsProvider: React.FC<{ children: ReactNode }> = ({ childre
   const applyNote = useCallback(async (title: string, content: string) => {
     const project = projectRef.current;
     if (!project) throw new Error('Жоба ашылмаған');
+    // Жаңа жоба серверге әлі сақталмаған болуы мүмкін — әйтпесе сервер 404 береді
+    await flushProjects().catch(() => {});
     const result = await apiService.writeProjectNote(project.id, title, content);
     // Бір жазбаны бірнеше рет өзгертсе — бастапқы нұсқа ең алғашқысы болып қалады
     const known = notesRef.current[project.id]?.[result.id];
     if (!known) setNote(project.id, result.id, { noteId: result.id, title: result.title, previous: result.previous });
     return { noteId: result.id, created: known ? known.previous === null : result.created };
-  }, [setNote]);
+  }, [setNote, flushProjects]);
 
   const keepNote = useCallback((noteId: string) => {
     if (projectRef.current) setNote(projectRef.current.id, noteId, null);

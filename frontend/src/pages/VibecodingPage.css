@@ -1070,3 +1070,35 @@
   .vibe-ptab { max-width: 130px; padding-left: 7px; }
   .vibe-ptab__key { display: none; }
 }
+
+/* ── «Іске қосу» күйлері: тексерілуде / іске қосылуда / жұмыс істеп тұр / қате ── */
+.vibe-run-group {
+  display: inline-flex;
+  align-items: center;
+}
+.vibe-run-group.has-stop .vibe-run-btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.vibe-run-btn--stop {
+  margin-left: -1px;
+  padding: 0 7px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.vibe-run-btn--stop svg { color: #ff6b6b; }
+:where(html.light-theme) .vibe-run-btn--stop svg { color: #dc2626; }
+.vibe-run-btn.is-busy { cursor: progress; }
+.vibe-run-btn.is-live svg { filter: drop-shadow(0 0 4px rgba(81, 207, 102, 0.7)); }
+.vibe-run-btn.is-error { border-color: rgba(255, 107, 107, 0.55); }
+.vibe-run-btn__spin {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid rgba(81, 207, 102, 0.25);
+  border-top-color: #51cf66;
+  box-sizing: border-box;
+  animation: vibeRunSpin 0.8s linear infinite;
+}
+@keyframes vibeRunSpin { to { transform: rotate(360deg); } }
+.vibe-run-btn__text { white-space: nowrap; }

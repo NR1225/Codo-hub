@@ -21,7 +21,7 @@ pip install -r requirements.txt
 
 2. Run the server:
 ```bash
-uvicorn main:app --reload --port 3000
+uvicorn main:app --reload --port 8000
 ```
 
 Or using Python directly:
@@ -29,7 +29,7 @@ Or using Python directly:
 python main.py
 ```
 
-The server will run on port 3000 by default (or the PORT environment variable if set).
+The server will run on port 8000 by default (or the PORT environment variable if set).
 
 ## API Endpoints
 
@@ -93,8 +93,8 @@ Data is stored in JSON files in the `data/` directory:
 
 ## Development
 
-The server runs on `http://localhost:3000` by default (configurable via PORT environment variable).
+The server runs on `http://localhost:8000` by default (configurable via PORT environment variable).
 
 API documentation is available at:
-- Swagger UI: `http://localhost:3000/docs`
-- ReDoc: `http://localhost:3000/redoc`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`

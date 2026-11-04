@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TrashIcon, ChevronDownIcon, CloseIcon, SearchIcon } from './icons';
+import { TrashIcon, ChevronDownIcon, CloseIcon, SearchIcon, CopyIcon, CheckIcon } from './icons';
+import { ConsoleValue, ConsoleTableView, type Ser, type ConsoleTable } from './ConsoleValue';
 
 /* Көріністің «F12» құралдары: Консоль (console.* + JS орындау) және Желі (fetch / XHR / ресурстар).
    Деректер iframe ішіндегі көпірден келеді (previewBuilder.ts → bridgeScript). */
@@ -10,8 +11,23 @@ export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'input'
 export interface ConsoleLine {
   id: number;
   level: ConsoleLevel;
+  /** Мәтін түрі — іздеу, көшіру және Codo үшін */
   text: string;
+  /** Құрылымды мәндер (ашылатын объектілер) — көпірден */
+  args?: Ser[];
   time: number;
+  /** Қатарынан бірдей хабар келсе — бір жол, санауышпен */
+  count: number;
+  /** console.group тереңдігі */
+  depth: number;
+  group?: boolean;
+  collapsed?: boolean;
+  table?: ConsoleTable;
+  trace?: string;
+  /** Қате шыққан жер: file.js:12:5 */
+  src?: string;
+  /** Сайттың өз белгісі (мысалы «Бет қайта жүктелді») */
+  system?: boolean;
 }
 
 export interface NetEntry {
@@ -55,9 +71,14 @@ interface Props {
   onOpenExternal: () => void;
   /** Ресурс жауабының мазмұнын бет ішінен алу */
   onRequestBody: (r: NetEntry) => void;
+  /** Қайта жүктегенде консоль тазаланбайды */
+  preserveLog: boolean;
+  onTogglePreserve: () => void;
+  /** Қателерді Codo-ға түсіндіріп/түзетуге жіберу */
+  onAskAI?: (text: string) => void;
 }
 
-type LevelFilter = 'all' | 'error' | 'warn' | 'info';
+type LevelFilter = 'all' | 'error' | 'warn' | 'info' | 'debug';
 type NetFilter = 'all' | 'fetch' | 'js' | 'css' | 'img' | 'font' | 'other';
 
 const NET_FILTERS: { id: NetFilter; label: string }[] = [
@@ -130,6 +151,10 @@ function prettyBody(text: string, mime?: string): string {
   return text;
 }
 
+const LEVEL_ICON: Record<ConsoleLevel, string> = {
+  log: '', info: 'ℹ', warn: '⚠', error: '✕', debug: '•', input: '›', result: '‹',
+};
+
 const HeaderList: React.FC<{ title: string; headers?: Record<string, string> }> = ({ title, headers }) => {
   const entries = Object.entries(headers || {});
   return (
@@ -148,7 +173,7 @@ const HeaderList: React.FC<{ title: string; headers?: Record<string, string> }> 
 
 const PreviewDevTools: React.FC<Props> = ({
   lines, requests, open, tab, onTabChange, onToggleOpen, onClearConsole, onClearNetwork,
-  onEval, onResizeStart, serverMode, onOpenExternal, onRequestBody,
+  onEval, onResizeStart, serverMode, onOpenExternal, onRequestBody, preserveLog, onTogglePreserve, onAskAI,
 }) => {
   const { t } = useTranslation();
   const [level, setLevel] = useState<LevelFilter>('all');
@@ -162,17 +187,54 @@ const PreviewDevTools: React.FC<Props> = ({
   const logsRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
-  const errorCount = useMemo(() => lines.filter(l => l.level === 'error').length, [lines]);
-  const warnCount = useMemo(() => lines.filter(l => l.level === 'warn').length, [lines]);
+  const [showTime, setShowTime] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Ашылған/жабылған топтар (console.group) — id бойынша; groupCollapsed әдепкіде жабық
+  const [toggled, setToggled] = useState<Record<number, boolean>>({});
+  const isCollapsed = (l: ConsoleLine) => toggled[l.id] ?? !!l.collapsed;
+
+  const errorCount = useMemo(() => lines.reduce((n, l) => n + (l.level === 'error' ? l.count : 0), 0), [lines]);
+  const warnCount = useMemo(() => lines.reduce((n, l) => n + (l.level === 'warn' ? l.count : 0), 0), [lines]);
   const failedCount = useMemo(() => requests.filter(r => statusClass(r) === 'is-error').length, [requests]);
 
   const q = query.trim().toLowerCase();
-  const shownLines = useMemo(() => lines.filter(l => {
-    if (level === 'error' && l.level !== 'error') return false;
-    if (level === 'warn' && l.level !== 'warn') return false;
-    if (level === 'info' && (l.level === 'error' || l.level === 'warn')) return false;
-    return !q || l.text.toLowerCase().includes(q);
-  }), [lines, level, q]);
+  const shownLines = useMemo(() => {
+    const out: ConsoleLine[] = [];
+    let hideBelow = Infinity; // жабық топтың ішіндегі жолдар жасырылады
+    for (const l of lines) {
+      if (l.depth > hideBelow) continue;
+      hideBelow = Infinity;
+      let pass: boolean;
+      if (l.system) pass = !q && level === 'all';
+      else if (level === 'error') pass = l.level === 'error';
+      else if (level === 'warn') pass = l.level === 'warn';
+      else if (level === 'info') pass = l.level === 'info' || l.level === 'log' || l.level === 'input' || l.level === 'result';
+      else if (level === 'debug') pass = l.level === 'debug';
+      else pass = true;
+      if (pass && q && !l.text.toLowerCase().includes(q)) pass = false;
+      if (pass) out.push(l);
+      if (l.group && (toggled[l.id] ?? !!l.collapsed)) hideBelow = l.depth;
+    }
+    return out;
+  }, [lines, level, q, toggled]);
+
+  const copyConsole = () => {
+    const text = shownLines.filter(l => !l.system).map(l => {
+      const mark = l.level === 'input' ? '> ' : l.level === 'result' ? '< ' : l.level === 'log' ? '' : `[${l.level}] `;
+      return `${'  '.repeat(l.depth)}${mark}${l.text}${l.count > 1 ? ` (x${l.count})` : ''}`;
+    }).join('\n');
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {});
+  };
+
+  const askAboutErrors = () => {
+    if (!onAskAI) return;
+    const errs = lines.filter(l => l.level === 'error' || l.level === 'warn').slice(-15)
+      .map(l => `[${l.level}] ${l.text}${l.src ? ` (${l.src})` : ''}`);
+    onAskAI(errs.join('\n'));
+  };
 
   const shownRequests = useMemo(() => requests.filter(r =>
     (netFilter === 'all' || netType(r) === netFilter) && (!q || r.url.toLowerCase().includes(q)),
@@ -237,6 +299,9 @@ const PreviewDevTools: React.FC<Props> = ({
     } else if (e.key === 'l' && e.ctrlKey) {
       e.preventDefault();
       onClearConsole();
+    } else if (e.key === 'Escape' && input) {
+      e.preventDefault();
+      setInput('');
     }
   };
 
@@ -313,7 +378,7 @@ const PreviewDevTools: React.FC<Props> = ({
       {open && !serverMode && tab === 'console' && (
         <>
           <div className="vx-dev__filters">
-            {(['all', 'error', 'warn', 'info'] as LevelFilter[]).map(l => (
+            {(['all', 'error', 'warn', 'info', 'debug'] as LevelFilter[]).map(l => (
               <button
                 key={l}
                 type="button"
@@ -323,13 +388,42 @@ const PreviewDevTools: React.FC<Props> = ({
                 {l === 'all' ? t('vibecoding.preview.levelAll', 'Барлығы')
                   : l === 'error' ? t('vibecoding.preview.levelErrors', 'Қателер')
                   : l === 'warn' ? t('vibecoding.preview.levelWarnings', 'Ескертулер')
-                  : t('vibecoding.preview.levelInfo', 'Ақпарат')}
+                  : l === 'info' ? t('vibecoding.preview.levelInfo', 'Ақпарат')
+                  : 'Debug'}
+                {l === 'error' && errorCount > 0 && <span className="vx-preview__count is-error">{errorCount}</span>}
+                {l === 'warn' && warnCount > 0 && <span className="vx-preview__count is-warn">{warnCount}</span>}
               </button>
             ))}
+            <span className="vx-dev__filters-gap" />
+            <label className="vx-dev__check" title={t('vibecoding.preview.preserveHint', 'Бет қайта жүктелгенде консоль тазаланбайды')}>
+              <input type="checkbox" checked={preserveLog} onChange={onTogglePreserve} />
+              <span>{t('vibecoding.preview.preserve', 'Сақтау')}</span>
+            </label>
+            <label className="vx-dev__check" title={t('vibecoding.preview.timestampsHint', 'Уақыт белгілерін көрсету')}>
+              <input type="checkbox" checked={showTime} onChange={e => setShowTime(e.target.checked)} />
+              <span>{t('vibecoding.preview.timestamps', 'Уақыт')}</span>
+            </label>
+            <button
+              type="button"
+              className={`vx-term__action ${copied ? 'is-active' : ''}`}
+              onClick={copyConsole}
+              disabled={shownLines.length === 0}
+              title={t('vibecoding.preview.copyConsole', 'Консольді көшіру')}
+            >
+              {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+            </button>
           </div>
+          {onAskAI && errorCount > 0 && (
+            <button type="button" className="vx-dev__ask" onClick={askAboutErrors}>
+              <span className="vx-dev__ask-dot" />
+              <span className="vx-dev__ask-text">{t('vibecoding.preview.askAI', 'Қателерді Codo-ға көрсету')}</span>
+              <span className="vx-preview__count is-error">{errorCount}</span>
+            </button>
+          )}
           <div
             ref={logsRef}
             className="vx-preview__logs"
+            role="log"
             onScroll={e => {
               const el = e.currentTarget;
               stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
@@ -338,12 +432,46 @@ const PreviewDevTools: React.FC<Props> = ({
             {shownLines.length === 0 ? (
               <div className="vx-preview__log is-empty">{t('vibecoding.preview.consoleEmpty', 'Әзірге хабар жоқ')}</div>
             ) : (
-              shownLines.map(l => (
-                <div key={l.id} className={`vx-preview__log is-${l.level}`}>
-                  <span className="vx-dev__time">{formatClock(l.time)}</span>
-                  {l.level === 'input' && <span className="vx-dev__prompt">›</span>}
-                  {l.level === 'result' && <span className="vx-dev__prompt">‹</span>}
+              shownLines.map(l => l.system ? (
+                <div key={l.id} className="vx-preview__log is-system">
                   <span className="vx-dev__text">{l.text}</span>
+                  {showTime && <span className="vx-dev__meta"><span className="vx-dev__time">{formatClock(l.time)}</span></span>}
+                </div>
+              ) : (
+                <div
+                  key={l.id}
+                  className={`vx-preview__log is-${l.level} ${l.group ? 'is-group' : ''}`}
+                  style={l.depth ? { paddingLeft: `${8 + l.depth * 14}px` } : undefined}
+                >
+                  <span className="vx-dev__icon" aria-hidden={!l.group}>
+                    {l.group ? (
+                      <button
+                        type="button"
+                        className={`vx-dev__group ${isCollapsed(l) ? '' : 'is-open'}`}
+                        onClick={() => setToggled(m => ({ ...m, [l.id]: !(m[l.id] ?? !!l.collapsed) }))}
+                        aria-expanded={!isCollapsed(l)}
+                      >▸</button>
+                    ) : LEVEL_ICON[l.level]}
+                  </span>
+                  <span className="vx-dev__text">
+                    {l.count > 1 && <span className="vx-dev__repeat">{l.count}</span>}
+                    {l.args && l.args.length > 0 && l.level !== 'input'
+                      ? l.args.map((a, i) => (
+                        <React.Fragment key={i}>
+                          {i > 0 && ' '}
+                          <ConsoleValue value={a} top={i === 0 || a.t !== 'str'} />
+                        </React.Fragment>
+                      ))
+                      : l.text}
+                    {l.table && <ConsoleTableView table={l.table} />}
+                    {l.trace && <pre className="vx-cv__stack">{l.trace}</pre>}
+                  </span>
+                  {(l.src || showTime) && (
+                    <span className="vx-dev__meta">
+                      {l.src && <span className="vx-dev__src">{l.src}</span>}
+                      {showTime && <span className="vx-dev__time">{formatClock(l.time)}</span>}
+                    </span>
+                  )}
                 </div>
               ))
             )}
@@ -357,6 +485,7 @@ const PreviewDevTools: React.FC<Props> = ({
               onKeyDown={onInputKey}
               placeholder={t('vibecoding.preview.evalPlaceholder', 'JavaScript жазып, Enter басыңыз (мысалы: document.title)')}
               spellCheck={false}
+              aria-label={t('vibecoding.preview.evalLabel', 'Консольге JavaScript енгізу')}
             />
           </div>
         </>

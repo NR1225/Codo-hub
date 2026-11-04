@@ -143,6 +143,13 @@ def _ensure_vibecoding_columns():
             conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS ix_vibecoding_projects_share_token ON vibecoding_projects (share_token)"
             ))
+        if "published_code_id" not in existing:
+            conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN published_code_id VARCHAR(64)"))
+        if "parent_id" not in existing:
+            conn.execute(text("ALTER TABLE vibecoding_projects ADD COLUMN parent_id VARCHAR(64)"))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_vibecoding_projects_parent_id ON vibecoding_projects (parent_id)"
+            ))
 
 
 def _ensure_cli_token_columns():
@@ -325,8 +332,34 @@ class VibecodingProject(Base):
     notes_folder = Column(String(1024), nullable=True)  # Notes-тағы байланысқан папка (services/project_notes.py)
     # Бөлісу сілтемесі (/vibecoding/shared/<token>); null — сілтеме жоқ немесе өшірілген
     share_token = Column(String(64), nullable=True, unique=True, index=True)
+    # Fork болса — түпнұсқа жоба (Codo-дан жаңарту тарту және PR ашу үшін)
+    parent_id = Column(String(64), nullable=True, index=True)
+    # Жобалар бетіне жарияланған нұсқасы (қайта жариялағанда — сол жазба жаңарады)
+    published_code_id = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class VibePullRequest(Base):
+    """Vibecoding жобасына pull request: source жобаның бұтағы → target жобаның бұтағы"""
+    __tablename__ = "vibe_pull_requests"
+
+    id = Column(String(36), primary_key=True)
+    number = Column(Integer, nullable=False)  # target жоба ішіндегі нөмірі (#1, #2…)
+    target_project_id = Column(String(64), nullable=False, index=True)
+    target_branch = Column(String(200), nullable=False)
+    source_project_id = Column(String(64), nullable=False, index=True)
+    source_branch = Column(String(200), nullable=False)
+    author_id = Column(String(12), nullable=False, index=True)
+    title = Column(String(300), nullable=False)
+    body = Column(Text, nullable=False, default="")
+    status = Column(String(12), nullable=False, default="open")  # open | merged | closed
+    head_sha = Column(String(64), nullable=True)
+    merged_sha = Column(String(64), nullable=True)
+    merged_by = Column(String(12), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    closed_at = Column(DateTime, nullable=True)
 
 
 class ChatGroup(Base):

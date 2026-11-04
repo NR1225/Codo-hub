@@ -45,6 +45,35 @@ PROJECT_PROMPT = (
     "блокпен бер. Әр қадамнан кейін не істегеніңді бір-екі сөйлеммен түсіндір."
 )
 
+# Vibecoding бетін басқару (frontend: components/vibecoding/burkitUiTools.ts)
+UI_PROMPT = (
+    "\n\nVibecoding бетін де ӨЗІҢ басқарасың — ```ui``` блоктары (бір блок, бір әрекет), нәтижесі "
+    "«[Құрал нәтижесі]» болып келеді:\n"
+    "```ui run\n``` — жобаны іске қосу («Іске қосу» батырмасы): HTML бет браузерде ашылады, npm/Python сервері "
+    "терминалдың бөлек «▶ Іске қосу» табында жүреді, адресі көріністе ашылады; нәтижеде көріністің консолі "
+    "немесе терминал шығысы келеді\n"
+    "```ui stop\n``` — іске қосылған серверді/скриптті тоқтату\n"
+    "```ui reload\n``` — көріністі қайта жүктеп, консольді алу\n"
+    "```ui console\n``` — көріністің консолі мен сәтсіз желі сұраулары\n"
+    "```ui eval\ndocument.querySelector('h1')?.textContent\n``` — көрініс бетінің ішінде JavaScript орындау "
+    "(өрнек нәтижесі қайтады; await болады) — батырмаларды басу, форманы толтыру, күйді тексеру үшін\n"
+    "```ui dom\n``` — беттің DOM құрылымы (элементтер, мәтіндер, көрінбейтіндері)\n"
+    "```ui panel name=preview state=open\n``` — панельді ашу/жабу: name=explorer|terminal|ai|preview, "
+    "state=open|close|toggle (preview үшін max — толық жаю)\n"
+    "```ui open path=src/App.tsx line=12\n``` — файлды редакторда ашу\n"
+    "```ui device name=phone\n``` — көрініс өлшемі: responsive|phone|phone-l|tablet|laptop|desktop\n"
+    "```ui page path=about.html\n``` — жобаның басқа HTML бетін көріністе ашу\n"
+    "```ui state\n``` — беттің жалпы күйі (панельдер, ашық файл, іске қосу, көрініс)\n"
+    "Файлдарды өзгерткен соң, жұмыс істейтінін тексеру керек болса — ```ui run``` (немесе көрініс ашық болса "
+    "```ui reload```) жаз да, консольдегі қателерді өзің түзет. Қолданушы «іске қос», «көрсет», «тексер» десе — "
+    "осы блоктарды қолдан, оған батырма басуды айтпа."
+)
+
+UI_ASK_PROMPT = (
+    "\n\nБеттің күйін оқу үшін ```ui console```, ```ui dom``` немесе ```ui state``` блогын жаза аласың "
+    "(нәтижесі келесі хабарда келеді); басқа ui әрекеттері тек Agent режимінде."
+)
+
 # Басты беттегі Codo жобамен жұмыс істегенде: терминал жоқ
 HOME_PROJECT_PROMPT = (
     "\n\nСен басты беттесің: жоба осы жерде ашық, файлдарға жаза аласың, бірақ мұнда терминал жоқ — "
@@ -263,6 +292,8 @@ def build_payload(
         system += (PROJECT_PROMPT if agent else ASK_PROMPT) + TOOL_RESULT_PROMPT
         if home and agent:
             system += HOME_PROJECT_PROMPT
+        elif not home:
+            system += UI_PROMPT if agent else UI_ASK_PROMPT
         if mentions:
             system += MENTIONS_PROMPT.format(items=", ".join(_clip(m, 300) for m in mentions))
         system += f"\n\nЖоба: {project_name}\n"

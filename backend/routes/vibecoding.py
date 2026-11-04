@@ -16,11 +16,11 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from database import messages as direct_messages
-from db import ChatGroupMessage, User, VibecodingProject, get_db
+from db import ChatGroupMessage, User, VibecodingProject, VibePullRequest, get_db
 from services.code_service import CodeService
 from utils.upload_rules import classify_upload_path
 from services.group_service import GroupService
-from services import project_notes, run_plan, terminal_workspace
+from services import codo_remote, project_notes, run_plan, terminal_workspace
 from services.terminal_service import terminal_manager
 from utils.auth import get_current_user
 
@@ -29,7 +29,10 @@ logger = logging.getLogger("codo_hub.vibecoding")
 limiter = Limiter(key_func=get_remote_address)
 
 MAX_PROJECTS_PER_USER = 100
-MAX_PROJECT_BYTES = 2 * 1024 * 1024  # бір жобаның барлық файлдары — 2MB
+# Бір жобаның барлық мәтін файлдары / файл саны (нақты веб-қосымшалар 2MB/500-ден асады)
+# 0 — MB шектеуі жоқ (әдепкі). Қажет болса env арқылы қоюға болады: VIBE_MAX_PROJECT_MB=50
+MAX_PROJECT_BYTES = int(os.getenv("VIBE_MAX_PROJECT_MB", "0") or 0) * 1024 * 1024
+MAX_PROJECT_FILES = int(os.getenv("VIBE_MAX_PROJECT_FILES", "3000"))
 
 
 class VibecodingFile(BaseModel):
@@ -42,7 +45,7 @@ class VibecodingFile(BaseModel):
 
 class VibecodingProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    files: List[VibecodingFile] = Field(default_factory=list, max_length=500)
+    files: List[VibecodingFile] = Field(default_factory=list)
     folders: List[str] = Field(default_factory=list, max_length=1000)
     createdAt: str | None = None
 
@@ -69,6 +72,15 @@ def _clean_folders(folders: List[str]) -> List[str]:
     return result
 
 
+def _published_id(project: VibecodingProject) -> Optional[str]:
+    """Жобалар бетіндегі жарияланған нұсқасы әлі бар болса — оның ID-і"""
+    code_id = project.published_code_id
+    if not code_id:
+        return None
+    code = CodeService.find_code_by_id(code_id)
+    return code_id if code and code.get("isFolder") and not code.get("folderId") else None
+
+
 def _to_dict(project: VibecodingProject) -> dict:
     return {
         "id": project.id,
@@ -77,6 +89,8 @@ def _to_dict(project: VibecodingProject) -> dict:
         "folders": _load_json_list(project.folders),
         "notesFolder": project.notes_folder,
         "shareToken": project.share_token,
+        "parentId": project.parent_id,
+        "publishedCodeId": _published_id(project),
         "createdAt": _iso(project.created_at),
         "updatedAt": _iso(project.updated_at),
     }
@@ -124,8 +138,14 @@ async def save_project(
 
     files_json = json.dumps([f.model_dump() for f in data.files], ensure_ascii=False)
     folders_json = json.dumps(_clean_folders(data.folders), ensure_ascii=False)
-    if len(files_json.encode("utf-8")) > MAX_PROJECT_BYTES:
-        raise HTTPException(status_code=413, detail="Жоба тым үлкен (максимум 2MB)")
+    if len(data.files) > MAX_PROJECT_FILES:
+        raise HTTPException(status_code=413, detail=f"Жобада файл тым көп: {len(data.files)} (максимум {MAX_PROJECT_FILES})")
+    size = len(files_json.encode("utf-8"))
+    if MAX_PROJECT_BYTES and size > MAX_PROJECT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Жоба тым үлкен: {size / 1048576:.1f}MB (максимум {MAX_PROJECT_BYTES // 1048576}MB)",
+        )
 
     project = db.query(VibecodingProject).filter(VibecodingProject.id == project_id).first()
     if project and project.owner_id != user.id:
@@ -231,10 +251,12 @@ async def delete_project(
     if not project or project.owner_id != user.id:
         raise HTTPException(status_code=404, detail="Жоба табылмады")
     db.delete(project)
+    db.query(VibePullRequest).filter(VibePullRequest.target_project_id == project_id).delete()
     db.commit()
     # Алдымен терминалдарды жабамыз — әйтпесе shell папканы бос жібермейді (Windows)
     await terminal_manager.close_project_sessions(user.id, project_id)
     await asyncio.to_thread(terminal_workspace.remove, user.id, project_id)
+    await asyncio.to_thread(codo_remote.remove, project_id)
     return {"message": "Жоба жойылды"}
 
 
@@ -293,20 +315,49 @@ async def fork_shared_project(
     if source.owner_id == user.id:
         raise HTTPException(status_code=400, detail="Бұл өз жобаңыз")
 
+    return await _make_fork(db, user, source, data.name)
+
+
+async def _make_fork(db: Session, user: User, source: VibecodingProject, name: Optional[str]) -> dict:
+    """Fork: Codo-ға жіберілген нұсқа болса — сол (коммит тарихымен), болмаса — ағымдағы файлдар"""
     count = db.query(VibecodingProject).filter(VibecodingProject.owner_id == user.id).count()
     if count >= MAX_PROJECTS_PER_USER:
         raise HTTPException(status_code=400, detail="Жобалар саны шегіне жетті")
-
+    fork_id = f"fork-{uuid.uuid4().hex[:20]}"
+    files, folders = source.files, source.folders
+    from_codo = None
+    try:
+        from_codo = await asyncio.to_thread(codo_remote.export_files, source.id)
+    except Exception as e:  # pragma: no cover
+        logger.error("Codo export failed for %s: %s", source.id, e)
+    if from_codo and from_codo["files"]:
+        files = json.dumps(from_codo["files"], ensure_ascii=False)
+        folders = json.dumps(from_codo["folders"], ensure_ascii=False)
     copy = VibecodingProject(
-        id=f"fork-{uuid.uuid4().hex[:20]}",
+        id=fork_id,
         owner_id=user.id,
-        name=(data.name or source.name).strip()[:200] or source.name,
-        files=source.files,
-        folders=source.folders,
+        name=(name or source.name).strip()[:200] or source.name,
+        files=files,
+        folders=folders,
+        parent_id=source.id,
     )
     db.add(copy)
     db.commit()
     db.refresh(copy)
+    if from_codo and from_codo["files"]:
+        # Fork-тың өз Codo репозиторийі + жұмыс папкасы тарихымен (git күйі таза)
+        try:
+            await asyncio.to_thread(codo_remote.fork_repo, source.id, fork_id)
+            root = await asyncio.to_thread(
+                terminal_workspace.push, user.id, fork_id, copy.name,
+                _load_json_list(copy.files), _load_json_list(copy.folders), True,
+            )
+            if root:
+                await asyncio.to_thread(
+                    codo_remote.init_workspace_from_codo, root, fork_id, user.username, source.id,
+                )
+        except Exception as e:
+            logger.error("Fork git history setup failed for %s: %s", fork_id, e)
     return _to_dict(copy)
 
 
@@ -362,13 +413,20 @@ async def get_shared_project(
     """Сілтеме бойынша жобаны көру (тек оқу)"""
     project = _shared_project(db, token)
     owner = db.query(User).filter(User.id == project.owner_id).first()
+    # Codo-ға жіберілген нұсқа бар болса — басқаларға сол көрінеді (fork та содан алынады)
+    codo = None
+    try:
+        codo = await asyncio.to_thread(codo_remote.export_files, project.id)
+    except Exception as e:  # pragma: no cover
+        logger.error("Codo export failed for %s: %s", project.id, e)
     return {
         "name": project.name,
         "owner": owner.username if owner else None,
         "isOwner": project.owner_id == user.id,
         "projectId": project.id if project.owner_id == user.id else None,
-        "files": _load_json_list(project.files),
-        "folders": _load_json_list(project.folders),
+        "files": codo["files"] if codo and codo["files"] else _load_json_list(project.files),
+        "folders": codo["folders"] if codo and codo["files"] else _load_json_list(project.folders),
+        "codoBranch": codo["branch"] if codo and codo["files"] else None,
         "updatedAt": _iso(project.updated_at),
     }
 
@@ -390,26 +448,15 @@ async def fork_by_link(
     source = _shared_project(db, token)
     if source.owner_id == user.id:
         raise HTTPException(status_code=400, detail="Бұл өз жобаңыз")
-    count = db.query(VibecodingProject).filter(VibecodingProject.owner_id == user.id).count()
-    if count >= MAX_PROJECTS_PER_USER:
-        raise HTTPException(status_code=400, detail="Жобалар саны шегіне жетті")
-    copy = VibecodingProject(
-        id=f"fork-{uuid.uuid4().hex[:20]}",
-        owner_id=user.id,
-        name=(data.name or source.name).strip()[:200] or source.name,
-        files=source.files,
-        folders=source.folders,
-    )
-    db.add(copy)
-    db.commit()
-    db.refresh(copy)
-    return _to_dict(copy)
+    return await _make_fork(db, user, source, data.name)
 
 
 class PublishRequest(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=2000)
     tags: List[str] = Field(default_factory=list, max_length=10)
+    # None — қолданушының әдепкі баптауы (Профиль → жобалар жабық/ашық)
+    isPrivate: Optional[bool] = None
 
 
 @router.post("/vibecoding/projects/{project_id}/publish")
@@ -421,8 +468,13 @@ async def publish_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Vibecoding жобасын Жобалар бетіне (кодтар) папка ретінде жариялау — Upload-тағы папкамен бірдей пішінде"""
+    """Vibecoding жобасын Жобалар бетіне (кодтар) папка ретінде жариялау — Upload-тағы папкамен бірдей пішінде.
+    Бұрын жарияланған болса — жаңа жазба жасалмайды, сол жазба (лайк, пікір, сілтемесімен) жаңарады"""
     project = _own_project(db, user, project_id)
+    existing_id = _published_id(project)
+    existing = CodeService.find_code_by_id(existing_id) if existing_id else None
+    if existing and existing.get("author") != user.username:
+        existing = None
     all_files = [f for f in _load_json_list(project.files) if isinstance(f, dict) and f.get("path")]
     # Кэш/қоқыс үнсіз, құпия (.env) мен бинарлы файлдар — тізіммен өткізіледі (Upload-пен бірдей ереже)
     kinds = {f["path"]: classify_upload_path(f["path"]) for f in all_files}
@@ -431,9 +483,9 @@ async def publish_project(
     if not files:
         raise HTTPException(status_code=400, detail="Жоба бос — жариялайтын файл жоқ")
 
-    title = (data.title or project.name).strip()[:200] or project.name
+    title = (data.title or (existing or {}).get("title") or project.name).strip()[:200] or project.name
     # Upload сияқты: барлық жол түбірлік папка атымен басталады
-    root = "".join(ch for ch in title if ch not in '\/:*?"<>|').strip() or "project"
+    root = "".join(ch for ch in title if ch not in '\\/:*?"<>|').strip() or "project"
     structure: dict = {root: {"type": "folder", "name": root}}
     for folder in _load_json_list(project.folders):
         if isinstance(folder, str) and folder and classify_upload_path(f"{folder}/_") != "junk":
@@ -464,15 +516,52 @@ async def publish_project(
         })
 
     main_language = max(languages, key=languages.get) if languages else "folder"
+    language = main_language if main_language not in ("plaintext", "other") else "folder"
+    # Жаңартқанда таңдалмаса — бұрынғы күйі сақталады (әдепкі баптауға ауыспайды)
+    is_private = (
+        bool(existing.get("isPrivate")) if existing and data.isPrivate is None
+        else resolve_private(data.isPrivate, user.id)
+    )
+
+    if existing:
+        try:
+            result = CodeService.commit_folder(
+                existing["id"],
+                keep_paths=[f["folderPath"] for f in files_data],
+                replace_paths=[f["folderPath"] for f in files_data],
+                files_data=[{**f, "description": data.description if data.description is not None else existing.get("description")}
+                            for f in files_data],
+                structure=structure,
+                commit={"id": uuid.uuid4().hex[:12], "message": "Vibecoding-тен жаңартылды",
+                        "author": user.username, "added": [], "changed": [], "removed": []},
+            )
+            updates = {"title": title, "language": language, "isPrivate": is_private}
+            if data.description is not None:
+                updates["description"] = data.description
+            if data.tags:
+                updates["tags"] = [t.strip()[:30] for t in data.tags if t.strip()]
+            CodeService.update_code(existing["id"], updates)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {
+            "codeId": existing["id"],
+            "title": title,
+            "updated": True,
+            "created": result["created"],
+            "failed": result["failed"],
+            "failedFiles": result["failedFiles"],
+            "skipped": skipped,
+        }
+
     folder_data = {
         "title": title,
         "content": json.dumps({"structure": structure, "fileCount": len(files_data)}, ensure_ascii=False, indent=2),
-        "language": main_language if main_language not in ("plaintext", "other") else "folder",
+        "language": language,
         "author": user.username,
         "description": data.description,
         "tags": [t.strip()[:30] for t in data.tags if t.strip()] or ["folder", "vibecoding"],
         "folderStructure": structure,
-        "isPrivate": resolve_private(None, user.id),
+        "isPrivate": is_private,
     }
     try:
         result = CodeService.create_folder_batch(folder_data, files_data)
@@ -485,9 +574,12 @@ async def publish_project(
             status_code=400,
             detail="Жобаның бірде-бір файлы жариялауға рұқсат етілмеген түрде: " + ", ".join(result["failedFiles"][:10]),
         )
+    project.published_code_id = result["folderId"]
+    db.commit()
     return {
         "codeId": result["folderId"],
         "title": title,
+        "updated": False,
         "created": result["created"],
         "failed": result["failed"],
         "failedFiles": result["failedFiles"],

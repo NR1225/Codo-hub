@@ -248,6 +248,7 @@ def status(root: str) -> dict:
     info["truncated"] = len(files) >= MAX_STATUS_FILES
     head = run(root, "rev-parse", "--verify", "-q", "HEAD", check=False).strip()
     info["head"] = head or None
+    info["merging"] = os.path.exists(os.path.join(_git_dir(root), "MERGE_HEAD"))
     return info
 
 
@@ -410,3 +411,179 @@ def commit_file_diff(root: str, sha: str, path: str) -> dict:
     )
     diff, truncated = _cap(out)
     return {"diff": diff, "binary": "Binary files" in out[:2000] and "@@" not in out, "truncated": truncated}
+
+
+# ─── Бұтақтар ─────────────────────────────────────────────────────
+
+_BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]{1,200}$")
+
+
+def _branch_name(name: str) -> str:
+    name = (name or "").strip()
+    if (not _BRANCH_RE.match(name) or name.startswith(("-", "/", ".")) or name.endswith(("/", ".", ".lock"))
+            or ".." in name or "//" in name or "@{" in name or name == "HEAD"):
+        raise GitError(f"Бұтақ атауы дұрыс емес: {name}")
+    return name
+
+
+def branches(root: str) -> dict:
+    if not is_repo(root):
+        return {"current": None, "local": [], "remote": []}
+    out = run(
+        root, "for-each-ref", "--sort=-committerdate",
+        "--format=%(refname)%1f%(objectname:short)%1f%(committerdate:unix)%1f%(upstream:short)%1f%(HEAD)%1f%(subject)",
+        "refs/heads", "refs/remotes", check=False,
+    )
+    local, remote, current = [], [], None
+    for line in out.splitlines():
+        parts = line.split("\x1f")
+        if len(parts) < 6:
+            continue
+        ref, sha, ts, upstream, head, subject = parts[:6]
+        if ref.startswith("refs/heads/"):
+            name = ref[len("refs/heads/"):]
+            if head == "*":
+                current = name
+            local.append({"name": name, "sha": sha, "time": int(ts or 0), "upstream": upstream or None,
+                          "current": head == "*", "subject": subject})
+        elif ref.startswith("refs/remotes/") and not ref.endswith("/HEAD"):
+            remote.append({"name": ref[len("refs/remotes/"):], "sha": sha, "time": int(ts or 0), "subject": subject})
+    if current is None:
+        st = status(root)
+        if not st.get("detached"):
+            current = st.get("branch")
+    return {"current": current, "local": local, "remote": remote}
+
+
+def checkout(root: str, name: str) -> None:
+    name = _branch_name(name)
+    local = run(root, "rev-parse", "--verify", "-q", f"refs/heads/{name}", check=False).strip()
+    if local:
+        run(root, "checkout", "-q", name, "--")
+        return
+    if run(root, "rev-parse", "--verify", "-q", f"refs/remotes/{name}", check=False).strip():
+        # origin/feature → жергілікті feature (upstream-пен)
+        run(root, "checkout", "-q", "--track", name, "--")
+        return
+    raise GitError(f"Бұтақ табылмады: {name}", 404)
+
+
+def create_branch(root: str, name: str, switch: bool = True, start: Optional[str] = None) -> None:
+    name = _branch_name(name)
+    args = ["checkout", "-q", "-b", name] if switch else ["branch", name]
+    if start:
+        if not (_SHA_RE.match(start) or _BRANCH_RE.match(start)) or start.startswith("-"):
+            raise GitError("Бастапқы нүкте дұрыс емес")
+        args.append(start)
+    if switch and not start and not run(root, "rev-parse", "--verify", "-q", "HEAD", check=False).strip():
+        # Әлі коммит жоқ — бұтақ атауын ғана ауыстырамыз
+        run(root, "symbolic-ref", "HEAD", f"refs/heads/{name}")
+        return
+    run(root, *args, *(["--"] if switch else []))
+
+
+def rename_branch(root: str, old: str, new: str) -> None:
+    run(root, "branch", "-m", _branch_name(old), _branch_name(new))
+
+
+def delete_branch(root: str, name: str, force: bool = False) -> None:
+    name = _branch_name(name)
+    if branches(root).get("current") == name:
+        raise GitError("Ағымдағы бұтақты өшіру мүмкін емес")
+    run(root, "branch", "-D" if force else "-d", name)
+
+
+def _identity(root: str, user_name: str) -> List[str]:
+    identity: List[str] = []
+    if not run(root, "config", "user.name", check=False).strip():
+        identity += ["-c", f"user.name={user_name}"]
+    if not run(root, "config", "user.email", check=False).strip():
+        identity += ["-c", f"user.email={_safe_email(user_name)}@users.codohub.local"]
+    return identity
+
+
+def merge(root: str, name: str, user_name: str) -> None:
+    name = _branch_name(name)
+    run(root, *_identity(root, user_name), "merge", "--no-edit", "--no-verify", name)
+
+
+def merge_abort(root: str) -> None:
+    run(root, "merge", "--abort")
+
+
+# ─── Коммитті болдырмау / amend ──────────────────────────────────
+
+
+def last_commit_message(root: str) -> str:
+    return run(root, "log", "-1", "--format=%B", check=False).strip()
+
+
+def undo_last_commit(root: str) -> None:
+    """Соңғы коммитті болдырмау — өзгерістер индексте қалады (git reset --soft HEAD~1)"""
+    if not run(root, "rev-parse", "--verify", "-q", "HEAD", check=False).strip():
+        raise GitError("Болдырмайтын коммит жоқ")
+    if run(root, "rev-parse", "--verify", "-q", "HEAD~1", check=False).strip():
+        run(root, "reset", "-q", "--soft", "HEAD~1")
+    else:
+        # Жалғыз коммит — бұтақты өшіріп, файлдарды индексте қалдырамыз
+        ref = run(root, "symbolic-ref", "-q", "HEAD", check=False).strip()
+        if not ref:
+            raise GitError("Detached HEAD күйінде болдырмау мүмкін емес")
+        run(root, "update-ref", "-d", ref)
+
+
+def amend(root: str, message: str, stage_all: bool, user_name: str) -> str:
+    message = (message or "").strip() or last_commit_message(root)
+    if not message:
+        raise GitError("Коммит хабарламасы бос")
+    if not run(root, "rev-parse", "--verify", "-q", "HEAD", check=False).strip():
+        raise GitError("Amend үшін алдымен коммит жасаңыз")
+    if stage_all:
+        run(root, "add", "-A")
+    run(root, *_identity(root, user_name), "commit", "-q", "--no-verify", "--amend", "-F", "-", input_text=message)
+    return run(root, "rev-parse", "HEAD").strip()
+
+
+# ─── Stash ────────────────────────────────────────────────────────
+
+
+def stash_list(root: str) -> List[dict]:
+    if not is_repo(root):
+        return []
+    out = run(root, "stash", "list", "--format=%gd%x1f%at%x1f%gs", check=False)
+    items = []
+    for line in out.splitlines():
+        parts = line.split("\x1f")
+        if len(parts) < 3:
+            continue
+        ref, ts, subject = parts[:3]
+        m = re.match(r"stash@\{(\d+)\}", ref)
+        if not m:
+            continue
+        items.append({"index": int(m.group(1)), "time": int(ts or 0), "message": subject})
+    return items
+
+
+def stash_push(root: str, message: str = "", include_untracked: bool = True,
+               staged_only: bool = False) -> None:
+    if not status(root).get("files"):
+        raise GitError("Stash-ке салатын өзгеріс жоқ")
+    args = ["stash", "push", "-q"]
+    if staged_only:
+        args.append("--staged")
+    elif include_untracked:
+        args.append("--include-untracked")
+    message = (message or "").strip()
+    if message:
+        args += ["-m", message[:500]]
+    # GIT_LITERAL_PATHSPECS кезінде stash ішкі ":/" pathspec-ін түсінбейді —
+    # untracked файлдар тазаланбай қалады. Сондықтан "." нақты береміз.
+    run(root, *args, "--", ".")
+
+
+def stash_action(root: str, action: str, index: int) -> None:
+    if action not in ("apply", "pop", "drop"):
+        raise GitError("Белгісіз stash әрекеті")
+    if index < 0 or index > 10000:
+        raise GitError("Stash индексі дұрыс емес")
+    run(root, "stash", action, "-q", f"stash@{{{index}}}")

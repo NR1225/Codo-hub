@@ -6,13 +6,20 @@
    ```read path=a.py        — файлды оқу (мазмұны келесі хабарда Codo-ға барады)
    ```bash run              — терминалда команда орындау
    ```markdown note="Атау"  — жобаның Notes жазбасына жазу
-   ```project send name=… to=… — сайттағы жобалармен әрекет (utils/burkitProjectTools.ts) */
+   ```project send name=… to=… — сайттағы жобалармен әрекет (utils/burkitProjectTools.ts)
+   ```ui run / reload / console / eval / dom / panel / open / device / page / state / stop
+                            — Vibecoding бетін басқару (burkitUiTools.ts) */
 
 export type ProjectOp =
   | 'list' | 'create' | 'delete' | 'switch' | 'publish' | 'unpublish'
   | 'share' | 'unshare' | 'send' | 'open' | 'fork';
 
 const PROJECT_OPS: ProjectOp[] = ['list', 'create', 'delete', 'switch', 'publish', 'unpublish', 'share', 'unshare', 'send', 'open', 'fork'];
+
+export type UiOp =
+  | 'run' | 'stop' | 'reload' | 'console' | 'eval' | 'dom' | 'panel' | 'open' | 'device' | 'page' | 'state';
+
+export const UI_OPS: UiOp[] = ['run', 'stop', 'reload', 'console', 'eval', 'dom', 'panel', 'open', 'device', 'page', 'state'];
 
 export type BlockAction =
   | { kind: 'write'; path: string }
@@ -22,7 +29,8 @@ export type BlockAction =
   | { kind: 'read'; path: string }
   | { kind: 'run' }
   | { kind: 'note'; title: string }
-  | { kind: 'project'; op: ProjectOp; attrs: Record<string, string> };
+  | { kind: 'project'; op: ProjectOp; attrs: Record<string, string> }
+  | { kind: 'ui'; op: UiOp; attrs: Record<string, string> };
 
 export interface CodeBlock {
   language: string;
@@ -56,6 +64,10 @@ export function parseFence(line: string): { language: string; action?: BlockActi
   if (lang === 'project') {
     const op = (attrs.action ?? flags[0]) as ProjectOp | undefined;
     return { language, action: op && PROJECT_OPS.includes(op) ? { kind: 'project', op, attrs } : undefined };
+  }
+  if (lang === 'ui') {
+    const op = (attrs.action ?? flags[0]) as UiOp | undefined;
+    return { language, action: op && UI_OPS.includes(op) ? { kind: 'ui', op, attrs } : undefined };
   }
   const path = cleanPath(attrs.path);
   if (lang === 'delete') return { language, action: path ? { kind: 'delete', path } : undefined };
@@ -100,6 +112,7 @@ export function actionLabel(action?: BlockAction): string | undefined {
       return `📓 ${action.title}`;
     case 'run':
     case 'project':
+    case 'ui':
       return undefined;
   }
 }

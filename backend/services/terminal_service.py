@@ -363,6 +363,12 @@ class TerminalSession:
     async def start(self):
         """Start the shell process inside the sandbox."""
         env = _build_env(self.workspace, self.lang)
+        # git push/pull GitHub-қа — сайттағы GitHub байланысымен, логинсіз
+        try:
+            from services import git_credentials
+            await asyncio.to_thread(git_credentials.apply, env, self.user_id, self.lang)
+        except Exception as e:
+            logger.warning("git credentials setup failed for %s: %s", self.user_id, e)
         # pip / npm / yarn / pnpm — серверге ортақ пакет қоймасы арқылы (тұрақты);
         # жобаның ішінде python / python -m pip — оның .venv-інен
         shared_packages.terminal_env(self.cwd, env, is_project=self.cwd != self.workspace)

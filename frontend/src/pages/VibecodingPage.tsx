@@ -3,17 +3,31 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, VibecodingProvider, Project, detectLanguage } from '../contexts/VibecodingContext';
 import { apiService } from '../utils/api';
-import { SearchIcon, CommandIcon, PanelLeftIcon, PanelBottomIcon, PanelRightIcon, PlayIcon } from '../components/vibecoding/icons';
+import {
+  SearchIcon, CommandIcon, PanelLeftIcon, PanelBottomIcon, PanelRightIcon, PlayIcon, StopIcon,
+} from '../components/vibecoding/icons';
+import { emitVibe, useRunState } from '../utils/vibeControl';
 import IDELayout from '../components/vibecoding/IDELayout';
 import CommandPalette from '../components/vibecoding/CommandPalette';
 import ProjectTabsBar from '../components/vibecoding/ProjectTabsBar';
+import { showLeftView } from '../components/vibecoding/git/LeftSidebar';
 import './VibecodingPage.css';
 import '../components/vibecoding/VibecodingPanels.css';
 
 /* ─── Main component ─── */
 const VibecodingPageInner: React.FC = () => {
   const { t } = useTranslation();
-  const { state, dispatch, syncReady } = useVibecoding();
+  const { state, dispatch, syncReady, activeProject } = useVibecoding();
+  const run = useRunState();
+  const runMine = !run.projectId || run.projectId === activeProject?.id;
+  const runBusy = runMine && (run.phase === 'planning' || run.phase === 'starting');
+  // Тоқтатуға болатын процесс: сервер немесе әлі аяқталмаған скрипт
+  const canStop = runMine && (runBusy || (run.phase === 'running' && (run.kind === 'server' || run.kind === 'console')));
+  const runLabel = runBusy
+    ? (run.phase === 'planning' ? t('vibecoding.preview.runPlanning', 'Тексерілуде…') : t('vibecoding.preview.runStarting', 'Іске қосылуда…'))
+    : runMine && run.phase === 'running' && run.kind === 'server'
+      ? t('vibecoding.preview.runReload', 'Жаңарту')
+      : t('vibecoding.preview.run', 'Іске қосу');
 
   const [paletteMode, setPaletteMode] = useState<'files' | 'commands' | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -64,13 +78,17 @@ const VibecodingPageInner: React.FC = () => {
     openTarget()
       .then(() => {
         // Жоба күйге түскен соң (келесі рендерден кейін) алдын ала көріністі іске қосамыз
-        if (shouldRun) setTimeout(() => window.dispatchEvent(new CustomEvent('vibecoding:run')), 150);
+        if (shouldRun) setTimeout(() => emitVibe('run'), 150);
       })
       .catch((err) => console.error('Failed to open project in Vibecoding:', err))
       .finally(() => setSearchParams({}, { replace: true }));
   }, [searchParams, setSearchParams, syncReady, state.projects, dispatch]);
 
-  const openFilePalette = useCallback(() => setPaletteMode('files'), []);
+  // Іздеу — модалка емес, сол сайтбардағы «Іздеу» бөлімі
+  const openSearchSidebar = useCallback(() => {
+    showLeftView('search');
+    dispatch({ type: 'SET_LEFT_PANEL_VISIBLE', payload: true });
+  }, [dispatch]);
   const openCommandPalette = useCallback(() => setPaletteMode('commands'), []);
   const closePalette = useCallback(() => setPaletteMode(null), []);
 
@@ -82,7 +100,7 @@ const VibecodingPageInner: React.FC = () => {
       // Ctrl+Enter → жобаны іске қосу (F5 браузердің өз жаңартуы болып қалады)
       if (mod && !e.shiftKey && e.key === 'Enter') {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent('vibecoding:run'));
+        emitVibe('run');
         return;
       }
 
@@ -147,9 +165,9 @@ const VibecodingPageInner: React.FC = () => {
 
       {/* Ортада — файл іздеу (VS Code-тағы command center сияқты) */}
       <button
-        onClick={openFilePalette}
+        onClick={openSearchSidebar}
         className="vibe-toolbar__search"
-        title={t('vibecoding.palette.searchFiles', 'Файл іздеу')}
+        title={`${t('vibecoding.search.title', 'Іздеу')} (Ctrl+Shift+F)`}
       >
         <SearchIcon size={13} />
         <span className="vibe-toolbar__search-text">{t('vibecoding.palette.searchFiles', 'Файл іздеу')}</span>
@@ -157,14 +175,29 @@ const VibecodingPageInner: React.FC = () => {
 
       {/* Оң жақта — панельдерді ашып-жабатын белгішелер бір топта */}
       <div className="vibe-toolbar__side vibe-toolbar__side--end">
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent('vibecoding:run'))}
-          className="vibe-run-btn"
-          title={`${t('vibecoding.preview.run', 'Іске қосу')} (Ctrl+Enter)`}
-        >
-          <PlayIcon size={13} />
-          <span className="vibe-run-btn__text">{t('vibecoding.preview.run', 'Іске қосу')}</span>
-        </button>
+        <div className={`vibe-run-group ${canStop ? 'has-stop' : ''}`}>
+          <button
+            onClick={() => emitVibe('run')}
+            className={`vibe-run-btn ${runBusy ? 'is-busy' : ''} ${runMine && run.phase === 'error' ? 'is-error' : ''} ${runMine && run.phase === 'running' && run.kind === 'server' ? 'is-live' : ''}`}
+            title={runMine && run.phase === 'error' && run.error
+              ? `${run.error}
+${t('vibecoding.preview.retry', 'Қайта іске қосу')} (Ctrl+Enter)`
+              : `${runLabel} (Ctrl+Enter)`}
+            aria-busy={runBusy}
+          >
+            {runBusy ? <span className="vibe-run-btn__spin" aria-hidden="true" /> : <PlayIcon size={13} />}
+            <span className="vibe-run-btn__text">{runLabel}</span>
+          </button>
+          {canStop && (
+            <button
+              onClick={() => emitVibe('stop')}
+              className="vibe-run-btn vibe-run-btn--stop"
+              title={t('vibecoding.preview.stop', 'Тоқтату')}
+            >
+              <StopIcon size={13} />
+            </button>
+          )}
+        </div>
         <span className="vibe-toolbar__divider" />
         <button
           onClick={openCommandPalette}

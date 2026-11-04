@@ -130,6 +130,12 @@ def _node_plan(root: str, files: List[str]) -> Optional[Dict[str, object]]:
                 continue
             run = "npm start" if script == "start" else f"npm run {script}"
             port = _free_port()
+            # Vite/Next/Astro/Nuxt PORT айнымалысын елемейді (Vite-тың 5173-і — сайттың өз frontend-і),
+            # сондықтан скрипт тікелей солардың CLI-ын шақырса, портты аргумент ретінде береміз.
+            # Windows PowerShell 5.1 «--»-ті npm-ге жеткізбеуі мүмкін — онда Vite өзі бос портқа ауысады
+            if not IS_WINDOWS and re.match(r"^(vite|next dev|next|astro dev|astro|nuxt dev|nuxi dev|nuxt)(\s|$)", body.strip()) \
+                    and "--port" not in body and " -p " not in f" {body} ":
+                run += f" -- --port {port}"
             return _plan("server", _in_dir(directory, _with_port(run, port)), cwd=directory or None,
                          framework=_framework(pkg, body) or "node", script=script, port=port)
         # Скрипт жоқ, бірақ «main» сервер файлы бар
@@ -174,8 +180,10 @@ def _python_plan(root: str, files: List[str]) -> Optional[Dict[str, object]]:
         return None
     manage = next((f for f in py if _name(f) == "manage.py"), None)
     if manage:
-        return _plan("server", _in_dir(_dir(manage), f"{PYTHON} manage.py runserver"),
-                     cwd=_dir(manage) or None, framework="django")
+        # Әдепкі 8000 порты сайттың өз бэкендімен соқтығысады — бос порт береміз
+        port = _free_port()
+        return _plan("server", _in_dir(_dir(manage), f"{PYTHON} manage.py runserver 127.0.0.1:{port}"),
+                     cwd=_dir(manage) or None, framework="django", port=port)
 
     preferred = ("app.py", "main.py", "server.py", "run.py", "streamlit_app.py", "wsgi.py", "asgi.py")
     py.sort(key=lambda f: (f.count("/"), preferred.index(_name(f)) if _name(f) in preferred else len(preferred), f))
@@ -183,20 +191,27 @@ def _python_plan(root: str, files: List[str]) -> Optional[Dict[str, object]]:
         code = _read(root, rel)
         directory, name = _dir(rel), _name(rel)
         if re.search(r"^\s*(import streamlit|from streamlit)", code, re.M):
-            return _plan("server", _in_dir(directory, f"{PYTHON} -m streamlit run {name} --server.headless true"),
-                         cwd=directory or None, framework="streamlit", entry=rel)
+            port = _free_port()
+            return _plan("server", _in_dir(directory, f"{PYTHON} -m streamlit run {name} --server.headless true --server.port {port}"),
+                         cwd=directory or None, framework="streamlit", entry=rel, port=port)
         if re.search(r"\bFastAPI\s*\(", code):
+            port = _free_port()
             if re.search(r"uvicorn\.run\s*\(", code):
-                command = f"{PYTHON} {name}"
+                command = _with_port(f"{PYTHON} {name}", port)
             else:
                 match = re.search(r"^(\w+)\s*=\s*FastAPI\s*\(", code, re.M)
-                command = f"{PYTHON} -m uvicorn {_py_module(name)}:{match.group(1) if match else 'app'} --reload"
-            return _plan("server", _in_dir(directory, command), cwd=directory or None, framework="fastapi", entry=rel)
+                command = f"{PYTHON} -m uvicorn {_py_module(name)}:{match.group(1) if match else 'app'} --reload --port {port}"
+            return _plan("server", _in_dir(directory, command), cwd=directory or None, framework="fastapi", entry=rel, port=port)
         if re.search(r"\bFlask\s*\(", code):
-            command = f"{PYTHON} {name}" if re.search(r"\.run\s*\(", code) else f"{PYTHON} -m flask --app {_py_module(name)} run"
-            return _plan("server", _in_dir(directory, command), cwd=directory or None, framework="flask", entry=rel)
+            port = _free_port()
+            command = (_with_port(f"{PYTHON} {name}", port) if re.search(r"\.run\s*\(", code)
+                       else f"{PYTHON} -m flask --app {_py_module(name)} run --port {port}")
+            return _plan("server", _in_dir(directory, command), cwd=directory or None, framework="flask", entry=rel, port=port)
         if re.search(r"^\s*(import gradio|from gradio)", code, re.M):
-            return _plan("server", _in_dir(directory, f"{PYTHON} {name}"), cwd=directory or None, framework="gradio", entry=rel)
+            port = _free_port()
+            env = f"$env:GRADIO_SERVER_PORT={port}; " if IS_WINDOWS else f"GRADIO_SERVER_PORT={port} "
+            return _plan("server", _in_dir(directory, f"{env}{PYTHON} {name}"), cwd=directory or None,
+                         framework="gradio", entry=rel, port=port)
         if re.search(r"http\.server|socketserver\.TCPServer|HTTPServer\s*\(|aiohttp\.web\.run_app", code):
             return _plan("server", _in_dir(directory, f"{PYTHON} {name}"), cwd=directory or None, framework="python", entry=rel)
     return None

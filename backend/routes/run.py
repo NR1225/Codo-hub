@@ -93,6 +93,10 @@ async def get_run_file(request: Request, code_id: str, path: str, file: Optional
         raise HTTPException(status_code=404, detail="File not found")
     result = serve(code, path, file)
     if result is None:
+        if not path.strip("/") and not file:
+            # Жобада браузерде ашылатын бет жоқ (Python, құрастыруды қажет ететін React т.б.) —
+            # карточкадағы preview мұны сұрағанда қате емес, «көрсететін ештеңе жоқ» (204)
+            return Response(status_code=204, headers={"Cache-Control": "no-cache"})
         raise HTTPException(status_code=404, detail="File not found")
     data, mime = result
     return Response(content=data, media_type=mime, headers={"Cache-Control": "private, no-store" if code.get("isPrivate") else "no-cache"})

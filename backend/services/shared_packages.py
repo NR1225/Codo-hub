@@ -59,6 +59,9 @@ NPM_CACHE = os.path.join(SHARED_ROOT, "npm-cache")
 TOOLS_DIR = os.path.join(SHARED_ROOT, "tools")
 BIN_DIR = os.path.join(SHARED_ROOT, "bin")
 _TMP = os.path.join(SHARED_ROOT, "tmp")
+# Фонда орнатылып жатқан папкалардың белгілері — терминалдағы `npm start` т.б.
+# (pkg_shim.py, бөлек процесс) орнату біткенше күтеді
+LOCKS_DIR = os.path.join(SHARED_ROOT, "locks")
 # Бұрынғы «жиынтық» моделінің қалдықтары (жобалар енді оларға сілтеме жасамайды)
 _LEGACY = ("node", "python", "pip-cache", "trash")
 
@@ -192,6 +195,28 @@ def _marker(dest: str) -> Optional[str]:
         return None
     data = _read(os.path.join(dest, MARKER))
     return data.decode("ascii", "replace").strip() if data else None
+
+
+def lock_name(dest: str) -> str:
+    """Папканың орнату белгісінің атауы (pkg_shim.py-дағымен бірдей болуы тиіс)"""
+    norm = os.path.normcase(os.path.abspath(dest))
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()[:20] + ".lock"
+
+
+def _set_lock(dest: str) -> None:
+    try:
+        os.makedirs(LOCKS_DIR, exist_ok=True)
+        with open(os.path.join(LOCKS_DIR, lock_name(dest)), "w", encoding="utf-8") as f:
+            f.write(dest)
+    except OSError as e:
+        logger.info("Орнату белгісі жазылмады (%s): %s", dest, e)
+
+
+def _clear_lock(dest: str) -> None:
+    try:
+        os.remove(os.path.join(LOCKS_DIR, lock_name(dest)))
+    except OSError:
+        pass
 
 
 def _write_marker(dest: str, key: str) -> None:
@@ -344,7 +369,7 @@ def ensure_tools() -> Dict[str, Optional[str]]:
     with _tools_lock:
         if _tools:
             return _tools
-        for d in (UV_CACHE, PNPM_STORE, NPM_CACHE, _TMP):
+        for d in (UV_CACHE, PNPM_STORE, NPM_CACHE, _TMP, LOCKS_DIR):
             os.makedirs(d, exist_ok=True)
         tools = {
             "uv": _uv_bin(),
@@ -355,6 +380,7 @@ def ensure_tools() -> Dict[str, Optional[str]]:
             "uv_cache": UV_CACHE,
             "pnpm_store": PNPM_STORE,
             "npm_cache": NPM_CACHE,
+            "locks": LOCKS_DIR,
         }
         if not tools["uv"]:
             logger.warning("uv табылмады (pip install uv) — Python пакеттері ортақ қоймасыз орнатылады")
@@ -424,10 +450,18 @@ def _schedule(eco: str, dest: str, key: str, names: List[str], worker, *args) ->
         _queued[dest] = (key, worker, args)
         _results.pop(dest, None)
     if not running:
+        _set_lock(dest)
         threading.Thread(target=_drain, args=(dest,), name=f"shared-{eco}", daemon=True).start()
 
 
 def _drain(dest: str) -> None:
+    try:
+        _drain_jobs(dest)
+    finally:
+        _clear_lock(dest)
+
+
+def _drain_jobs(dest: str) -> None:
     while True:
         with _guard:
             job = _queued.pop(dest, None)
@@ -435,6 +469,7 @@ def _drain(dest: str) -> None:
                 _pending.pop(dest, None)
                 return
         key, worker, args = job
+        _set_lock(dest)  # ұзақ орнату кезінде белгі «ескірмесін»
         try:
             _drop_legacy_link(dest)
             ok, failed = worker(*args)

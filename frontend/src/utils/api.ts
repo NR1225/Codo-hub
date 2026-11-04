@@ -207,6 +207,78 @@ export interface GitStatusDTO {
   head?: string | null;
   files?: GitFileStatusDTO[];
   truncated?: boolean;
+  merging?: boolean;
+}
+
+export interface GitBranchDTO {
+  name: string;
+  sha: string;
+  time: number;
+  upstream?: string | null;
+  current?: boolean;
+  subject: string;
+}
+
+export interface GitBranchesDTO {
+  current: string | null;
+  local: GitBranchDTO[];
+  remote: GitBranchDTO[];
+}
+
+export interface GitStashDTO {
+  index: number;
+  time: number;
+  message: string;
+}
+
+export interface GitMutationDTO {
+  status: GitStatusDTO;
+  changes: GitWorkspaceChangesDTO | null;
+  error: string | null;
+}
+
+export interface CodoUserBrief { id: string; username: string }
+
+/** Codo репозиторийі: жобаның серверде сақталған ресми нұсқасы */
+export interface CodoInfoDTO {
+  exists: boolean;
+  branch: string | null;
+  ahead: number;
+  behind: number;
+  published: boolean;
+  upstream: { projectId: string; branch: string | null; ahead: number; behind: number } | null;
+  branches: { name: string; sha: string; time: number; subject: string }[];
+  defaultBranch: string | null;
+  parent: { id: string; name: string; owner: CodoUserBrief | null } | null;
+  openPrs: number;
+}
+
+export interface PullRequestDTO {
+  id: string;
+  number: number;
+  title: string;
+  body: string;
+  status: 'open' | 'merged' | 'closed';
+  author: CodoUserBrief | null;
+  target: { projectId: string; name: string | null; branch: string; owner: CodoUserBrief | null };
+  source: { projectId: string; name: string | null; branch: string; exists: boolean };
+  sameProject: boolean;
+  headSha: string | null;
+  mergedSha: string | null;
+  mergedBy: CodoUserBrief | null;
+  canMerge: boolean;
+  isAuthor: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+  closedAt: string | null;
+}
+
+export interface PullRequestDetailDTO extends PullRequestDTO {
+  commits: { sha: string; author: string; time: number; subject: string }[];
+  files: { status: string; path: string }[];
+  mergeable: boolean;
+  conflicts: string[];
+  upToDate: boolean;
 }
 
 export interface GitCommitDTO {
@@ -259,6 +331,8 @@ export interface VibecodingProjectDTO {
   updatedAt: string;
   /** Бөлісу сілтемесінің токені; null — сілтеме жоқ */
   shareToken?: string | null;
+  /** Жобалар бетіне жарияланған нұсқасы (жоқ болса — null) */
+  publishedCodeId?: string | null;
 }
 
 /** Сілтеме бойынша ашылған жоба (тек оқу) */
@@ -1186,8 +1260,8 @@ class ApiService {
   /** Vibecoding жобасын Жобалар бетіне (кодтар) папка ретінде жариялау */
   async publishVibecodingProject(
     id: string,
-    data: { title?: string; description?: string; tags?: string[] }
-  ): Promise<{ codeId: string; title: string; created: number; failed: number; failedFiles: string[]; skipped?: string[] }> {
+    data: { title?: string; description?: string; tags?: string[]; isPrivate?: boolean }
+  ): Promise<{ codeId: string; title: string; updated?: boolean; created: number; failed: number; failedFiles: string[]; skipped?: string[] }> {
     return this.request(`/vibecoding/projects/${encodeURIComponent(id)}/publish`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1219,8 +1293,100 @@ class ApiService {
     return this.request(this.gitUrl(id, 'discard'), { method: 'POST', body: JSON.stringify({ paths }) });
   }
 
-  async gitCommit(id: string, message: string, all: boolean): Promise<{ sha: string; status: GitStatusDTO }> {
-    return this.request(this.gitUrl(id, 'commit'), { method: 'POST', body: JSON.stringify({ message, all }) });
+  async gitCommit(id: string, message: string, all: boolean, amend = false): Promise<{ sha: string; status: GitStatusDTO }> {
+    return this.request(this.gitUrl(id, 'commit'), { method: 'POST', body: JSON.stringify({ message, all, amend }) });
+  }
+
+  async gitBranches(id: string): Promise<GitBranchesDTO> {
+    return this.request<GitBranchesDTO>(this.gitUrl(id, 'branches'));
+  }
+
+  async gitCheckout(id: string, name: string): Promise<GitMutationDTO> {
+    return this.request(this.gitUrl(id, 'checkout'), { method: 'POST', body: JSON.stringify({ name }) });
+  }
+
+  async gitCreateBranch(id: string, name: string, checkout = true, start?: string): Promise<GitMutationDTO> {
+    return this.request(this.gitUrl(id, 'branch'), { method: 'POST', body: JSON.stringify({ name, checkout, start }) });
+  }
+
+  async gitRenameBranch(id: string, name: string, newName: string): Promise<GitStatusDTO> {
+    return this.request(this.gitUrl(id, 'branch/rename'), { method: 'POST', body: JSON.stringify({ name, new_name: newName }) });
+  }
+
+  async gitDeleteBranch(id: string, name: string, force = false): Promise<GitStatusDTO> {
+    return this.request(this.gitUrl(id, 'branch/delete'), { method: 'POST', body: JSON.stringify({ name, force }) });
+  }
+
+  async gitMerge(id: string, name: string): Promise<GitMutationDTO> {
+    return this.request(this.gitUrl(id, 'merge'), { method: 'POST', body: JSON.stringify({ name }) });
+  }
+
+  async gitMergeAbort(id: string): Promise<GitMutationDTO> {
+    return this.request(this.gitUrl(id, 'merge/abort'), { method: 'POST' });
+  }
+
+  async gitLastMessage(id: string): Promise<{ message: string }> {
+    return this.request(this.gitUrl(id, 'last-message'));
+  }
+
+  async gitUndoCommit(id: string): Promise<{ status: GitStatusDTO; message: string }> {
+    return this.request(this.gitUrl(id, 'undo-commit'), { method: 'POST' });
+  }
+
+  async gitStashList(id: string): Promise<GitStashDTO[]> {
+    return this.request<GitStashDTO[]>(this.gitUrl(id, 'stash'));
+  }
+
+  async gitStash(id: string, message = '', includeUntracked = true, stagedOnly = false): Promise<GitMutationDTO> {
+    return this.request(this.gitUrl(id, 'stash'), {
+      method: 'POST', body: JSON.stringify({ message, include_untracked: includeUntracked, staged_only: stagedOnly }),
+    });
+  }
+
+  async gitStashAction(id: string, action: 'apply' | 'pop' | 'drop', index: number): Promise<GitMutationDTO> {
+    return this.request(this.gitUrl(id, 'stash/action'), { method: 'POST', body: JSON.stringify({ action, index }) });
+  }
+
+  // Codo репозиторийі — жобаның серверде сақталған ресми нұсқасы
+  async codoInfo(id: string): Promise<CodoInfoDTO> {
+    return this.request<CodoInfoDTO>(this.gitUrl(id, 'codo'));
+  }
+
+  async codoFetch(id: string): Promise<{ status: GitStatusDTO; codo: CodoInfoDTO }> {
+    return this.request(this.gitUrl(id, 'codo/fetch'), { method: 'POST' });
+  }
+
+  async codoPush(id: string, branch?: string, force = false): Promise<{ branch: string; sha: string; status: GitStatusDTO; codo: CodoInfoDTO }> {
+    return this.request(this.gitUrl(id, 'codo/push'), { method: 'POST', body: JSON.stringify({ branch, force }) });
+  }
+
+  async codoPull(id: string, source: 'codo' | 'upstream' = 'codo', branch?: string): Promise<GitMutationDTO & { codo: CodoInfoDTO }> {
+    return this.request(this.gitUrl(id, 'codo/pull'), { method: 'POST', body: JSON.stringify({ source, branch }) });
+  }
+
+  // Pull request
+  async prList(id: string, state: 'open' | 'closed' | 'merged' | 'all' = 'open'): Promise<PullRequestDTO[]> {
+    return this.request<PullRequestDTO[]>(this.gitUrl(id, `prs?state=${state}`));
+  }
+
+  async prCreate(id: string, data: { title: string; body: string; source_branch: string; target: 'parent' | 'self'; target_branch?: string }): Promise<PullRequestDTO> {
+    return this.request(this.gitUrl(id, 'prs'), { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async prDetail(id: string, prId: string): Promise<PullRequestDetailDTO> {
+    return this.request<PullRequestDetailDTO>(this.gitUrl(id, `prs/${encodeURIComponent(prId)}`));
+  }
+
+  async prDiff(id: string, prId: string, path: string): Promise<GitDiffDTO> {
+    return this.request<GitDiffDTO>(this.gitUrl(id, `prs/${encodeURIComponent(prId)}/diff?path=${encodeURIComponent(path)}`));
+  }
+
+  async prMerge(id: string, prId: string, squash = false): Promise<GitMutationDTO & { pr: PullRequestDTO }> {
+    return this.request(this.gitUrl(id, `prs/${encodeURIComponent(prId)}/merge`), { method: 'POST', body: JSON.stringify({ squash }) });
+  }
+
+  async prSetState(id: string, prId: string, action: 'close' | 'reopen'): Promise<PullRequestDTO> {
+    return this.request(this.gitUrl(id, `prs/${encodeURIComponent(prId)}/${action}`), { method: 'POST' });
   }
 
   async gitLog(id: string, limit = 200): Promise<GitCommitDTO[]> {

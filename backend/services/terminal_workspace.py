@@ -33,8 +33,8 @@ IGNORED_DIRS = {
     ".pytest_cache", ".mypy_cache", "target", "coverage",
 }
 MAX_FILE_BYTES = 512 * 1024          # бір файл (үлкені жобаға тартылмайды)
-MAX_PULL_BYTES = 2 * 1024 * 1024     # жобаның шегімен бірдей
-MAX_PULL_FILES = 500
+MAX_PULL_BYTES = int(os.getenv("VIBE_MAX_PROJECT_MB", "0") or 0) * 1024 * 1024  # 0 — шектеусіз (жобаның шегімен бірдей)
+MAX_PULL_FILES = int(os.getenv("VIBE_MAX_PROJECT_FILES", "3000"))
 
 
 def _junk_dir(rel_dir: str) -> bool:
@@ -296,7 +296,7 @@ def pull(user_id: str, project_id: str) -> Optional[dict]:
                 if text is None:
                     continue  # бинарлы файл
                 total += len(data)
-                if len(upserts) >= MAX_PULL_FILES or total > MAX_PULL_BYTES:
+                if len(upserts) >= MAX_PULL_FILES or (MAX_PULL_BYTES and total > MAX_PULL_BYTES):
                     continue
                 upserts.append({"path": rel, "content": text})
 

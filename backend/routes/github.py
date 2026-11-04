@@ -301,6 +301,12 @@ async def github_callback(
     db_user.github_token = secret_box.encrypt(token)
     db_user.github_login = login
     db.commit()
+    # Ашық тұрған терминалдарда да git push бірден логинсіз жұмыс істесін (helper файлды әр жолы оқиды)
+    from services import git_credentials
+    try:
+        git_credentials._write_token(user.id, token)
+    except OSError:
+        pass
     return {**_status(db_user), "popup": bool(claims.get("popup")), "returnTo": claims.get("ret") or "/"}
 
 
@@ -323,6 +329,9 @@ async def github_disconnect(request: Request, user: User = Depends(get_current_u
             pass  # GitHub-та қайтару сәтсіз болса да, бізде токен қалмайды
     db_user = db.query(User).filter(User.id == user.id).first()
     db_user.github_token = None
+    # Терминалдағы git де бұдан былай бұл токенді қолданбасын
+    from services import git_credentials
+    git_credentials.forget(user.id)
     db_user.github_login = None
     db.commit()
     return _status(db_user)

@@ -21,7 +21,7 @@ def _load_site_config() -> dict:
                 "maxFileSizeMB": 30,
                 "supportedExtensions": [".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".cpp", ".c", ".h", ".html", ".css", ".json", ".md", ".xml", ".yaml", ".yml"]
             },
-            "apiDisplayUrl": "http://127.0.0.1:3000/api"
+            "apiDisplayUrl": "http://127.0.0.1:8000/api"
         }
     try:
         with open(path, "r", encoding="utf-8") as f:

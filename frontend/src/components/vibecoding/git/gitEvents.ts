@@ -11,6 +11,8 @@ export interface GitDiffTarget {
   staged?: boolean;
   /** Берілсе — осы коммиттегі өзгеріс */
   sha?: string;
+  /** Берілсе — осы pull request-тегі өзгеріс */
+  prId?: string;
 }
 
 export function openGitDiff(target: GitDiffTarget): void {

@@ -12,11 +12,13 @@
 
 Қолданылуы: ``python pkg_shim.py <pip|npm|yarn|pnpm> [аргументтер...]``
 """
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 IS_WINDOWS = sys.platform == "win32"
@@ -47,6 +49,12 @@ _TEXT = {
     "global": {"kk": "✖ Глобал орнату мұнда жоқ — пакетті жобаға орнатыңыз (-g-сіз). Бір рет іске қосу үшін: npx <пакет>",
                "ru": "✖ Глобальная установка недоступна — установите пакет в проект (без -g). Для разового запуска: npx <пакет>",
                "en": "✖ Global installs are not available — install the package into the project (without -g). To run once: npx <package>"},
+    "waiting": {"kk": "⏳ Жоба пакеттері әлі орнатылып жатыр — біткенше күтеміз…",
+                "ru": "⏳ Пакеты проекта ещё устанавливаются — ждём завершения…",
+                "en": "⏳ Project packages are still being installed — waiting for them to finish…"},
+    "missing": {"kk": "⏳ package.json-дағы кейбір пакеттер орнатылмаған — алдымен орнатамыз…",
+                "ru": "⏳ Некоторые пакеты из package.json не установлены — сначала устанавливаем…",
+                "en": "⏳ Some packages from package.json are not installed — installing them first…"},
     "not_ready": {"kk": "✖ Пакет менеджері әзірге дайын емес — бір минуттан кейін қайталап көріңіз.",
                   "ru": "✖ Менеджер пакетов ещё не готов — попробуйте через минуту.",
                   "en": "✖ The package manager is not ready yet — try again in a minute."},
@@ -314,10 +322,77 @@ def _no_global(args) -> bool:
     return False
 
 
+# Фондағы орнату белгісі осыдан ескі болса — backend құлаған деп есептеледі
+# (shared_packages.INSTALL_TIMEOUT_SECONDS + қор)
+_LOCK_STALE_SECONDS = 960
+# Скрипт іске қосатын командалар — алдымен пакеттер дайын болуы тиіс
+_NPM_RUN = {"start", "run", "run-script", "rum", "urn", "test", "t", "tst", "restart", "stop", "exec", "x"}
+
+
+def _read_package_json(root: str) -> dict:
+    try:
+        with open(os.path.join(root, "package.json"), encoding="utf-8") as f:
+            pkg = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return pkg if isinstance(pkg, dict) else {}
+
+
+def _missing_deps(root: str, pkg: dict) -> bool:
+    modules = os.path.join(root, "node_modules")
+    for field in ("dependencies", "devDependencies"):
+        deps = pkg.get(field)
+        if not isinstance(deps, dict):
+            continue
+        for name in deps:
+            if isinstance(name, str) and not os.path.isfile(os.path.join(modules, *name.split("/"), "package.json")):
+                return True
+    return False
+
+
+def _wait_background_install(root: str) -> None:
+    """Жоба ашылғанда backend фонда бастаған орнату біткенше күту
+    (белгі атауы — shared_packages.lock_name-мен бірдей)"""
+    locks = CFG.get("locks")
+    if not locks:
+        return
+    norm = os.path.normcase(os.path.abspath(os.path.join(root, "node_modules")))
+    lock = os.path.join(locks, hashlib.sha256(norm.encode("utf-8")).hexdigest()[:20] + ".lock")
+    announced = False
+    while True:
+        try:
+            if time.time() - os.path.getmtime(lock) > _LOCK_STALE_SECONDS:
+                return
+        except OSError:
+            return  # белгі жоқ — орнату біткен (немесе басталмаған)
+        if not announced:
+            _say(_t("waiting"), "33")
+            announced = True
+        time.sleep(1)
+
+
+def _run_script(runner, root: str) -> int:
+    """Скрипттен бұрын: фондағы орнатуды күту, жетіспейтін пакеттерді орнату"""
+    pkg = _read_package_json(root)
+    if pkg:
+        try:
+            _wait_background_install(root)
+        except KeyboardInterrupt:
+            return 130
+        if _missing_deps(root, pkg):
+            _say(_t("missing"), "33")
+            code = _pnpm(["install"], root)
+            if code:
+                return code
+    return runner()
+
+
 def npm(args) -> int:
     if not args:
         return _real_npm(args)
     cmd, rest = args[0], args[1:]
+    if cmd in _NPM_RUN:
+        return _run_script(lambda: _real_npm(args), _pkg_root())
     if cmd in _NPM_INSTALL or cmd == "ci":
         if _no_global(rest):
             return 1
@@ -352,14 +427,22 @@ def yarn(args) -> int:
     if cmd in ("upgrade", "up"):
         return _pnpm(["update", *rest], _pkg_root())
     # yarn dev / yarn run build / yarn test — pnpm скрипттерді дәл солай іске қосады
-    return _pnpm(args, _pkg_root())
+    root = _pkg_root()
+    return _run_script(lambda: _pnpm(args, root), root)
 
 
 def pnpm(args) -> int:
-    if args and args[0] in ("add", "install", "i", "remove", "rm", "uninstall", "update", "up") and _no_global(args[1:]):
-        return 1
-    return _pnpm(args, _pkg_root() if args and args[0] in ("add", "install", "i", "remove", "rm", "uninstall",
-                                                             "update", "up") else None)
+    manage = ("add", "install", "i", "remove", "rm", "uninstall", "update", "up")
+    if args and args[0] in manage:
+        if _no_global(args[1:]):
+            return 1
+        return _pnpm(args, _pkg_root())
+    if args:
+        root = _pkg_root()
+        scripts = _read_package_json(root).get("scripts")
+        if args[0] in _NPM_RUN or (isinstance(scripts, dict) and args[0] in scripts):
+            return _run_script(lambda: _pnpm(args), root)
+    return _pnpm(args)
 
 
 def main(argv) -> int:

@@ -14,6 +14,7 @@ interface TerminalMessage extends Partial<WorkspaceChanges> {
   rows?: number;
   sessionId?: string;
   projectId?: string | null;
+  projectWarning?: string | null;
   mode?: string;
   platform?: string;
   code?: number | string;
@@ -24,6 +25,8 @@ export interface TerminalSessionInfo {
   sessionId: string;
   /** Терминал ашылған жоба (null — жоба табылмаса, үй папкасында) */
   projectId: string | null;
+  /** Жоба сұралып, бірақ оның папкасында ашылмаса — себебі (projectNotFound | projectSyncFailed) */
+  projectWarning?: string | null;
   /** conpty / pty — нағыз терминал, pipe — қарапайым режим */
   mode: string;
   platform: string;
@@ -151,6 +154,7 @@ class TerminalWebSocketService {
           this.onConnect({
             sessionId: msg.sessionId,
             projectId: msg.projectId ?? null,
+            projectWarning: msg.projectWarning ?? null,
             mode: msg.mode || 'pty',
             platform: msg.platform || '',
           });

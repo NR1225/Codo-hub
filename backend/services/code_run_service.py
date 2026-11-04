@@ -233,6 +233,24 @@ def terminal_files(code: Dict[str, Any], viewer: Optional[str] = None) -> List[D
                 continue
         content = child.get("content") or ""
         if content.startswith("data:") and ";base64," in content[:200]:
+            # Суреттер / шрифттер кодта data URI болып сақталады — терминалға нақты файл
+            # ретінде жазамыз, әйтпесе `import logo from './logo.png'` құрастыруда сынады
+            data = _data_uri_bytes(content)
+            if data is not None:
+                out.append({"path": path, "bytes": data})
             continue
         out.append({"path": path, "content": content})
     return out
+
+
+
+
+def _data_uri_bytes(uri: str) -> Optional[bytes]:
+    """data:<mime>;base64,<...> → байттар (бұзық болса — None)"""
+    head, _, payload = uri.partition(",")
+    if not head.endswith(";base64"):
+        return None
+    try:
+        return base64.b64decode(payload, validate=False)
+    except (ValueError, base64.binascii.Error):
+        return None

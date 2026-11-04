@@ -2114,7 +2114,8 @@ body.is-panel-resizing .vibe-panel-bottom {
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  opacity: 0.35;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 0.3s ease;
   animation: vxSpin 4s linear infinite;
 }
@@ -2124,7 +2125,6 @@ body.is-panel-resizing .vibe-panel-bottom {
   mask: linear-gradient(#ffffff 0 0) content-box exclude, linear-gradient(#ffffff 0 0);
 }
 
-.vx-ai__box:hover::before { opacity: 0.55; }
 
 .vx-ai__box:focus-within {
   transform: translateY(-1px);
@@ -3020,6 +3020,50 @@ body.is-panel-resizing .vibe-panel-bottom {
 :where(html.light-theme) .vx-term__body.is-split .vx-term__pane.is-focused::before {
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.55), transparent);
 }
+
+/* Терминал жоба папкасында ашылмады — xterm-нің үстінде (shell экранды қайта салса да өшпейді) */
+.vx-term__notice {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  right: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid color-mix(in srgb, #fbbf24 35%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, #1a1405 92%, #fbbf24);
+  color: #fcd34d;
+  font-size: 11.5px;
+  line-height: 1.45;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  animation: vxTermTabIn 0.35s var(--vx-spring) backwards;
+}
+
+:where(html.light-theme) .vx-term__notice {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fcd34d;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.vx-term__notice-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #fbbf24;
+  color: #1a1405;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+.vx-term__notice-text { flex: 1; min-width: 0; word-break: break-word; }
 
 .vx-term__float {
   display: flex;
@@ -4929,3 +4973,915 @@ body.is-panel-resizing .vibe-panel-bottom {
   background: rgba(255, 255, 255, 0.86);
   color: #0369a1;
 }
+
+/* =========================================================
+   Барлық сайдбарлар бір тілде ашылып-жабылады:
+   Эксплорер (сол), Codo (оң) және Көрініс (редактордың оң жағы) —
+   бірдей ұзақтық, серіппе, жиек жарқылы, жарық сызығы, мазмұнның бұлдырдан шығуы
+   ========================================================= */
+.vibe-panel-preview {
+  position: relative;
+  transition:
+    width 0.7s var(--vx-open-ease),
+    min-width 0.7s var(--vx-open-ease),
+    opacity 0.25s ease;
+}
+.vibe-panel-preview[data-open="false"] {
+  transition:
+    width 0.45s var(--vx-close-ease),
+    min-width 0.45s var(--vx-close-ease),
+    opacity 0.3s ease 0.15s;
+}
+.vibe-panel-preview::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  z-index: 3;
+  border-radius: 12px;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 150% 0;
+  opacity: 0;
+}
+:where(html.light-theme) .vibe-panel-preview::after {
+  background: linear-gradient(105deg, transparent 35%, rgba(0, 0, 0, 0.1) 50%, transparent 65%) no-repeat;
+  background-size: 300% 100%;
+}
+.vibe-panel-preview[data-open="true"]::after {
+  animation: vxPanelSheen 0.9s cubic-bezier(0.4, 0, 0.2, 1) reverse;
+}
+.vibe-panel-preview[data-open="true"] .vx-term {
+  animation: vxPanelGlow 0.9s ease-out;
+}
+:where(html.light-theme) .vibe-panel-preview[data-open="true"] .vx-term {
+  animation: vxPanelGlowLight 0.9s ease-out;
+}
+.vibe-panel-preview > * { min-width: 260px; }
+.vibe-panel-preview[data-open="true"] > * {
+  --vx-from: 12px;
+  animation: vxPanelContentIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+}
+.vibe-panel-preview[data-open="false"] > * {
+  --vx-to: 12px;
+  animation: vxPanelContentOut 0.32s var(--vx-close-ease) forwards;
+}
+/* Толқын — Codo панеліндегідей: жолақ, бет, DevTools кезекпен шығады */
+.vibe-panel-preview[data-phase="entering"] .vx-preview > * {
+  --vx-pop-from: 12px;
+  animation: vxPop 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(120ms + var(--d, 0) * 28ms);
+}
+.vx-preview > :nth-child(2) { --d: 1; }
+.vx-preview > :nth-child(3) { --d: 2; }
+body.is-panel-resizing .vibe-panel-preview,
+.vx-split.is-dragging .vibe-panel-preview { transition: none; }
+
+/* Кіші экрандағы қалқымалы панельдер: кіргенде де, шыққанда да сырғиды */
+.vx-overlay-fade[data-open="true"] { animation: vxOverlayFade 0.25s ease-out both; }
+.vx-overlay-fade[data-open="false"] { animation: vxOverlayFade 0.3s ease-in reverse forwards; pointer-events: none; }
+.vx-overlay-slide[data-open="true"] { animation: vxOverlayIn 0.5s var(--vx-open-ease) both; }
+.vx-overlay-slide[data-open="false"] { animation: vxOverlayOut 0.36s var(--vx-close-ease) forwards; pointer-events: none; }
+.vibe-overlay--left.vx-overlay-slide { --vx-ov-x: -110%; --vx-ov-y: 0px; }
+.vibe-overlay--right.vx-overlay-slide { --vx-ov-x: 110%; --vx-ov-y: 0px; }
+.vx-overlay-slide--up { --vx-ov-x: 0px; --vx-ov-y: 40px; }
+
+@keyframes vxOverlayFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vxOverlayIn {
+  from { opacity: 0; transform: translate(var(--vx-ov-x, 0px), var(--vx-ov-y, 0px)); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes vxOverlayOut {
+  from { opacity: 1; transform: none; filter: none; }
+  to { opacity: 0; transform: translate(var(--vx-ov-x, 0px), var(--vx-ov-y, 0px)); filter: blur(4px); }
+}
+
+/* =========================================================
+   Көрініс: адрес жолы және іске қосу күйлері
+   ========================================================= */
+.vx-preview { container-type: inline-size; container-name: vxpreview; }
+.vx-preview__bar { gap: 6px; }
+.vx-preview__address {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vx-preview__address .vx-preview__entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--term-chip-border);
+  border-radius: 6px;
+  background: var(--term-chip-bg);
+  box-sizing: border-box;
+}
+.vx-preview__entry-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vx-preview__page-select {
+  min-width: 0;
+  color: var(--term-text);
+  cursor: pointer;
+  outline: 0;
+}
+.vx-preview__dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fab005;
+  box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.15);
+}
+.vx-preview__dot.is-live { background: #51cf66; box-shadow: 0 0 0 3px rgba(81, 207, 102, 0.15); }
+
+.vx-preview__state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  overflow: auto;
+  box-sizing: border-box;
+  text-align: center;
+  background: #0a0a0a;
+  color: var(--term-muted);
+  font-size: 13px;
+}
+:where(html.light-theme) .vx-preview__state { background: #f5f5f5; }
+.vx-preview__state-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--term-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.vx-preview__state-sub {
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.vx-preview__state.is-error .vx-preview__state-sub { color: #ff8787; font-family: var(--vx-mono); font-size: 12px; }
+:where(html.light-theme) .vx-preview__state.is-error .vx-preview__state-sub { color: #dc2626; }
+.vx-preview__state-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--term-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--term-chip-border);
+  color: var(--term-text);
+  font-weight: 700;
+}
+.vx-preview__state.is-error .vx-preview__state-icon { color: #ff8787; box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.4); }
+.vx-preview__state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.vx-preview__state-actions .vx-btn { gap: 6px; }
+.vx-preview__badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--term-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--term-chip-border);
+  color: var(--term-muted);
+  font-family: var(--vx-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.vx-preview__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--term-chip-border);
+  border-top-color: #51cf66;
+  box-sizing: border-box;
+  animation: vxRotate 0.8s linear infinite;
+}
+@keyframes vxRotate { to { transform: rotate(360deg); } }
+
+.vx-preview__steps {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  font-size: 12.5px;
+}
+.vx-preview__steps li { display: flex; align-items: center; gap: 8px; }
+.vx-preview__steps li::before {
+  content: '';
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--term-chip-border);
+}
+.vx-preview__steps li.is-done { color: var(--term-text); }
+.vx-preview__steps li.is-done::before { border-color: #51cf66; background: #51cf66; box-shadow: inset 0 0 0 2px #0a0a0a; }
+:where(html.light-theme) .vx-preview__steps li.is-done::before { box-shadow: inset 0 0 0 2px #f5f5f5; }
+.vx-preview__steps li.is-active { color: var(--term-text); }
+.vx-preview__steps li.is-active::before { border-color: #51cf66; border-right-color: transparent; animation: vxRotate 0.8s linear infinite; }
+.vx-preview__elapsed { color: var(--term-muted); font-family: var(--vx-mono); font-size: 11px; }
+.vx-preview__cmd {
+  max-width: min(520px, 100%);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--term-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--term-chip-border);
+  color: var(--term-text);
+  font-family: var(--vx-mono);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.vx-preview__tail {
+  width: min(560px, 100%);
+  max-height: 180px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #000;
+  box-shadow: inset 0 0 0 1px var(--term-line);
+  color: #cfcfcf;
+  font-family: var(--vx-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+:where(html.light-theme) .vx-preview__tail { background: #fff; color: #333; }
+
+/* Көрініс тар болғанда: жолақтағы мәтіндер біртіндеп жасырылады */
+@container vxpreview (max-width: 520px) {
+  .vx-preview__bar .vx-term__title { display: none; }
+  .vx-preview__auto span { display: none; }
+}
+@container vxpreview (max-width: 400px) {
+  .vx-preview__device-select { max-width: 74px; }
+  .vx-preview__bar .vx-term__icon { display: none; }
+}
+@container vxpreview (max-width: 330px) {
+  .vx-preview__device-select,
+  .vx-preview__auto { display: none; }
+}
+
+/* =========================================================
+   Консоль (DevTools): мәндер ағашы, топтар, қайталанулар
+   ========================================================= */
+.vx-dev .vx-preview__log {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 8px;
+}
+.vx-dev__icon {
+  flex: 0 0 14px;
+  display: inline-grid;
+  place-items: center;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.vx-preview__log.is-info .vx-dev__icon { color: #74c0fc; }
+.vx-preview__log.is-input .vx-dev__icon { color: #74c0fc; font-size: 14px; }
+.vx-preview__log.is-result .vx-dev__icon { color: var(--term-muted); font-size: 14px; }
+.vx-preview__log.is-warn { border-left: 2px solid rgba(255, 212, 59, 0.55); }
+.vx-preview__log.is-error { border-left: 2px solid rgba(255, 107, 107, 0.65); }
+.vx-preview__log.is-warn .vx-dev__icon { color: #ffd43b; }
+.vx-preview__log.is-error .vx-dev__icon { color: #ff6b6b; }
+.vx-preview__log.is-system {
+  justify-content: center;
+  border-bottom: 0;
+  color: var(--term-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.8;
+}
+.vx-preview__log.is-system .vx-dev__text { flex: 0 1 auto; }
+.vx-dev__repeat {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 16px;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #3a3a3a;
+  color: #f1f1f1;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 1px;
+  box-sizing: border-box;
+}
+:where(html.light-theme) .vx-dev__repeat { background: #d4d4d4; color: #222; }
+.vx-preview__log.is-error .vx-dev__repeat { background: #c92a2a; color: #fff; }
+.vx-preview__log.is-warn .vx-dev__repeat { background: #e8a500; color: #111; }
+.vx-dev__meta {
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 8px;
+  max-width: 40%;
+}
+.vx-dev__src {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--term-muted);
+  font-size: 10.5px;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.vx-dev__group {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--term-muted);
+  font-size: 10px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.vx-dev__group.is-open { transform: rotate(90deg); }
+.vx-preview__log.is-group { font-weight: 600; }
+
+.vx-dev__filters { align-items: center; }
+.vx-dev__chip { display: inline-flex; align-items: center; gap: 4px; }
+.vx-dev__chip .vx-preview__count { margin: 0; }
+.vx-dev__filters-gap { flex: 1 1 auto; }
+.vx-dev__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  color: var(--term-muted);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+.vx-dev__check input { margin: 0; accent-color: #51cf66; }
+.vx-dev__check:hover { color: var(--term-text); }
+
+.vx-dev__ask {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 16px);
+  margin: 6px 8px 2px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 107, 107, 0.06);
+  color: var(--term-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.vx-dev__ask:hover { background: rgba(255, 107, 107, 0.12); border-color: rgba(255, 107, 107, 0.55); }
+.vx-dev__ask-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vx-dev__ask-dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: #ff6b6b; box-shadow: 0 0 10px #ff6b6b; }
+
+/* Мәндер */
+.vx-cv__node { display: inline; }
+.vx-cv__node.is-tree.is-open { display: inline-block; vertical-align: top; max-width: 100%; }
+.vx-cv__toggle {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vx-cv__toggle:hover .vx-cv { text-decoration: underline dotted; text-underline-offset: 2px; }
+.vx-cv__caret {
+  display: inline-block;
+  width: 12px;
+  color: var(--term-muted);
+  font-size: 9px;
+  transition: transform 0.12s ease;
+}
+.vx-cv__node.is-open > .vx-cv__toggle > .vx-cv__caret { transform: rotate(90deg); }
+.vx-cv__children { display: block; padding-left: 14px; border-left: 1px solid var(--term-line); margin-left: 5px; }
+.vx-cv__row { display: block; }
+.vx-cv__key { color: #c4a5fa; }
+:where(html.light-theme) .vx-cv__key { color: #862e9c; }
+.vx-cv--str { color: #ffa8a8; }
+.vx-cv--str.is-plain { color: inherit; }
+.vx-cv--num, .vx-cv--bool { color: #91a7ff; }
+.vx-cv--null, .vx-cv--undef { color: var(--term-muted); }
+.vx-cv--fn { color: #ffd8a8; font-style: italic; }
+.vx-cv--sym, .vx-cv--re, .vx-cv--date { color: #96f2d7; }
+.vx-cv--err { color: #ff8787; }
+.vx-cv--dom { color: #74c0fc; }
+.vx-cv--ref { color: var(--term-muted); font-style: italic; }
+.vx-cv--obj, .vx-cv--arr { color: var(--term-text); font-style: italic; }
+:where(html.light-theme) .vx-cv--str { color: #c92a2a; }
+:where(html.light-theme) .vx-cv--str.is-plain { color: inherit; }
+:where(html.light-theme) .vx-cv--num, :where(html.light-theme) .vx-cv--bool { color: #3b5bdb; }
+:where(html.light-theme) .vx-cv--fn { color: #a35f00; }
+:where(html.light-theme) .vx-cv--sym, :where(html.light-theme) .vx-cv--re, :where(html.light-theme) .vx-cv--date { color: #087f5b; }
+:where(html.light-theme) .vx-cv--dom { color: #1864ab; }
+.vx-preview__log.is-error .vx-cv--str.is-plain,
+.vx-preview__log.is-warn .vx-cv--str.is-plain { color: inherit; }
+.vx-cv__more { color: var(--term-muted); }
+.vx-cv__stack {
+  display: block;
+  margin: 2px 0 0;
+  padding: 0;
+  color: inherit;
+  opacity: 0.85;
+  font: inherit;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.vx-cv__html { color: #74c0fc; }
+
+.vx-ct { margin-top: 4px; max-width: 100%; overflow: auto; }
+.vx-ct table { border-collapse: collapse; font-size: 11px; }
+.vx-ct th, .vx-ct td {
+  padding: 2px 8px;
+  border: 1px solid var(--term-line);
+  text-align: left;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vx-ct th { background: var(--term-chip-bg); color: var(--term-text); font-weight: 600; }
+.vx-ct td { color: var(--term-text); }
+
+@container vxpreview (max-width: 420px) {
+  .vx-dev__check span { display: none; }
+  .vx-dev__meta { display: none; }
+}
+
+/* =========================================================
+   Ортаңғы баған (редактор) — сайдбарлар созылып тарылғанда мәтін сыймай қалмайды
+   ========================================================= */
+.vibe-panel-center { container-type: inline-size; container-name: vxcenter; }
+
+@container vxcenter (max-width: 620px) {
+  .vibe-toolbar { gap: 6px; padding: 0 6px; }
+  .vibe-toolbar__side:first-child { display: none; }
+  .vibe-toolbar__search { flex: 1 1 auto; justify-content: flex-start; }
+}
+@container vxcenter (max-width: 480px) {
+  .vibe-toolbar__divider { margin: 0 2px; }
+}
+@container vxcenter (max-width: 400px) {
+  .vibe-toolbar__search { flex: 0 0 auto; width: 28px; min-width: 28px; padding: 0; justify-content: center; }
+  .vibe-toolbar__search-text { display: none; }
+}
+@container vxcenter (max-width: 340px) {
+  .vibe-run-btn { padding: 0 8px; }
+  .vibe-run-btn__text { display: none; }
+  .vibe-toolbar__divider { display: none; }
+}
+
+/* «Файл ашылмаған» картасы */
+/* Ені де, биіктігі де өлшенеді: терминал биік болғанда карта жинақталады.
+   Ортаға туралау margin: auto арқылы — мазмұн сыймаса жоғарғы жағы кесілмей, айналдыруға болады
+   (align-items: center болғанда тақырып көрінбейтін аймаққа кетіп қалатын) */
+.vx-editor__empty {
+  container-type: size;
+  container-name: vxempty;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.vx-welcome { box-sizing: border-box; margin: auto; flex-shrink: 0; }
+.vx-welcome__title,
+.vx-welcome__sub { overflow-wrap: anywhere; }
+.vx-welcome__key { min-width: 0; }
+.vx-welcome__key > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vx-welcome__kbd { flex-shrink: 0; }
+.vx-welcome__actions .vx-btn { min-width: 0; max-width: 100%; }
+
+@container vxempty (max-width: 420px) {
+  .vx-welcome__keys { grid-template-columns: minmax(0, 1fr); }
+}
+@container vxempty (max-width: 300px) {
+  .vx-welcome__actions { flex-direction: column; align-items: stretch; }
+  .vx-welcome__actions .vx-btn { justify-content: center; }
+}
+/* Аласа редактор (терминал/көрініс биік): алдымен пернелер, сосын сипаттама мен белгіше жасырылады */
+@container vxempty (max-height: 520px) {
+  .vx-welcome__keys { display: none; }
+}
+@container vxempty (max-height: 330px) {
+  .vx-orb { display: none; }
+  .vx-welcome__sub { display: none; }
+  .vx-welcome__actions { margin-top: 14px; flex-direction: row; align-items: center; }
+}
+@container vxempty (max-height: 200px) {
+  .vx-welcome__title { font-size: 0.95rem; }
+  .vx-welcome__actions { margin-top: 10px; }
+}
+@container vxempty (max-width: 300px) {
+  .vx-welcome__title { font-size: 1rem; }
+  .vx-welcome__sub { font-size: 12px; }
+  .vx-welcome__keys { margin-top: 18px; }
+  .vx-welcome__key { padding: 0 6px 0 10px; }
+  .vx-orb { transform: scale(0.85); }
+}
+@container vxempty (max-width: 220px) {
+  .vx-welcome__kbd { display: none; }
+  .vx-welcome__sub { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-preview__spinner,
+  .vx-preview__steps li.is-active::before { animation-duration: 2s; }
+}
+
+/* =========================================================
+   Сол панель жабық: басты беттің sidebar-ы сияқты белгішелер жолағы (rail).
+   Панельдің жиегі мен картасы көрініп тұрады, ішінде бірдей 40px шаршылар
+   ========================================================= */
+.vibe-panel-left.has-rail[data-open="false"] {
+  border-color: var(--ide-border);
+  opacity: 1;
+}
+/* Жолақ панель ашық та, жабық та кезде тұрады: сол жақта бекітілген баған,
+   сайдбардың мазмұны оның оң жағында орналасады */
+.vibe-panel-left.has-rail {
+  display: flex;
+  flex-direction: row;
+}
+.vibe-panel-left.has-rail > .vx-rail {
+  position: relative;
+  inset: auto;
+  flex: 0 0 56px;
+  width: 56px;
+  min-width: 56px;
+  animation: vxRailIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s backwards;
+}
+.vibe-panel-left.has-rail[data-open="true"] > .vx-rail {
+  border-right: 1px solid var(--ide-border);
+}
+.vibe-panel-left.has-rail > :not(.vx-rail) {
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+/* Ашылып жатқанда (сайдбар мазмұны кіреді) жолақ бірден жоғалады */
+.vibe-panel-left.has-rail[data-open="false"] > :not(.vx-rail) {
+  position: absolute;
+  inset: 0 0 0 56px;
+  width: auto;
+}
+
+.vx-rail {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+.vx-rail__btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: #161616;
+  box-shadow: inset 0 0 0 1px #262626;
+  color: #d4d4d4;
+  cursor: pointer;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, transform 0.25s var(--vx-spring);
+  animation: vxPop 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(200ms + var(--d, 0) * 28ms);
+}
+.vx-rail__btn:hover {
+  background: #222222;
+  box-shadow: inset 0 0 0 1px #3a3a3a;
+  color: #ffffff;
+}
+.vx-rail__btn:active { transform: scale(0.9); }
+.vx-rail__btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--ide-accent); }
+.vx-rail__btn.is-on { color: #ffffff; box-shadow: inset 0 0 0 1px #333333, 0 0 18px -8px rgba(255, 255, 255, 0.35); }
+:where(html.light-theme) .vx-rail__btn {
+  background: #e9e9e9;
+  box-shadow: inset 0 0 0 1px #d6d6d6;
+  color: #2b2b2b;
+}
+:where(html.light-theme) .vx-rail__btn:hover {
+  background: #dddddd;
+  box-shadow: inset 0 0 0 1px #c2c2c2;
+  color: #000000;
+}
+:where(html.light-theme) .vx-rail__btn.is-on {
+  color: #000000;
+  box-shadow: inset 0 0 0 1px #bdbdbd, 0 0 18px -8px rgba(0, 0, 0, 0.3);
+}
+.vx-rail__divider {
+  width: 22px;
+  height: 1px;
+  margin: 2px 0;
+  flex-shrink: 0;
+  background: var(--ide-border);
+}
+.vx-rail__spacer { flex: 1 1 auto; }
+.vx-rail__badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #4dabf7;
+  color: #0a0a0a;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* Ашық бөлімнің белгісі: белгішенің сол жағындағы жарық сызық */
+.vx-rail__btn::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ide-accent, #fafafa);
+  transform: translateY(-50%);
+  transition: height 0.25s var(--vx-spring, ease);
+}
+.vx-rail__btn.is-on::before { height: 20px; }
+
+/* Белгіше тұспалы — бірден шығады, аты мен пернелерін көрсетеді */
+.vx-rail-tip {
+  position: fixed;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #1c1c1c;
+  box-shadow: inset 0 0 0 1px #2f2f2f, 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  color: #f0f0f0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: vxRailTipIn 0.14s ease-out;
+}
+.vx-rail-tip kbd {
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #a3a3a3;
+  font-family: inherit;
+  font-size: 10.5px;
+}
+:where(html.light-theme) .vx-rail-tip {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #d6d6d6, 0 8px 24px -8px rgba(0, 0, 0, 0.25);
+  color: #111111;
+}
+:where(html.light-theme) .vx-rail-tip kbd {
+  background: rgba(0, 0, 0, 0.06);
+  color: #555555;
+}
+@keyframes vxRailTipIn {
+  from { opacity: 0; transform: translate(-4px, -50%); }
+  to { opacity: 1; transform: translateY(-50%); }
+}
+
+@keyframes vxRailIn {
+  from { opacity: 0; filter: blur(4px); transform: translateX(-8px); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+
+/* =========================================================
+   Сол сайтбардағы «Іздеу» бөлімі (SearchPanel)
+   ========================================================= */
+.vx-search { font-size: 13px; }
+
+.vx-search__box {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 10px 8px;
+  padding: 0 4px 0 9px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--ide-hover);
+  box-shadow: inset 0 0 0 1px var(--ide-border);
+  color: var(--vx-muted);
+  transition: box-shadow 0.15s ease;
+}
+.vx-search__box:focus-within { box-shadow: inset 0 0 0 1.5px var(--ide-accent); }
+
+.vx-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ide-text);
+  font: inherit;
+  font-size: 13px;
+  user-select: text;
+}
+.vx-search__input::placeholder { color: var(--vx-dim); }
+
+.vx-search__opt {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.vx-search__opt:hover { color: var(--ide-text); background: rgba(127, 127, 127, 0.15); }
+.vx-search__opt.is-on { color: var(--ide-editor-bg, #0a0a0a); background: var(--ide-accent); }
+
+.vx-search__summary,
+.vx-search__hint {
+  flex-shrink: 0;
+  margin: 0 12px 6px;
+  color: var(--vx-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.vx-search__hint { color: var(--vx-dim); }
+
+.vx-search__results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 4px 12px;
+}
+
+.vx-search__file-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding-right: 6px;
+  border-radius: 6px;
+}
+.vx-search__file-row:hover { background: var(--ide-hover); }
+
+.vx-search__chev {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--vx-muted);
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+.vx-search__chev:disabled { visibility: hidden; }
+.vx-search__chev.is-collapsed { transform: rotate(-90deg); }
+
+.vx-search__file-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ide-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vx-search__name { flex-shrink: 0; font-weight: 500; }
+.vx-search__dir {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vx-dim);
+  font-size: 11.5px;
+}
+.vx-search__count {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--vx-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+.vx-search__hit {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 24px;
+  padding: 3px 8px 3px 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vx-muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.vx-search__hit:hover { background: var(--ide-hover); color: var(--ide-text); }
+.vx-search__hit:focus-visible,
+.vx-search__file-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--ide-accent); border-radius: 6px; }
+.vx-search__ln {
+  flex-shrink: 0;
+  min-width: 22px;
+  color: var(--vx-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.vx-search__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ide-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+.vx-search__text mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: rgba(255, 196, 0, 0.28);
+  color: var(--ide-text);
+  box-shadow: inset 0 0 0 1px rgba(255, 196, 0, 0.45);
+}
+:where(html.light-theme) .vx-search__text mark { background: rgba(255, 176, 0, 0.3); }
+.vx-search__more { padding: 2px 8px 4px 58px; color: var(--vx-dim); font-size: 11.5px; }

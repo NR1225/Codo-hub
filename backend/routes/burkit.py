@@ -212,7 +212,7 @@ async def chat(
 ):
     key, _ = burkit_service.resolve_key(user)
     if not key:
-        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін Gemini API кілтіңізді енгізіңіз.")
+        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін API кілтіңізді қосыңыз (қазір Google Gemini кілті қолданылады).")
     if body.messages[-1].role != "user":
         raise HTTPException(status_code=400, detail="Соңғы хабар қолданушыдан болуы керек.")
     if sum(len(f.content or "") for f in body.projectFiles) > MAX_PROJECT_CHARS:
@@ -263,7 +263,7 @@ async def inline_edit(request: Request, body: BurkitInlineRequest, user: User = 
     """Ctrl+K: белгіленген жолдардың орнына келетін код (толық жауап, streaming-сіз)"""
     key, _ = burkit_service.resolve_key(user)
     if not key:
-        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін Gemini API кілтіңізді енгізіңіз.")
+        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін API кілтіңізді қосыңыз (қазір Google Gemini кілті қолданылады).")
     lines = body.content.count("\n") + 1
     if body.startLine > lines + 1 or body.endLine > lines:
         raise HTTPException(status_code=400, detail="Жолдар файлдан тыс.")

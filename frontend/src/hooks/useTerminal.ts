@@ -59,6 +59,8 @@ interface UseTerminalReturn {
   requestSync: () => void;
   /** Командаларды shell-ге жіберу (Enter-мен бірге) */
   sendText: (text: string) => void;
+  /** Жұмыс істеп тұрған процесті тоқтату (Ctrl+C) */
+  interrupt: () => void;
   copySelection: () => boolean;
   paste: () => void;
   selectAll: () => void;
@@ -359,6 +361,12 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
       if (info.mode === 'pipe') {
         terminalRef.current?.writeln(`\x1b[33m! ${i18n.t('vibecoding.terminal.msg.pipeMode')}\x1b[0m`);
       }
+      // Жоба папкасында ашылмады — ескертуді TerminalPanel жолақпен көрсетеді (xterm ішіне жазсақ,
+      // shell іске қосылғанда экранды қайта салып, мәтінді бұзады)
+      const wanted = optionsRef.current?.projectId ?? null;
+      if (info.projectWarning || (wanted && !info.projectId)) {
+        logEvent(`Терминал жоба папкасында ашылмады: ${info.projectWarning || 'projectNotFound'}`);
+      }
       fit();
       optionsRef.current?.onConnect?.(info);
     });
@@ -458,6 +466,10 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     term.focus();
   }, []);
 
+  const interrupt = useCallback(() => {
+    terminalRef.current?.input('');
+  }, []);
+
   const copySelection = useCallback(() => {
     const term = terminalRef.current;
     if (!term?.hasSelection()) return false;
@@ -520,6 +532,7 @@ export function useTerminal(options?: UseTerminalOptions): UseTerminalReturn {
     fit,
     requestSync,
     sendText,
+    interrupt,
     copySelection,
     paste,
     selectAll,

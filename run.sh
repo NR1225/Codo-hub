@@ -24,22 +24,22 @@ cleanup() {
     if [ ! -z "$FRONTEND_PID" ]; then
         kill $FRONTEND_PID 2>/dev/null
     fi
-    # Also kill any processes on port 3000 (in case backend didn't register properly)
-    PORT_3000_PIDS=$(lsof -ti:3000 2>/dev/null)
-    if [ ! -z "$PORT_3000_PIDS" ]; then
-        echo "$PORT_3000_PIDS" | xargs kill -9 2>/dev/null
+    # Also kill any processes on port 8000 (in case backend didn't register properly)
+    PORT_8000_PIDS=$(lsof -ti:8000 2>/dev/null)
+    if [ ! -z "$PORT_8000_PIDS" ]; then
+        echo "$PORT_8000_PIDS" | xargs kill -9 2>/dev/null
     fi
     exit
 }
 
 trap cleanup SIGINT SIGTERM
 
-# Check and kill processes on port 3000
-echo -e "${YELLOW}Checking port 3000...${NC}"
-PORT_3000_PIDS=$(lsof -ti:3000 2>/dev/null)
-if [ ! -z "$PORT_3000_PIDS" ]; then
-    echo -e "${YELLOW}Port 3000 is in use. Killing existing processes...${NC}"
-    echo "$PORT_3000_PIDS" | xargs kill -9 2>/dev/null
+# Check and kill processes on port 8000
+echo -e "${YELLOW}Checking port 8000...${NC}"
+PORT_8000_PIDS=$(lsof -ti:8000 2>/dev/null)
+if [ ! -z "$PORT_8000_PIDS" ]; then
+    echo -e "${YELLOW}Port 8000 is in use. Killing existing processes...${NC}"
+    echo "$PORT_8000_PIDS" | xargs kill -9 2>/dev/null
     sleep 1
 fi
 
@@ -64,9 +64,9 @@ if ! kill -0 $BACKEND_PID 2>/dev/null; then
     exit 1
 fi
 
-# Verify backend is listening on port 3000
-if ! lsof -ti:3000 >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: Backend may not be listening on port 3000.${NC}"
+# Verify backend is listening on port 8000
+if ! lsof -ti:8000 >/dev/null 2>&1; then
+    echo -e "${YELLOW}Warning: Backend may not be listening on port 8000.${NC}"
 fi
 
 # Start Frontend
@@ -81,7 +81,7 @@ npm run dev &
 FRONTEND_PID=$!
 cd ..
 
-echo -e "\n${BLUE}✓ Backend running on http://localhost:3000 (PID: $BACKEND_PID)${NC}"
+echo -e "\n${BLUE}✓ Backend running on http://localhost:8000 (PID: $BACKEND_PID)${NC}"
 echo -e "${BLUE}✓ Frontend running (PID: $FRONTEND_PID)${NC}"
 echo -e "\n${YELLOW}Press Ctrl+C to stop both servers${NC}\n"
 
