@@ -55,3 +55,5 @@ Thumbs.db
 
 # Logs
 *.log
+# Runtime git repos created by the server
+backend/data/codo_repos/
