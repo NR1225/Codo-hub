@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useVibecoding, VirtualFile, normalizePath } from '../../contexts/VibecodingContext';
+import { useVibecoding, VirtualFile, normalizePath, nextProjectName } from '../../contexts/VibecodingContext';
 import {
   FolderIcon,
   FolderPlusIcon,
@@ -393,9 +393,9 @@ const FileExplorerPanel: React.FC = () => {
   }, [dispatch]);
 
   const handleCreateProject = useCallback(() => {
-    dispatch({ type: 'CREATE_PROJECT', payload: { name: `Project ${state.projects.length + 1}` } });
+    dispatch({ type: 'CREATE_PROJECT', payload: { name: nextProjectName(state.projects) } });
     setShowProjectMenu(false);
-  }, [dispatch, state.projects.length]);
+  }, [dispatch, state.projects]);
 
   const copyPath = useCallback((path: string) => {
     navigator.clipboard?.writeText(path).catch(() => {});

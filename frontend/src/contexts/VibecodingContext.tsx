@@ -188,6 +188,24 @@ function createDefaultProject(): Project {
 
 // ─── Жоба табтары ────────────────────────────────────────────────────
 
+const DEFAULT_PROJECT_NAME_RE = /^Project (\d+)$/;
+
+/** Бос жоба: файлы, папкасы жоқ және аты әдепкі ("Project N") — табы жабылса сақталмайды */
+export function isBlankProject(project: Project): boolean {
+  return project.files.length === 0
+    && (project.folders?.length ?? 0) === 0
+    && DEFAULT_PROJECT_NAME_RE.test(project.name.trim());
+}
+
+/** Келесі әдепкі ат: бар "Project N" атауларының ең үлкенінен кейінгісі */
+export function nextProjectName(projects: Project[]): string {
+  const max = projects.reduce((m, p) => {
+    const match = DEFAULT_PROJECT_NAME_RE.exec(p.name.trim());
+    return match ? Math.max(m, Number(match[1])) : m;
+  }, 0);
+  return `Project ${max + 1}`;
+}
+
 /** Ашық жоба табтары: тек бар жобалар, белсенді жоба әрқашан ішінде */
 export function projectTabIds(state: Pick<VibecodingState, 'projects' | 'activeProjectId' | 'openProjectIds'>): string[] {
   const exists = new Set(state.projects.map(p => p.id));
@@ -260,16 +278,26 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       return activateProject(state, action.payload.projectId);
     }
 
-    // Табты жабу жобаны жоймайды — тек жолақтан алынады
+    // Табты жабу жобаны жоймайды — тек жолақтан алынады.
+    // Ерекшелік: ішінде ештеңе жасалмаған бос жоба сақталмайды (жабылғанда толық жойылады).
     case 'CLOSE_PROJECT_TAB': {
       const { projectId } = action.payload;
       const tabs = projectTabIds(state);
       if (tabs.length <= 1 || !tabs.includes(projectId)) return state;
-      if (state.activeProjectId !== projectId) return { ...state, openProjectIds: tabs.filter(id => id !== projectId) };
-      const idx = tabs.indexOf(projectId);
-      const neighbor = tabs[idx + 1] ?? tabs[idx - 1];
-      const switched = activateProject(state, neighbor);
-      return { ...switched, openProjectIds: projectTabIds(switched).filter(id => id !== projectId) };
+      let next: VibecodingState;
+      if (state.activeProjectId !== projectId) {
+        next = { ...state, openProjectIds: tabs.filter(id => id !== projectId) };
+      } else {
+        const idx = tabs.indexOf(projectId);
+        const neighbor = tabs[idx + 1] ?? tabs[idx - 1];
+        const switched = activateProject(state, neighbor);
+        next = { ...switched, openProjectIds: projectTabIds(switched).filter(id => id !== projectId) };
+      }
+      const closed = state.projects.find(p => p.id === projectId);
+      if (!closed || !isBlankProject(closed)) return next;
+      const projectTabs = { ...(next.projectTabs ?? {}) };
+      delete projectTabs[projectId];
+      return { ...next, projectTabs, projects: next.projects.filter(p => p.id !== projectId) };
     }
 
     case 'REORDER_PROJECT_TABS': {
@@ -663,7 +691,11 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
 
     // Сервердегі жобалармен ауыстыру (сервер — негізгі дерек көзі)
     case 'LOAD_PROJECTS': {
-      const { projects, ownerId } = action.payload;
+      const { ownerId } = action.payload;
+      // Бұрын жабылып, бірақ сақталып қалған бос жобаларды тазалау (табта ашығы қалады)
+      const openIds = new Set([...(state.openProjectIds ?? []), state.activeProjectId]);
+      const cleaned = action.payload.projects.filter(p => openIds.has(p.id) || !isBlankProject(p));
+      const projects = cleaned.length > 0 ? cleaned : action.payload.projects;
       const keepActive = projects.some(p => p.id === state.activeProjectId);
       const activeProjectId = keepActive ? state.activeProjectId : projects[0]?.id ?? null;
       const activeProject = projects.find(p => p.id === activeProjectId);

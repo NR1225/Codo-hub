@@ -143,16 +143,15 @@
   background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb,
-  .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb,
+.dark-theme .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
+}
 
-  .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb:hover,
-  .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
-  }
+.dark-theme .code-editor.read-only .code-editor-content::-webkit-scrollbar-thumb:hover,
+.dark-theme .code-editor.read-only .code-editor-content pre::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
 .code-editor.read-only .code-editor-content pre {

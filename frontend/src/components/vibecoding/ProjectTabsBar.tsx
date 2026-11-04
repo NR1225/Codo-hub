@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useVibecoding, projectTabIds } from '../../contexts/VibecodingContext';
+import { useVibecoding, projectTabIds, nextProjectName } from '../../contexts/VibecodingContext';
 import { PlusIcon, CloseIcon, ChevronDownIcon, FolderIcon, SearchIcon } from './icons';
 
 /* Жабылған табтар тізімі (браузердегідей Alt+Shift+T — соңғысын қайта ашу).
@@ -96,9 +96,9 @@ const ProjectTabsBar: React.FC = () => {
   }, [dispatch]);
 
   const createProject = useCallback(() => {
-    dispatch({ type: 'CREATE_PROJECT', payload: { name: `Project ${state.projects.length + 1}` } });
+    dispatch({ type: 'CREATE_PROJECT', payload: { name: nextProjectName(state.projects) } });
     setMenuOpen(false);
-  }, [dispatch, state.projects.length]);
+  }, [dispatch, state.projects]);
 
   const startRename = (projectId: string, name: string) => {
     setRenamingId(projectId);

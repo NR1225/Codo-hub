@@ -244,15 +244,14 @@ a.btn {
     0 4px 6px -2px rgba(212, 212, 212, 0.2) !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  .btn-primary {
-    background: var(--primary-color);
-    color: #0a0a0a;
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .btn-primary {
+  background: var(--primary-color);
+  color: #0a0a0a;
+}
 
-  .btn-primary:hover:not(:disabled) {
-    background: var(--primary-hover);
-  }
+.dark-theme .btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
 }
 
 .light-theme .btn-primary {
@@ -281,5 +280,4 @@ a.btn {
   outline: none !important;
   border: none !important;
 }
-
 

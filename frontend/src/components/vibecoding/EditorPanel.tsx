@@ -120,12 +120,28 @@ const EditorPanel: React.FC = () => {
   const formatHandlerRef = useRef<(() => void) | null>(null);
   const revealHandlerRef = useRef<(() => void) | null>(null);
   const markersSubRef = useRef<{ dispose: () => void } | null>(null);
+  // Жобаның ең соңғы файлдары — Monaco моделін күймен салыстыру үшін (onMount бір рет қана сақталады)
+  const filesRef = useRef(activeProject?.files);
+  filesRef.current = activeProject?.files;
 
   const handleEditorMount: OnMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
 
     // Monaco модельдерінің URI-і = файл жолы (Editor path={...}); Codo-ға қай жол екенін береміз
     const pathOf = (uri: { path?: string } | undefined) => String(uri?.path ?? '').replace(/^\//, '');
+
+    // Monaco бұрын ашылған файлдың моделін жадта қалдырады және қайта ашқанда `value`-ді елемейді.
+    // Файлды бұл арада Codo (ЖИ) немесе терминал өзгертсе, редактор ескі мәтінді көрсетіп, келесі
+    // пернеде сол ескі мәтінді қайта жазып жіберетін. Сондықтан модельді әрқашан күйге теңестіреміз.
+    const syncModel = () => {
+      const model = editor.getModel();
+      if (!model) return;
+      const file = filesRef.current?.find(f => f.path === pathOf(model.uri));
+      if (!file || model.getValue() === file.content) return;
+      model.pushEditOperations([], [{ range: model.getFullModelRange(), text: file.content }], () => null);
+    };
+    syncModel();
+    editor.onDidChangeModel(syncModel);
     const reportProblems = () => {
       const markers: { severity: number; resource: { path: string }; startLineNumber: number; startColumn: number; message: string }[] =
         monaco.editor.getModelMarkers({});

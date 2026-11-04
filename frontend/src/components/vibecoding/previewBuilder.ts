@@ -275,7 +275,11 @@ class Builder {
 
   /** @import файлдарын ішке кіргізу, url(...) → data: URL */
   css(code: string, filePath: string): string {
-    code = code.replace(/@import\s+(?:url\(\s*)?(["']?)([^"')\s;]+)\1\s*\)?([^;]*);/gi, (m, _q, ref: string, media: string) => {
+    // @import url('…') немесе @import '…'. Тырнақшадағы адрестің ішінде «;» болуы мүмкін
+    // (Google Fonts: wght@400;600) — бұрын адрес орнына «url(» оқылып, жалған ескерту шығатын
+    const IMPORT_RE = /@import\s+(?:url\(\s*(["']?)([^"')]+)\1\s*\)|(["'])([^"']+)\3)([^;]*);/gi;
+    code = code.replace(IMPORT_RE, (m, _q1, urlRef: string | undefined, _q2, strRef: string | undefined, media: string) => {
+      const ref = (urlRef ?? strRef ?? '').trim();
       const f = this.lookup(filePath, ref, ['.css']);
       if (!f) {
         if (!isExternal(ref)) this.note(`CSS: «${ref}» файлы табылмады (${filePath})`);

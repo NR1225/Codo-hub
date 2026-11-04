@@ -69,14 +69,13 @@
   background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .file-explorer-content::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .file-explorer-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
+}
 
-  .file-explorer-content::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
-  }
+.dark-theme .file-explorer-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #d4d4d4 0%, #d4d4d4 50%, #d4d4d4 100%);
 }
 
 .file-explorer-empty {

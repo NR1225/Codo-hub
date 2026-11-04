@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faLaptop, faHeart, faComment, faEye, faFileAlt, faImage, faPen, faCopy, faCheck,
-  faArrowLeft, faPlus, faUpload, faTriangleExclamation,
+  faArrowLeft, faPlus, faUpload, faTriangleExclamation, faLaptopCode,
 } from '@fortawesome/free-solid-svg-icons';
 import { User, CodeFile } from '../utils/api';
 import { apiService } from '../utils/api';
@@ -20,6 +20,7 @@ import ProfileOpinions from '../components/profile/ProfileOpinions';
 import { ratingOf, RATING_ICON } from '../components/profile/rating';
 import ProjectMenu from '../components/profile/ProjectMenu';
 import ProjectEditModal, { ProjectEdit } from '../components/profile/ProjectEditModal';
+import ProfileVibeProjects, { visibleVibeProjects } from '../components/profile/ProfileVibeProjects';
 import { useToast, useConfirm } from '../contexts/ToastContext';
 // Код карталары (.cdx-card) мен тор/тізім ауыстырғышы (.cdx-seg) — кодтар бетінің стильдері
 import './CodesPage.css';
@@ -120,11 +121,27 @@ const Profile: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [view, setView] = useState<ViewMode>(readViewMode);
   // Оң жақ панель: кодтар не адам туралы пікірлер (стористерден)
-  const [tab, setTab] = useState<'codes' | 'opinions'>('codes');
+  const [tab, setTab] = useState<'codes' | 'vibe' | 'opinions'>('codes');
   const [opinionCounts, setOpinionCounts] = useState({ praise: 0, complaint: 0 });
+  // Vibecoding бетінде жасалған жобалар саны (тек өз профилімде; null — әлі белгісіз)
+  const [vibeCount, setVibeCount] = useState<number | null>(null);
   // ⋮ мәзірінен ашылған өңдеу терезесі
   const [editingCode, setEditingCode] = useState<CodeFile | null>(null);
   const profileUsername = user?.username;
+
+  // Өз профилімде — Vibecoding жобаларының саны (табтағы белгі үшін)
+  const isOwn = !!currentUser && !!profileUsername && currentUser.username === profileUsername;
+  useEffect(() => {
+    setVibeCount(null);
+    if (!isOwn) return;
+    let alive = true;
+    apiService.getVibecodingProjects()
+      .then((list) => alive && setVibeCount(visibleVibeProjects(list).length))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isOwn]);
 
   // Басқа профильге ауысқанда — «Кодтар» табы және пікірлер саны (панельдегі қорытынды үшін)
   useEffect(() => {
@@ -457,6 +474,16 @@ const Profile: React.FC = () => {
                     </span>
                     <span className="prf-main__count">{userCodes.length}</span>
                   </button>
+                  {isOwnProfile && (
+                    <button type="button" role="tab" aria-selected={tab === 'vibe'}
+                      className={`prf-navtab ${tab === 'vibe' ? 'is-on' : ''}`} onClick={() => setTab('vibe')}>
+                      <span className="prf-navtab__icon"><FontAwesomeIcon icon={faLaptopCode} /></span>
+                      <span className="prf-navtab__text">
+                        <span className="prf-navtab__label">{t('profile.vibe.title', 'Vibecoding жобалары')}</span>
+                      </span>
+                      <span className="prf-main__count">{vibeCount ?? '…'}</span>
+                    </button>
+                  )}
                   <button type="button" role="tab" aria-selected={tab === 'opinions'}
                     className={`prf-navtab prf-navtab--rate is-${rating.level} ${tab === 'opinions' ? 'is-on' : ''}`}
                     onClick={() => setTab('opinions')}>
@@ -483,11 +510,23 @@ const Profile: React.FC = () => {
           <main className="prf-main">
             <header className="prf-main__head">
               <h2 className="prf-main__title">
-                {tab === 'opinions' ? t('profile.opinions.title') : isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
-                <span className="prf-main__count">{tab === 'opinions' ? opinionTotal : userCodes.length}</span>
+                {tab === 'opinions'
+                  ? t('profile.opinions.title')
+                  : tab === 'vibe'
+                    ? t('profile.vibe.title', 'Vibecoding жобалары')
+                    : isOwnProfile ? t('profile.myCodeFiles') : t('profile.codeFiles')}
+                <span className="prf-main__count">
+                  {tab === 'opinions' ? opinionTotal : tab === 'vibe' ? vibeCount ?? '…' : userCodes.length}
+                </span>
               </h2>
               <div className="prf-main__tools">
                 {tab === 'codes' && userCodes.length > 0 && <ViewToggle value={view} onChange={changeView} />}
+                {tab === 'vibe' && (
+                  <button type="button" className="prf-btn prf-btn--primary" onClick={() => navigate('/vibecoding')}>
+                    <FontAwesomeIcon icon={faLaptopCode} />
+                    <span className="prf-btn__text">{t('profile.vibe.openVibecoding', 'Vibecoding-ті ашу')}</span>
+                  </button>
+                )}
                 {tab === 'codes' && isOwnProfile && (
                   <button type="button" className="prf-btn prf-btn--primary" onClick={() => navigate('/upload')}>
                     <FontAwesomeIcon icon={faPlus} />
@@ -500,6 +539,8 @@ const Profile: React.FC = () => {
             <div className="prf-main__body">
               {tab === 'opinions' ? (
                 <ProfileOpinions username={user.username} currentUserId={currentUser?.id} onCountsChange={setOpinionCounts} />
+              ) : tab === 'vibe' && isOwnProfile ? (
+                <ProfileVibeProjects onCountChange={setVibeCount} />
               ) : userCodes.length === 0 ? (
                 <div className="prf-empty">
                   <span className="prf-empty__icon">

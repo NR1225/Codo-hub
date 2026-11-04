@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useVibecoding, detectLanguage } from '../../contexts/VibecodingContext';
+import { useVibecoding, detectLanguage, nextProjectName } from '../../contexts/VibecodingContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   FilePlusIcon,
@@ -117,7 +117,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
         id: 'new-project',
         title: t('vibecoding.commands.newProject', 'Жаңа жоба жасау'),
         icon: <FolderPlusIcon size={15} />,
-        run: () => dispatch({ type: 'CREATE_PROJECT', payload: { name: `Project ${state.projects.length + 1}` } }),
+        run: () => dispatch({ type: 'CREATE_PROJECT', payload: { name: nextProjectName(state.projects) } }),
       },
       {
         id: 'toggle-explorer',
@@ -195,7 +195,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ mode, onClose }) => {
       },
     ];
     return cmds;
-  }, [t, navigate, dispatch, activeProject, state.projects.length, theme, toggleTheme]);
+  }, [t, navigate, dispatch, activeProject, state.projects, theme, toggleTheme]);
 
   /* ── Build file list from the active project ── */
   const fileList = activeProject?.files || [];

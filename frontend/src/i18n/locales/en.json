@@ -581,6 +581,18 @@
       "basedOn": "based on {{count}} opinions",
       "noneHint": "No one has rated yet",
       "meter": "Praise: {{praise}}, complaints: {{complaint}}"
+    },
+    "vibe": {
+      "title": "Vibecoding projects",
+      "empty": "No Vibecoding projects yet",
+      "emptyText": "Projects you create on the Vibecoding page will appear here.",
+      "openVibecoding": "Open Vibecoding",
+      "open": "Open in Vibecoding",
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "folders_one": "{{count}} folder",
+      "folders_other": "{{count}} folders",
+      "loadError": "Couldn't load projects"
     }
   },
   "changeBackground": {
@@ -619,6 +631,10 @@
     "commentsLikes": "Comments & Likes",
     "userProfiles": "User Profiles",
     "searchFilter": "Search & Filter",
+    "security": "Security",
+    "community": "Community",
+    "performance": "Performance",
+    "mobile": "Mobile",
     "showAllFeatures": "Show All Features",
     "links": "Links",
     "info": "Information",
@@ -1057,7 +1073,12 @@
     "messagingDesc": "Exchange messages with friends and stay connected",
     "commentsLikesDesc": "Leave comments and like codes",
     "userProfilesDesc": "Customize your profile and view statistics",
-    "searchFilterDesc": "Search and filter codes by language, tags, or name"
+    "searchFilterDesc": "Search and filter codes by language, tags, or name",
+    "securityDesc": "Your data is protected by encrypted connections and two-step verification",
+    "communityDesc": "Meet developers from around the world and share experience",
+    "performanceDesc": "Fast loading and a lightweight interface keep your time on the code",
+    "mobileDesc": "Use it comfortably on any device, phone or tablet",
+    "privacyDesc": "You decide who can see your projects and notes"
   },
   "terms": {
     "title": "Terms of Use",

@@ -106,6 +106,7 @@ function runThemeTransition(resolved: ResolvedTheme, update: () => void) {
   root.classList.toggle('vt-to-dark', toDark);
   root.classList.toggle('vt-to-light', !toDark);
 
+  const vtAnimations: Animation[] = [];
   const transition = doc.startViewTransition(async () => {
     flushSync(update);
     setThemeClasses(resolved);
@@ -119,17 +120,27 @@ function runThemeTransition(resolved: ResolvedTheme, update: () => void) {
     // мәтіндерімен бірге көрінеді.
     // Ақ → қара: ескі (ақ) кадр ортадағы диагональ жолаққа жиырылады.
     // Қара → ақ: ескі (қара) кадр бұрыштарға қарай кішірейеді, ортадан ақ ашылады.
-    root.animate(
+    const DURATION = 650;
+    vtAnimations.push(root.animate(
       { clipPath: toDark ? [diagonalBand(1), diagonalBand(0)] : [diagonalCorners(0), diagonalCorners(1)] },
       {
-        duration: 650,
+        duration: DURATION,
         easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
-        fill: 'both',
+        // 'both' емес: аяқталған анимация ұсталып қалмауы керек
+        fill: 'forwards',
         pseudoElement: '::view-transition-old(root)',
       },
-    );
+    ));
+    // Нөлдік енді жолақ (диагональ) antialiasing-пен жіңішке сызық болып
+    // экранда «қатып» қалмауы үшін ескі кадр соңғы сәтте толық сөнеді.
+    vtAnimations.push(root.animate(
+      { opacity: [1, 0] },
+      { duration: 80, delay: DURATION - 80, fill: 'forwards', pseudoElement: '::view-transition-old(root)' },
+    ));
   }).catch(() => {});
   const cleanup = () => {
+    // Анимациялар document-те жиналып қалмасын (әр ауысқан сайын көбейетін)
+    vtAnimations.forEach((a) => { try { a.cancel(); } catch { /* ignore */ } });
     root.classList.remove('vt-to-dark', 'vt-to-light');
     done();
   };

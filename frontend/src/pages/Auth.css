@@ -1097,13 +1097,14 @@
     0 2.1px 6.2px rgba(212, 212, 212, 0.15);
 }
 
-@media (prefers-color-scheme: dark) {
-  .form-group input:focus {
-    box-shadow: 
-      0 0 0 2.1px rgba(212, 212, 212, 0.1),
-      0 2.1px 6.2px rgba(212, 212, 212, 0.15);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .form-group input:focus {
+  box-shadow: 
+    0 0 0 2.1px rgba(212, 212, 212, 0.1),
+    0 2.1px 6.2px rgba(212, 212, 212, 0.15);
 }
+
 
 .form-group input:focus-visible {
   outline: 1.0px solid var(--primary-color);

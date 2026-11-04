@@ -15,27 +15,29 @@
   box-shadow: 0 -0.64px 0 0 rgba(251, 191, 36, 0.2);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer {
-    box-shadow: 0 -0.64px 0 0 rgba(251, 191, 36, 0.2);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .footer {
+  box-shadow: 0 -0.64px 0 0 rgba(251, 191, 36, 0.2);
 }
+
 
 .light-theme .footer {
   background: var(--bg-secondary);
   box-shadow: 0 -0.64px 0 0 rgba(251, 191, 36, 0.2);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer {
-    background: linear-gradient(180deg, 
-      transparent 0%, 
-      rgba(28, 28, 28, 0.98) 50%,
-      var(--bg-secondary) 100%);
-    box-shadow: var(--shadow-2xl),
-                0 -0.64px 0 0 rgba(251, 191, 36, 0.3);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .footer {
+  background: linear-gradient(180deg, 
+    transparent 0%, 
+    rgba(28, 28, 28, 0.98) 50%,
+    var(--bg-secondary) 100%);
+  box-shadow: var(--shadow-2xl),
+              0 -0.64px 0 0 rgba(251, 191, 36, 0.3);
 }
+
 
 .dark-theme .footer {
   background: linear-gradient(180deg, 
@@ -214,13 +216,14 @@
     rgba(212, 212, 212, 0.05) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer-features-title:hover {
-    background: linear-gradient(90deg, 
-      rgba(251, 191, 36, 0.08) 0%, 
-      rgba(212, 212, 212, 0.05) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .footer-features-title:hover {
+  background: linear-gradient(90deg, 
+    rgba(251, 191, 36, 0.08) 0%, 
+    rgba(212, 212, 212, 0.05) 100%);
 }
+
 
 .footer-features-list {
   list-style: none;
@@ -289,13 +292,14 @@
     rgba(212, 212, 212, 0.05) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer-feature-item:hover {
-    background: linear-gradient(90deg, 
-      rgba(251, 191, 36, 0.08) 0%, 
-      rgba(212, 212, 212, 0.05) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .footer-feature-item:hover {
+  background: linear-gradient(90deg, 
+    rgba(251, 191, 36, 0.08) 0%, 
+    rgba(212, 212, 212, 0.05) 100%);
 }
+
 
 .feature-icon {
   display: flex;
@@ -395,21 +399,22 @@
   border-color: rgba(251, 191, 36, 0.5);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer-features-button {
-    background: linear-gradient(135deg, 
-      rgba(251, 191, 36, 0.12) 0%, 
-      rgba(212, 212, 212, 0.08) 100%);
-    border-color: rgba(251, 191, 36, 0.3);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
 
-  .footer-features-button:hover {
-    background: linear-gradient(135deg, 
-      rgba(251, 191, 36, 0.18) 0%, 
-      rgba(212, 212, 212, 0.12) 100%);
-    border-color: rgba(251, 191, 36, 0.5);
-  }
+.dark-theme .footer-features-button {
+  background: linear-gradient(135deg, 
+    rgba(251, 191, 36, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
+  border-color: rgba(251, 191, 36, 0.3);
 }
+
+.dark-theme .footer-features-button:hover {
+  background: linear-gradient(135deg, 
+    rgba(251, 191, 36, 0.18) 0%, 
+    rgba(212, 212, 212, 0.12) 100%);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
 
 .footer-social {
   display: flex;
@@ -473,12 +478,13 @@
   box-shadow: 0 0 12.8px rgba(251, 191, 36, 0.4), var(--shadow-sm);
 }
 
-@media (prefers-color-scheme: dark) {
-  .social-link:first-child {
-    border: 1.3px solid rgba(251, 191, 36, 0.6);
-    box-shadow: 0 0 12.8px rgba(251, 191, 36, 0.4), var(--shadow-sm);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .social-link:first-child {
+  border: 1.3px solid rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 12.8px rgba(251, 191, 36, 0.4), var(--shadow-sm);
 }
+
 
 .dark-theme .social-link {
   background: linear-gradient(135deg, 
@@ -628,13 +634,14 @@
     rgba(212, 212, 212, 0.08) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer-links li a:hover {
-    background: linear-gradient(90deg, 
-      rgba(251, 191, 36, 0.12) 0%, 
-      rgba(212, 212, 212, 0.08) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .footer-links li a:hover {
+  background: linear-gradient(90deg, 
+    rgba(251, 191, 36, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
 }
+
 
 .link-icon {
   font-size: 1.15rem;
@@ -723,13 +730,14 @@
     rgba(212, 212, 212, 0.08) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .footer-link-button:hover {
-    background: linear-gradient(90deg, 
-      rgba(251, 191, 36, 0.12) 0%, 
-      rgba(212, 212, 212, 0.08) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .footer-link-button:hover {
+  background: linear-gradient(90deg, 
+    rgba(251, 191, 36, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
 }
+
 
 .footer-link-button:hover .link-icon {
   transform: scale(1.15) rotate(5deg);
@@ -808,11 +816,12 @@
   box-shadow: var(--shadow-glow), 0 0 16px rgba(251, 191, 36, 0.3);
 }
 
-@media (prefers-color-scheme: dark) {
-  .badge:hover {
-    box-shadow: var(--shadow-glow), 0 0 16px rgba(251, 191, 36, 0.3);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+
+.dark-theme .badge:hover {
+  box-shadow: var(--shadow-glow), 0 0 16px rgba(251, 191, 36, 0.3);
 }
+
 
 .dark-theme .badge {
   background: linear-gradient(135deg, 

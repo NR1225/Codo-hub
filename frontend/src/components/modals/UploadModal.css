@@ -151,15 +151,14 @@
   box-shadow: 0 2.6px 7.7px rgba(212, 212, 212, 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  .upload-mode-toggle {
-    background: linear-gradient(135deg, 
-      rgba(212, 212, 212, 0.1) 0%, 
-      rgba(212, 212, 212, 0.08) 50%,
-      rgba(212, 212, 212, 0.08) 100%);
-    border: 1.3px solid rgba(212, 212, 212, 0.2);
-    box-shadow: 0 2.6px 7.7px rgba(212, 212, 212, 0.1);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .upload-mode-toggle {
+  background: linear-gradient(135deg, 
+    rgba(212, 212, 212, 0.1) 0%, 
+    rgba(212, 212, 212, 0.08) 50%,
+    rgba(212, 212, 212, 0.08) 100%);
+  border: 1.3px solid rgba(212, 212, 212, 0.2);
+  box-shadow: 0 2.6px 7.7px rgba(212, 212, 212, 0.1);
 }
 
 .light-theme .upload-mode-toggle {
@@ -235,13 +234,12 @@
     rgba(212, 212, 212, 0.05) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .upload-dropzone {
-    background: linear-gradient(135deg, 
-      rgba(212, 212, 212, 0.08) 0%, 
-      rgba(212, 212, 212, 0.05) 50%,
-      rgba(212, 212, 212, 0.05) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .upload-dropzone {
+  background: linear-gradient(135deg, 
+    rgba(212, 212, 212, 0.08) 0%, 
+    rgba(212, 212, 212, 0.05) 50%,
+    rgba(212, 212, 212, 0.05) 100%);
 }
 
 .light-theme .upload-dropzone {
@@ -289,14 +287,13 @@
     rgba(212, 212, 212, 0.12) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .upload-dropzone:hover,
-  .upload-dropzone.active {
-    background: linear-gradient(135deg, 
-      rgba(212, 212, 212, 0.15) 0%, 
-      rgba(212, 212, 212, 0.12) 50%,
-      rgba(212, 212, 212, 0.12) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .upload-dropzone:hover,
+.dark-theme .upload-dropzone.active {
+  background: linear-gradient(135deg, 
+    rgba(212, 212, 212, 0.15) 0%, 
+    rgba(212, 212, 212, 0.12) 50%,
+    rgba(212, 212, 212, 0.12) 100%);
 }
 
 .light-theme .upload-dropzone:hover,
@@ -321,12 +318,11 @@
     rgba(212, 212, 212, 0.08) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .upload-dropzone.has-file {
-    background: linear-gradient(135deg, 
-      rgba(212, 212, 212, 0.12) 0%, 
-      rgba(212, 212, 212, 0.08) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .upload-dropzone.has-file {
+  background: linear-gradient(135deg, 
+    rgba(212, 212, 212, 0.12) 0%, 
+    rgba(212, 212, 212, 0.08) 100%);
 }
 
 .light-theme .upload-dropzone.has-file {
@@ -471,14 +467,13 @@
     rgba(212, 212, 212, 0.03) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .form-group input,
-  .form-group textarea,
-  .form-group select {
-    background: linear-gradient(180deg, 
-      rgba(212, 212, 212, 0.05) 0%, 
-      rgba(212, 212, 212, 0.03) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .form-group input,
+.dark-theme .form-group textarea,
+.dark-theme .form-group select {
+  background: linear-gradient(180deg, 
+    rgba(212, 212, 212, 0.05) 0%, 
+    rgba(212, 212, 212, 0.03) 100%);
 }
 
 .light-theme .form-group input,
@@ -538,14 +533,13 @@
     rgba(212, 212, 212, 0.06) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .form-group input:focus,
-  .form-group textarea:focus,
-  .form-group select:focus {
-    background: linear-gradient(180deg, 
-      rgba(212, 212, 212, 0.1) 0%, 
-      rgba(212, 212, 212, 0.06) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .form-group input:focus,
+.dark-theme .form-group textarea:focus,
+.dark-theme .form-group select:focus {
+  background: linear-gradient(180deg, 
+    rgba(212, 212, 212, 0.1) 0%, 
+    rgba(212, 212, 212, 0.06) 100%);
 }
 
 .light-theme .form-group input:focus,
@@ -647,12 +641,11 @@
     rgba(212, 212, 212, 0.05) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .btn-secondary {
-    background: linear-gradient(135deg, 
-      rgba(212, 212, 212, 0.08) 0%, 
-      rgba(212, 212, 212, 0.05) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .btn-secondary {
+  background: linear-gradient(135deg, 
+    rgba(212, 212, 212, 0.08) 0%, 
+    rgba(212, 212, 212, 0.05) 100%);
 }
 
 .light-theme .btn-secondary {
@@ -674,12 +667,11 @@
     rgba(212, 212, 212, 0.1) 100%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .btn-secondary:hover {
-    background: linear-gradient(135deg, 
-      rgba(212, 212, 212, 0.15) 0%, 
-      rgba(212, 212, 212, 0.1) 100%);
-  }
+/* Қара тақырып (сайттың таңдауы бойынша, жүйенікі емес) */
+.dark-theme .btn-secondary:hover {
+  background: linear-gradient(135deg, 
+    rgba(212, 212, 212, 0.15) 0%, 
+    rgba(212, 212, 212, 0.1) 100%);
 }
 
 .light-theme .btn-secondary:hover {
@@ -967,7 +959,6 @@
     min-height: 60px;
   }
 }
-
 
 /* Жүктелмейтін файлдар туралы ескерту (кэш, .env, бинарлы) */
 .upload-skip-note {
