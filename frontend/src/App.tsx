@@ -10,6 +10,7 @@ import { apiService } from './utils/api';
 import { websocketService } from './utils/websocket';
 import { initializeFirebase, isFirebaseInitialized } from './utils/firebase';
 import Header from './components/layout/Header';
+import PageTabsBar from './components/layout/PageTabsBar';
 import ScrollToTop from './components/layout/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
 import { VIEW_PARENT_ROUTES } from './utils/viewPath';
@@ -109,7 +110,13 @@ const AppContent: React.FC = () => {
   const hideHeader = isAuthPage || isWelcomePage;
   return (
     <div className="app">
-      {!hideHeader && <Header />}
+      {/* Хедер мен бет табтары бірге жабысып тұрады; --header-h екеуінің биіктігі */}
+      {!hideHeader && (
+        <div className="app-top">
+          <Header />
+          <PageTabsBar />
+        </div>
+      )}
       {!hideHeader ? (
         <main className="app-main">
           <Suspense fallback={<PageLoader />}>

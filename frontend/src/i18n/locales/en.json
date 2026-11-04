@@ -2674,5 +2674,20 @@
         "desc": "Floating and blinking elements on the welcome page"
       }
     }
+  },
+  "pageTabs": {
+    "label": "Open pages",
+    "new": "New tab",
+    "close": "Close tab",
+    "home": "Home",
+    "code": "Code",
+    "settings": "Settings",
+    "profile": "Profile",
+    "notes": "Notes",
+    "upload": "Upload",
+    "features": "Features",
+    "moderation": "Moderation",
+    "monitoring": "Monitoring",
+    "admin": "Admin"
   }
 }
