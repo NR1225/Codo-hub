@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChevronLeft, faChevronRight, faDiagramProject, faPen, faEye, faTableColumns, faStar as faStarSolid,
   faEllipsisVertical, faCircleInfo, faCalendarDay, faFileCirclePlus, faMagnifyingGlass, faFileImport, faFileExport,
-  faWandMagicSparkles, faFileLines, faTableCellsLarge,
+  faWandMagicSparkles, faFileLines, faTableCellsLarge, faFolderPlus, faRotate,
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { PanelIcon } from '../components/home/icons';
@@ -18,10 +18,15 @@ import NoteInfoPanel from '../components/notes/NoteInfoPanel';
 import NotesGraph from '../components/notes/NotesGraph';
 import NoteCanvas from '../components/notes/NoteCanvas';
 import NotesPicker, { type PickerItem } from '../components/notes/NotesPicker';
+import ProjectImportModal from '../components/notes/ProjectImportModal';
+import { apiService } from '../utils/api';
 import { DAILY_FOLDER, dailyTitle, notePath, resolveLink, type OutlineItem } from '../components/notes/noteLinks';
 import './NotesPage.css';
 
 const TEMPLATES_FOLDER = 'Templates';
+/** Жобадан жасалған жазбаның басындағы жасырын белгі (backend: services/project_overview.py) */
+const SOURCE_RE = /^<!-- codo-source: (vibe|site):(\S+) -->/;
+const INDEX_MARK = '<!-- codo-source: index -->';
 
 type Picker =
   | { kind: 'switch' }
@@ -55,7 +60,7 @@ const fillTemplate = (text: string, title: string) => {
 };
 
 const NotesPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const toast = useToast();
   const confirm = useConfirm();
   const vault = useNotesVault();
@@ -75,6 +80,8 @@ const NotesPage: React.FC = () => {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [heading, setHeading] = useState<{ slug: string; line?: number; nonce: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const history = useRef<{ stack: string[]; index: number }>({ stack: [], index: -1 });
   const importRef = useRef<HTMLInputElement>(null);
@@ -235,6 +242,40 @@ const NotesPage: React.FC = () => {
     vault.deleteFolder(path).catch(fail);
   };
 
+  /** Жоба жазбасы жасалды/жаңартылды: серверден жаңа мәтінді аламыз (жоба жазбасы + «Менің жобаларым») */
+  const afterProjectImport = async (note: NoteMeta, openIt: boolean) => {
+    const stale = Object.entries(contents).filter(([, text]) => text.startsWith(INDEX_MARK)).map(([id]) => id);
+    try {
+      const ids = [note.id, ...stale];
+      await vault.refreshFromServer(ids);
+      if (openIt) open(note.id);
+      // Ашық тұрған жазба жаңарды — мәтінін қайта жүктейміз (басқа жазба ашылса, оны эффект өзі жүктейді)
+      if (activeId && ids.includes(activeId) && (!openIt || activeId === note.id)) vault.loadContent(activeId);
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const linkedSource = useMemo(() => {
+    const m = activeContent ? SOURCE_RE.exec(activeContent) : null;
+    return m ? { kind: m[1] as 'vibe' | 'site', id: m[2] } : null;
+  }, [activeContent]);
+
+  /** Ашық тұрған жоба жазбасын жобаның қазіргі күйінен жаңарту (бұрынғы Codo талдауы сақталады) */
+  const syncActive = async () => {
+    if (!linkedSource || syncing) return;
+    setSyncing(true);
+    try {
+      const note = await apiService.importNoteProject({ ...linkedSource, lang: i18n.language?.slice(0, 2) });
+      await afterProjectImport(note, false);
+      toast.success(t('notes.projects.synced'));
+    } catch (e) {
+      fail(e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const insertTemplate = async (template: NoteMeta) => {
     if (!active || active.kind !== 'note') return;
     const text = fillTemplate((await vault.loadContent(template.id)) ?? '', active.title);
@@ -306,6 +347,7 @@ const NotesPage: React.FC = () => {
       else if (mod && k === 'g') { e.preventDefault(); setSearchParams((p) => { p.set('view', 'graph'); return p; }); }
       else if (e.altKey && k === 'n') { e.preventDefault(); createNote(active?.folder ?? ''); }
       else if (e.altKey && k === 'd') { e.preventDefault(); dailyNote(); }
+      else if (e.altKey && k === 'p') { e.preventDefault(); setProjectsOpen(true); }
       else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
       else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); go(1); }
       else if (mod && k === 's') { e.preventDefault(); vault.flush(); }
@@ -397,6 +439,7 @@ const NotesPage: React.FC = () => {
               {([
                 [faFileCirclePlus, t('notes.newNote'), 'Alt+N', () => createNote(), true],
                 [faCalendarDay, t('notes.dailyNote'), 'Alt+D', dailyNote, false],
+                [faFolderPlus, t('notes.projects.title'), 'Alt+P', () => setProjectsOpen(true), false],
                 [faMagnifyingGlass, t('notes.quickSwitcher'), 'Ctrl+O', () => setPicker({ kind: 'switch' }), false],
                 [faDiagramProject, t('notes.graphView'), 'Ctrl+G', () => setSearchParams((p) => { p.set('view', 'graph'); return p; }), false],
               ] as const).map(([icon, label, key, onClick, primary], i) => (
@@ -583,6 +626,11 @@ const NotesPage: React.FC = () => {
                   ))}
                 </div>
               )}
+              {active && view === 'note' && linkedSource && (
+                <button type="button" className="nt-icon-btn" onClick={syncActive} disabled={syncing} title={t('notes.projects.syncFromProject')}>
+                  <FontAwesomeIcon icon={faRotate} spin={syncing} />
+                </button>
+              )}
               {active && view === 'note' && (
                 <button type="button" className={`nt-icon-btn${active.starred ? ' is-starred' : ''}`} onClick={() => toggleStar(active)} title={active.starred ? t('notes.unstar') : t('notes.star')}>
                   <FontAwesomeIcon icon={active.starred ? faStarSolid : faStarRegular} />
@@ -617,6 +665,9 @@ const NotesPage: React.FC = () => {
                         <div className="nt-menu__sep" />
                       </>
                     )}
+                    <button type="button" className="nt-menu__item" onClick={() => setProjectsOpen(true)}>
+                      <FontAwesomeIcon icon={faFolderPlus} /> {t('notes.projects.title')}
+                    </button>
                     <button type="button" className="nt-menu__item" onClick={() => importRef.current?.click()}>
                       <FontAwesomeIcon icon={faFileImport} /> {t('notes.importFiles')}
                     </button>
@@ -657,6 +708,13 @@ const NotesPage: React.FC = () => {
 
       <input ref={importRef} type="file" accept=".md,.markdown,.txt" multiple hidden onChange={(e) => importFiles(e.target.files)} />
       {activePicker && <NotesPicker {...activePicker} />}
+      {projectsOpen && (
+        <ProjectImportModal
+          onClose={() => setProjectsOpen(false)}
+          onImported={(note, { open: openIt }) => afterProjectImport(note, openIt)}
+          onOpenNote={open}
+        />
+      )}
       {vault.error && !notes.length && <div className="nt-error">{vault.error}</div>}
     </div>
   );

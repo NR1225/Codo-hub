@@ -67,9 +67,18 @@ SECRET_EXTENSIONS = {".pem", ".key", ".p12", ".pfx", ".keystore", ".jks", ".kdbx
 DATABASE_EXTENSIONS = {".db", ".sqlite", ".sqlite3", ".db3"}
 
 # Орындалатын/орнатылатын файлдар — жүктелмейді (басқалар жүктеп алып ашуы мүмкін)
+# Ескерту: .js/.mjs/.cjs/.ts/.py/.rb т.б. — бұл дереккөз коды, сондықтан блокталмайды.
+# Мұндағылар — жүктеп алған адам қос шертумен іске қосатын зиянды форматтар.
 EXECUTABLE_EXTENSIONS = {
-    ".exe", ".com", ".pif", ".scr", ".jar", ".msi", ".dmg", ".app",
+    # Компиляцияланған/орнатылатын (бинарлы)
+    ".exe", ".com", ".pif", ".scr", ".jar", ".msi", ".msp", ".dmg", ".app",
     ".deb", ".rpm", ".pkg", ".apk", ".dll", ".so", ".dylib", ".sys", ".drv", ".ocx", ".cpl",
+    ".appimage", ".elf", ".out", ".ko",
+    # Windows скрипт/жарлық (өздігінен орындалады)
+    ".bat", ".cmd", ".ps1", ".psm1", ".vbs", ".vbe", ".jse", ".wsf", ".wsh",
+    ".hta", ".scf", ".lnk", ".reg", ".inf", ".msc", ".cab", ".gadget",
+    # Unix/mac shell скрипттері
+    ".sh", ".bash", ".zsh", ".ksh", ".csh", ".run", ".command",
 }
 
 # Басқа бинарлы файлдар — мәтін емес, сондықтан base64 ретінде (бұзылмай) сақталады
@@ -89,7 +98,9 @@ def classify_upload_path(path: str) -> Optional[UploadKind]:
     lowered = [p.lower() for p in parts]
     if any(p in JUNK_DIRS or p.endswith(JUNK_DIR_SUFFIXES) for p in lowered[:-1]):
         return "junk"
-    name = lowered[-1]
+    # Артқы бос орын/нүктені алып тастаймыз: Windows файлды сақтағанда оларды қысқартады,
+    # сондықтан «evil.exe » не «evil.exe.» дискіде «evil.exe» болады — тексерісті айналып өтпесін.
+    name = lowered[-1].rstrip(" .")
     ext = _ext(name)
     if name in JUNK_FILES or ext in JUNK_EXTENSIONS or name.endswith(JUNK_NAME_SUFFIXES):
         return "junk"
@@ -116,5 +127,5 @@ def is_skipped(kind: Optional[str]) -> bool:
 
 SKIP_MESSAGES = {
     "junk": "Кэш/қоқыс файлы жүктелмейді",
-    "executable": "Орындалатын файл (.exe, .dll, .apk…) жүктелмейді",
+    "executable": "Орындалатын немесе скрипт файлы (.exe, .dll, .bat, .ps1, .sh…) жүктелмейді",
 }

@@ -14,9 +14,3 @@ export const FILE_TYPES = {
   MARKDOWN: 'markdown',
   OTHER: 'other',
 } as const;
-
-// Supported extensions for display/upload filtering
-export const SUPPORTED_EXTENSIONS = [
-  '.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cpp', '.c', '.h',
-  '.html', '.css', '.json', '.md', '.xml', '.yaml', '.yml'
-];

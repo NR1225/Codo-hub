@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useVibecoding, projectTabIds, nextProjectName } from '../../contexts/VibecodingContext';
 import { PlusIcon, CloseIcon, ChevronDownIcon, FolderIcon, SearchIcon } from './icons';
-import PublishButton from './PublishButton';
 
 /* Жабылған табтар тізімі (браузердегідей Alt+Shift+T — соңғысын қайта ашу).
    Бетті жаңартқанда да сақталады. */
@@ -337,8 +336,6 @@ const ProjectTabsBar: React.FC = () => {
           </div>
         )}
       </div>
-
-      <PublishButton />
     </div>
   );
 };

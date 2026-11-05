@@ -435,7 +435,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
 
 
 # Terminal WebSocket endpoint for Vibecoding
-from services.terminal_service import terminal_manager, TerminalLimitError
+from services.terminal_service import terminal_manager, TerminalLimitError, OUTPUT_OVERFLOW
 from services import terminal_workspace
 from db import VibecodingProject
 import json as _json
@@ -455,8 +455,14 @@ async def terminal_websocket_endpoint(
     cols: int = Query(80, ge=1, le=1000),
     rows: int = Query(24, ge=1, le=1000),
     lang: str = Query("kk", max_length=8),
+    resume: str = Query(None, max_length=64),
+    persist: bool = Query(False),
 ):
     """WebSocket endpoint for terminal sessions in Vibecoding.
+
+    ``persist=1`` — WebSocket үзілгенде (бет жаңартылса/ауысса) shell өлтірілмейді, фонда
+    жалғасады. ``resume=<sessionId>`` — сондай сессияға қайта қосылу: соңғы шығыс буфері
+    қайта жіберіледі. Сессияны толық жабу үшін клиент ``{"type": "close"}`` жібереді.
 
     The JWT is sent as the first message (``{"type": "auth", "token": ...}``),
     not in the URL, so it never lands in server / proxy access logs.
@@ -522,10 +528,23 @@ async def terminal_websocket_endpoint(
     output_task = None
     watch_task = None
     packages_task = None
+    out_queue = None
+    explicit_close = False
+    resumed = False
     try:
-        # Жоба файлдарын терминал папкасына жазу — терминал жобаның ішінде ашылады
+        # Фонда жалғасып тұрған өз сессиясына қайта қосылу (жоба файлдары қайта жазылмайды —
+        # жұмыс істеп тұрған процестің файлдарын бұзбау үшін)
         cwd = None
-        if code_id and not project:
+        existing = terminal_manager.find_resumable(resume, user_id)
+        if existing:
+            session = existing
+            resumed = True
+            project_warning = None
+            cwd = session.cwd if session.cwd != session.workspace else None
+            await session.resize(cols, rows)
+            session.touch()
+            logger.info("Terminal %s resumed by user %s", session.session_id, user_id)
+        elif code_id and not project:
             # Кодты көру бетінен іске қосу: жүктелген жобаның көшірмесі қолданушының папкасында
             from services.code_service import CodeService
             from services.code_run_service import terminal_files
@@ -538,7 +557,7 @@ async def terminal_websocket_endpoint(
                     )
                 except Exception as e:
                     logger.error(f"Terminal workspace sync failed for code {code_id}: {e}")
-        if project:
+        if project and not resumed:
             try:
                 cwd = await asyncio.to_thread(
                     terminal_workspace.push, user_id, project["id"], project["name"],
@@ -548,15 +567,20 @@ async def terminal_websocket_endpoint(
                 logger.error(f"Terminal workspace sync failed for project {project['id']}: {e}")
                 project = None
                 project_warning = "projectSyncFailed"
-        try:
-            session = await terminal_manager.create_session(
-                user_id, cols, rows, cwd=cwd, project_id=project["id"] if project else None,
-                lang=lang,
-            )
-        except TerminalLimitError as e:
-            await websocket.send_json({"type": "error", "code": e.code, "message": str(e)})
-            await websocket.close(code=4008, reason="Session limit")
-            return
+        if not resumed:
+            try:
+                session = await terminal_manager.create_session(
+                    user_id, cols, rows, cwd=cwd, project_id=project["id"] if project else None,
+                    lang=lang, api_port=(websocket.scope.get("server") or (None, None))[1],
+                )
+            except TerminalLimitError as e:
+                await websocket.send_json({"type": "error", "code": e.code, "message": str(e)})
+                await websocket.close(code=4008, reason="Session limit")
+                return
+            session.persist = bool(persist)
+
+        # Кезек пен буфер бір сәтте алынады — арасында шығыс жоғалмайды
+        out_queue, replay = session.subscribe()
 
         # Send connected message
         await websocket.send_json({
@@ -566,14 +590,21 @@ async def terminal_websocket_endpoint(
             "projectWarning": project_warning,
             "mode": session.mode,
             "platform": sys.platform,
+            "resumed": resumed,
         })
+        if resumed and replay:
+            await websocket.send_json({"type": "output", "data": replay})
 
         # Start reading output from the terminal
         async def read_terminal_output():
             """Read output from the terminal and send it to the WebSocket"""
             try:
                 while True:
-                    data = await session.output_queue.get()
+                    data = await out_queue.get()
+                    if data is OUTPUT_OVERFLOW:
+                        # Клиент үлгермеді — қайта қосылып, буферден жалғастырады
+                        await websocket.close(code=1013, reason="Output overflow")
+                        break
                     if data is None:
                         # Process exited
                         await websocket.send_json({
@@ -615,6 +646,9 @@ async def terminal_websocket_endpoint(
 
         if session.project_id:
             watch_task = asyncio.create_task(watch_project_files())
+            if resumed:
+                # Ажыратулы кезде терминал өзгерткен файлдар редакторға жетсін
+                await send_fs_changes()
 
         async def watch_packages():
             """Жоба пакеттері фонда орнатылып жатса — терминалға «орнатылуда… / дайын» жазу.
@@ -698,6 +732,11 @@ async def terminal_websocket_endpoint(
             elif message_type == "sync" and session.project_id:
                 await send_fs_changes()
 
+            elif message_type == "close":
+                # Қолданушы терминал табын жапты — фонда қалдырмай, толық тоқтатамыз
+                explicit_close = True
+                break
+
     except WebSocketDisconnect:
         logger.info(f"Terminal WebSocket disconnected for user {user_id}")
     except Exception as e:
@@ -715,8 +754,14 @@ async def terminal_websocket_endpoint(
                     await task
                 except (asyncio.CancelledError, Exception):
                     pass
+        if session and out_queue is not None:
+            session.unsubscribe(out_queue)
         if session:
-            await terminal_manager.close_session(session.session_id)
+            if session.persist and not explicit_close and not session.ended and session.is_alive:
+                # Бет жабылды/жаңартылды — shell фонда жалғасады (idle timeout-қа дейін)
+                logger.info("Terminal %s detached (user %s)", session.session_id, user_id)
+            elif not session.attached or explicit_close:
+                await terminal_manager.close_session(session.session_id)
 
 
 # Route-order fix: the literal "/api/ws/terminal" must be matched before the

@@ -24,24 +24,9 @@ export const CATEGORIES: { key: CategoryKey; labelKey: string; values: string[] 
   { key: 'other', labelKey: 'uploadModal.categoryOtherOption7', values: ['other'] },
 ];
 
-const BY_VALUE = new Map(CATEGORIES.flatMap((c) => c.values.map((v) => [v, c.key] as const)));
-
 export function categoryFromSlug(slug: string | null): CategoryKey | null {
   return CATEGORIES.find((c) => c.key === slug)?.key ?? null;
 }
-
-// Таңдалған категориялар (жоба бірнеше бағытта болуы мүмкін): алдымен тегтерден, ескі
-// жүктемелерде — сипаттама орнына жазылған мәннен. Категориясыз код «Басқа» бөліміне түседі.
-export function getCategories(code: CodeFile): CategoryKey[] {
-  const values = (code.tags ?? [])
-    .filter((t) => t.startsWith(CATEGORY_TAG_PREFIX))
-    .map((t) => t.slice(CATEGORY_TAG_PREFIX.length));
-  if (!values.length && code.description) values.push(code.description.trim());
-  const keys = [...new Set(values.map((v) => BY_VALUE.get(v)).filter((k): k is CategoryKey => !!k))];
-  return keys.length ? keys : ['other'];
-}
-
-export const getCategory = (code: CodeFile): CategoryKey => getCategories(code)[0];
 
 /* Жобаның тілдері: code.language — негізгісі, қалғандары `lang:<тіл>` тегі ретінде */
 export const LANGUAGE_TAG_PREFIX = 'lang:';

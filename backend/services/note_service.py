@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from db import Note, NoteVault
+from db import Note, NoteVault, VibecodingProject
 
 MAX_NOTES_PER_USER = 2000
 MAX_NOTE_BYTES = 1024 * 1024  # бір жазба — 1MB
@@ -221,6 +221,11 @@ class NoteService:
             if target != note.folder:
                 note.folder = target
         NoteService._save_folders(db, owner_id, [moved(f) for f in NoteService.folders(db, owner_id)])
+        # Vibecoding жобасының байланысқан папкасы жылжыса — байланыс та бірге жылжиды
+        # (әйтпесе келесі ашқанда ескі атпен бос папка қайта пайда болады)
+        for project in db.query(VibecodingProject).filter(VibecodingProject.owner_id == owner_id, VibecodingProject.notes_folder.isnot(None)):
+            if moved(project.notes_folder) != project.notes_folder:
+                project.notes_folder = moved(project.notes_folder)
         db.commit()
         return NoteService.vault_snapshot(db, owner_id)
 
@@ -235,6 +240,10 @@ class NoteService:
                 db.delete(note)
         db.flush()
         NoteService._save_folders(db, owner_id, [f for f in NoteService.folders(db, owner_id) if not inside(f)])
+        # Жобаның папкасы жойылды — байланысты босатамыз; келесі жолы жоба өз атымен жаңа папка алады
+        for project in db.query(VibecodingProject).filter(VibecodingProject.owner_id == owner_id, VibecodingProject.notes_folder.isnot(None)):
+            if inside(project.notes_folder):
+                project.notes_folder = None
         db.commit()
         return NoteService.vault_snapshot(db, owner_id)
 

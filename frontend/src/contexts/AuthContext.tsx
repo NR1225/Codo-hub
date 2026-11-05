@@ -183,6 +183,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastLoginTime.current = 0;
     isRefreshing.current = false;
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    // Фондағы терминалдар (useTerminal) жабылсын, модуль кэштері (Home, Profile, useCodesFeed, api) тазалансын
+    window.dispatchEvent(new Event('codo:logout'));
   }, [accessToken]);
 
   const setTokens = useCallback((tokens: AuthTokens) => {

@@ -29,12 +29,14 @@ import os
 import sys
 import time
 import uuid
+import secrets
 import shutil
 import logging
 import subprocess
 import threading
 import concurrent.futures
-from typing import Dict, Optional
+from collections import deque
+from typing import Deque, Dict, Optional, Set, Tuple
 
 from config import (
     TERMINAL_WORKSPACE_DIR,
@@ -184,6 +186,7 @@ _HELP_TEXT = {
                 ("npm install", "тәуелділіктерді орнату"),
                 ("npm run dev", "жобаны іске қосу"),
                 ("git status", "git күйі"),
+                ("codo", "Codo ЖИ көмекшісімен сөйлесу (codo <сұрақ> — бір рет)"),
             ]),
             ("Терминал", [
                 ("cls", "экранды тазалау"),
@@ -213,6 +216,7 @@ _HELP_TEXT = {
                 ("npm install", "установить зависимости"),
                 ("npm run dev", "запустить проект"),
                 ("git status", "состояние git"),
+                ("codo", "чат с ИИ-помощником Codo (codo <вопрос> — разово)"),
             ]),
             ("Терминал", [
                 ("cls", "очистить экран"),
@@ -242,6 +246,7 @@ _HELP_TEXT = {
                 ("npm install", "install dependencies"),
                 ("npm run dev", "start the project"),
                 ("git status", "git status"),
+                ("codo", "chat with the Codo AI assistant (codo <question> — one-off)"),
             ]),
             ("Terminal", [
                 ("cls", "clear the screen"),
@@ -317,6 +322,14 @@ def _load_winpty():
         return None
 
 
+# Қайта қосылғанда (бет жаңартылса) клиентке қайта жіберілетін соңғы шығыс көлемі (таңба)
+TERMINAL_SCROLLBACK_CHARS = 256 * 1024
+
+# Тыңдаушының кезегі толып кетті (клиент баяу) — WebSocket жабылады, клиент қайта қосылып
+# буферден жалғастырады
+OUTPUT_OVERFLOW = object()
+
+
 class TerminalSession:
     """A single terminal session backed by a sandboxed shell in a real PTY.
 
@@ -327,8 +340,13 @@ class TerminalSession:
     """
 
     def __init__(self, session_id: str, user_id: str, cols: int = 80, rows: int = 24,
-                 cwd: Optional[str] = None, project_id: Optional[str] = None, lang: str = "en"):
+                 cwd: Optional[str] = None, project_id: Optional[str] = None, lang: str = "en",
+                 api_port: Optional[int] = None):
         self.session_id = session_id
+        # `codo` командасы (терминалдағы ЖИ көмекшісі) серверге осы кілтпен барады —
+        # кілт тек осы shell-дің env-інде, сессия жабылғанда жарамсыз болады
+        self.agent_token = secrets.token_urlsafe(32)
+        self.api_port = api_port or int(os.getenv("PORT", "8000"))
         self.lang = lang if lang in _LANG_LOCALES else "en"
         self.user_id = user_id
         self.cols = cols
@@ -347,6 +365,16 @@ class TerminalSession:
         self._exit_code: Optional[int] = None
         self._closed = False
         self._registered_cwd = False
+        # ─── Фонда жалғасу (detach / resume) ───
+        # persist=True болса, WebSocket үзілгенде shell өлтірілмейді — «ажыратылған» күйде
+        # жұмысын жалғастырады; клиент сол session_id-мен қайта қосылады (бет жаңартылса да).
+        # Ажыратылған сессия ping жібермейді, сондықтан idle timeout-тан кейін жабылады.
+        self.persist = False
+        self.ended = False
+        self._subscribers: Set[asyncio.Queue] = set()
+        self._scrollback: Deque[str] = deque()
+        self._scrollback_size = 0
+        self._pump_task: Optional[asyncio.Task] = None
 
     @property
     def mode(self) -> str:
@@ -360,6 +388,61 @@ class TerminalSession:
         """Mark the session as active (resets the idle timer)."""
         self.last_activity = time.monotonic()
 
+    # ── Шығысты тарату (бір оқушы → буфер + қосылған клиенттер) ──
+
+    def start_pump(self):
+        """output_queue-ді үнемі оқиды: клиент қосылмаған кезде де процесс тоқтап қалмайды
+        (кезек толса PTY жазуы бұғатталар еді), шығыс буферге жиналады."""
+        if self._pump_task is None:
+            self._pump_task = asyncio.create_task(self._pump())
+
+    async def _pump(self):
+        try:
+            while True:
+                data = await self.output_queue.get()
+                if data is None:
+                    self.ended = True
+                    for q in list(self._subscribers):
+                        self._deliver(q, None)
+                    return
+                self._scrollback.append(data)
+                self._scrollback_size += len(data)
+                while self._scrollback_size > TERMINAL_SCROLLBACK_CHARS and len(self._scrollback) > 1:
+                    self._scrollback_size -= len(self._scrollback.popleft())
+                for q in list(self._subscribers):
+                    self._deliver(q, data)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error("Terminal %s output pump error: %s", self.session_id, e)
+
+    def _deliver(self, q: asyncio.Queue, item):
+        try:
+            q.put_nowait(item)
+        except asyncio.QueueFull:
+            # Баяу клиент — кезегін тазалап, «толып кетті» белгісін береміз
+            self._subscribers.discard(q)
+            while not q.empty():
+                q.get_nowait()
+            q.put_nowait(OUTPUT_OVERFLOW)
+
+    def subscribe(self) -> Tuple[asyncio.Queue, str]:
+        """Клиентті қосу: (жаңа шығыс кезегі, осы сәтке дейінгі буфер).
+        await жоқ — буфер мен кезек арасында шығыс жоғалмайды."""
+        q: asyncio.Queue = asyncio.Queue(maxsize=TERMINAL_OUTPUT_QUEUE_MAX)
+        if self.ended:
+            q.put_nowait(None)
+        else:
+            self._subscribers.add(q)
+        return q, "".join(self._scrollback)
+
+    def unsubscribe(self, q: asyncio.Queue):
+        self._subscribers.discard(q)
+
+    @property
+    def attached(self) -> bool:
+        return bool(self._subscribers)
+
     async def start(self):
         """Start the shell process inside the sandbox."""
         env = _build_env(self.workspace, self.lang)
@@ -372,6 +455,8 @@ class TerminalSession:
         # pip / npm / yarn / pnpm — серверге ортақ пакет қоймасы арқылы (тұрақты);
         # жобаның ішінде python / python -m pip — оның .venv-інен
         shared_packages.terminal_env(self.cwd, env, is_project=self.cwd != self.workspace)
+        env["CODO_AGENT_TOKEN"] = self.agent_token
+        env["CODO_AGENT_URL"] = f"http://127.0.0.1:{self.api_port}/api/burkit/terminal"
         if self.cwd != self.workspace:
             # Ашық тұрғанда оның пакет жиынтықтары ұйықтатылмайды / тазаланбайды
             shared_packages.session_opened(self.cwd)
@@ -546,6 +631,12 @@ class TerminalSession:
     async def kill(self):
         """Terminate the shell and its entire child tree."""
         self._closed = True
+        if self._pump_task:
+            self._pump_task.cancel()
+            self._pump_task = None
+        for q in list(self._subscribers):
+            self._deliver(q, None)
+        self._subscribers.clear()
         if self._registered_cwd:
             self._registered_cwd = False
             shared_packages.session_closed(self.cwd)
@@ -649,7 +740,7 @@ class TerminalManager:
 
     async def create_session(self, user_id: str, cols: int = 80, rows: int = 24,
                              cwd: Optional[str] = None, project_id: Optional[str] = None,
-                             lang: str = "en") -> TerminalSession:
+                             lang: str = "en", api_port: Optional[int] = None) -> TerminalSession:
         """Create a new sandboxed terminal session, enforcing caps."""
         if len(self.sessions) >= TERMINAL_MAX_SESSIONS_TOTAL:
             raise TerminalLimitError("Server terminal capacity reached, try again later", "limitTotal")
@@ -657,8 +748,10 @@ class TerminalManager:
             raise TerminalLimitError("Too many open terminals for this account", "limitUser")
 
         session_id = str(uuid.uuid4())
-        session = TerminalSession(session_id, user_id, cols, rows, cwd=cwd, project_id=project_id, lang=lang)
+        session = TerminalSession(session_id, user_id, cols, rows, cwd=cwd, project_id=project_id, lang=lang,
+                                  api_port=api_port)
         await session.start()
+        session.start_pump()
         self.sessions[session_id] = session
         self._ensure_cleanup_task()
         return session
@@ -689,6 +782,24 @@ class TerminalManager:
             raise
         except Exception as e:
             logger.error("Terminal cleanup loop error: %s", e)
+
+    def find_resumable(self, session_id: Optional[str], user_id: str) -> Optional[TerminalSession]:
+        """Қайта қосылуға болатын (өз, тірі, persist) сессия — әйтпесе None."""
+        if not session_id:
+            return None
+        s = self.sessions.get(session_id)
+        if not s or s.user_id != user_id or not s.persist or s.ended or not s.is_alive:
+            return None
+        return s
+
+    def find_by_agent_token(self, token: Optional[str]) -> Optional[TerminalSession]:
+        """`codo` CLI-дің кілті бойынша тірі сессия (жоқ болса — None)"""
+        if not token:
+            return None
+        for s in self.sessions.values():
+            if secrets.compare_digest(s.agent_token, token) and not s.ended and s.is_alive:
+                return s
+        return None
 
     async def close_project_sessions(self, user_id: str, project_id: str):
         """Жоба жойылғанда оның папкасында ашық тұрған терминалдарды жабу"""

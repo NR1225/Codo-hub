@@ -15,8 +15,6 @@ _HIDDEN_FIELDS = ('privateContent', 'joinRequests', 'starredBy')
 _PROTECTION_FIELDS = ('privateContent', 'visibility', 'protection')
 
 
-_folder_stats_cache: Dict[int, tuple] = {}
-
 # frontend/src/utils/codeCategories.ts CATEGORIES-пен бірдей: `category:<мән>` тегі → бөлім
 _CATEGORY_BY_VALUE = {
     **dict.fromkeys(('machine-learning', 'natural-language-processing', 'computer-vision', 'ai-applications'), 'ai'),
@@ -27,7 +25,7 @@ _CATEGORY_BY_VALUE = {
 
 
 def _categories(code: Dict[str, Any]) -> set:
-    """codeCategories.ts getCategories: тегтерден, ескі жүктемелерде — сипаттамадан; табылмаса — other"""
+    """Жобаның категориялары: тегтерден, ескі жүктемелерде — сипаттамадан; табылмаса — other"""
     values = [t[len('category:'):] for t in code.get('tags') or [] if isinstance(t, str) and t.startswith('category:')]
     if not values and code.get('description'):
         values.append(str(code['description']).strip())
@@ -47,7 +45,7 @@ def _matches_search(code: Dict[str, Any], q: str) -> bool:
     return any(q in str(f).lower() for f in fields if f)
 
 
-# codeUtils.ts compareCodes-пен бірдей реттер
+# Кодтар лентасының сұрыптау реттері (sortBy)
 _SORT_KEYS = {
     'newest': (lambda c: str(c.get('createdAt') or ''), True),
     'oldest': (lambda c: str(c.get('createdAt') or ''), False),
@@ -58,21 +56,16 @@ _SORT_KEYS = {
 
 
 def _folder_stats(structure: Any) -> Dict[str, Any]:
-    """folderStructure → {files, folders, names}; бір құрылым үшін бір рет есептеледі"""
+    """folderStructure → {files, folders, names}"""
     if not isinstance(structure, dict):
         return {'files': 0, 'folders': 0, 'names': []}
-    cached = _folder_stats_cache.get(id(structure))
-    if cached and cached[0] is structure and cached[1] == len(structure):
-        return cached[2]
     entries = [v for v in structure.values() if isinstance(v, dict)]
     names = sorted(entries, key=lambda v: (v.get('type') != 'folder', str(v.get('name', '')).lower()))[:5]
-    stats = {
+    return {
         'files': sum(1 for v in entries if v.get('type') == 'file'),
         'folders': sum(1 for v in entries if v.get('type') == 'folder'),
         'names': [{'name': v.get('name', ''), 'type': v.get('type', 'file')} for v in names],
     }
-    _folder_stats_cache[id(structure)] = (structure, len(structure), stats)
-    return stats
 
 
 class CodeService:

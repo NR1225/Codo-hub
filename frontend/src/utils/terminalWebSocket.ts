@@ -5,7 +5,7 @@ import { DevServerDetector } from './devServer';
 
 type MessageType =
   | 'auth' | 'input' | 'resize' | 'ping' | 'sync' | 'output' | 'connected' | 'disconnected'
-  | 'exit' | 'error' | 'pong' | 'fs-changes';
+  | 'exit' | 'error' | 'pong' | 'fs-changes' | 'close';
 
 interface TerminalMessage extends Partial<WorkspaceChanges> {
   type: MessageType;
@@ -19,6 +19,7 @@ interface TerminalMessage extends Partial<WorkspaceChanges> {
   platform?: string;
   code?: number | string;
   message?: string;
+  resumed?: boolean;
 }
 
 export interface TerminalSessionInfo {
@@ -30,6 +31,8 @@ export interface TerminalSessionInfo {
   /** conpty / pty — нағыз терминал, pipe — қарапайым режим */
   mode: string;
   platform: string;
+  /** Фонда жалғасып тұрған сессияға қайта қосылды — артынша буфер (бұрынғы шығыс) келеді */
+  resumed?: boolean;
 }
 
 /** connecting — қосылып/қайта қосылып жатыр, open — shell дайын, closed — тоқтады */
@@ -41,6 +44,10 @@ export interface TerminalConnectOptions {
   codeId?: string | null;
   cols?: number;
   rows?: number;
+  /** Сокет үзілсе де (бет жаңартылса) shell серверде фонда жалғассын */
+  persist?: boolean;
+  /** Осы сессияға қайта қосылу (бұрын сақталған sessionId) */
+  resumeSessionId?: string | null;
 }
 
 class TerminalWebSocketService {
@@ -89,6 +96,12 @@ class TerminalWebSocketService {
     if (options.codeId) params.set('codeId', options.codeId);
     if (options.cols) params.set('cols', String(options.cols));
     if (options.rows) params.set('rows', String(options.rows));
+    if (options.persist) {
+      params.set('persist', '1');
+      // Қайта қосылу (желі үзілсе) — сол сессияға; алғашқы қосылу — сақталғанына
+      const resume = this.sessionId ?? options.resumeSessionId;
+      if (resume) params.set('resume', resume);
+    }
     // Сайт тілі — сервер shell-дің хабар тілін (locale) соған қояды
     params.set('lang', i18n.resolvedLanguage || i18n.language || 'kk');
     const url = `${wsBaseUrl}/api/ws/terminal?${params.toString()}`;
@@ -157,6 +170,7 @@ class TerminalWebSocketService {
             projectWarning: msg.projectWarning ?? null,
             mode: msg.mode || 'pty',
             platform: msg.platform || '',
+            resumed: !!msg.resumed,
           });
         }
         break;
@@ -229,6 +243,12 @@ class TerminalWebSocketService {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
+  }
+
+  /** Терминалды толық жабу: сервер shell-ді фонда қалдырмай тоқтатады */
+  close(): void {
+    this.send({ type: 'close' });
+    this.disconnect();
   }
 
   disconnect(): void {

@@ -495,13 +495,6 @@ def _entry(item: dict) -> dict:
     return {k: item[k] for k in ("path", "name", "language", "isImage", "size")}
 
 
-def _human(size: float) -> str:
-    for unit in ("Б", "КБ", "МБ", "ГБ"):
-        if size < 1024 or unit == "ГБ":
-            return f"{size:.0f} {unit}" if unit == "Б" else f"{size:.1f} {unit}"
-        size /= 1024
-
-
 # ---------- Орнату ----------
 
 def _path_dirs() -> list:

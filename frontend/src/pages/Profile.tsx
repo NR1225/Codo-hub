@@ -34,6 +34,10 @@ interface ProfileCache {
   stats: { totalLikes: number; totalComments: number; totalViews: number };
 }
 const profileCache: Record<string, ProfileCache> = {};
+// Аккаунттан шыққанда '@me' кэші келесі қолданушыға көрінбесін
+if (typeof window !== 'undefined') window.addEventListener('codo:logout', () => {
+  for (const k of Object.keys(profileCache)) delete profileCache[k];
+});
 
 const profileCacheKey = (username: string | undefined): string =>
   username ? `@${username}` : '@me';

@@ -4,8 +4,6 @@
    (backend/utils/protected_files.py): басқаларға мәндері бос үлгісі / бос базасы көрінеді. */
 
 export type UploadKind = 'junk' | 'executable' | 'secret' | 'database' | 'binary';
-/** @deprecated UploadKind */
-export type UploadSkip = UploadKind;
 /** Жүктеледі, бірақ түпнұсқасын тек иесі (немесе тест деректерін — жоба мүшелері) көреді */
 export type ProtectionKind = 'secret' | 'database' | 'testdata';
 
@@ -55,9 +53,18 @@ const SECRET_EXTENSIONS = new Set(['.pem', '.key', '.p12', '.pfx', '.keystore', 
 const DATABASE_EXTENSIONS = new Set(['.db', '.sqlite', '.sqlite3', '.db3']);
 
 // Орындалатын/орнатылатын файлдар — жүктелмейді (басқалар жүктеп алып ашуы мүмкін)
+// .js/.mjs/.cjs/.ts/.py/.rb т.б. — дереккөз коды, блокталмайды.
+// Мұндағылар — жүктеп алған адам қос шертумен іске қосатын зиянды форматтар.
 const EXECUTABLE_EXTENSIONS = new Set([
-  '.exe', '.com', '.pif', '.scr', '.jar', '.msi', '.dmg', '.app',
+  // Компиляцияланған/орнатылатын (бинарлы)
+  '.exe', '.com', '.pif', '.scr', '.jar', '.msi', '.msp', '.dmg', '.app',
   '.deb', '.rpm', '.pkg', '.apk', '.dll', '.so', '.dylib', '.sys', '.drv', '.ocx', '.cpl',
+  '.appimage', '.elf', '.out', '.ko',
+  // Windows скрипт/жарлық (өздігінен орындалады)
+  '.bat', '.cmd', '.ps1', '.psm1', '.vbs', '.vbe', '.jse', '.wsf', '.wsh',
+  '.hta', '.scf', '.lnk', '.reg', '.inf', '.msc', '.cab', '.gadget',
+  // Unix/mac shell скрипттері
+  '.sh', '.bash', '.zsh', '.ksh', '.csh', '.run', '.command',
 ]);
 
 const BINARY_EXTENSIONS = new Set(['.bin', '.class', '.o', '.obj', '.a', '.lib', '.wasm']);
@@ -84,7 +91,9 @@ export function classifyUploadPath(path: string): UploadKind | null {
   const parts = path.replace(/\\/g, '/').split('/').filter(Boolean).map((p) => p.toLowerCase());
   if (parts.length === 0) return null;
   if (parts.slice(0, -1).some((p) => JUNK_DIRS.has(p) || JUNK_DIR_SUFFIXES.some((s) => p.endsWith(s)))) return 'junk';
-  const name = parts[parts.length - 1];
+  // Артқы бос орын/нүктені алып тастаймыз: Windows файлды сақтағанда оларды қысқартады,
+  // сондықтан «evil.exe » не «evil.exe.» дискіде «evil.exe» болады — тексерісті айналып өтпесін.
+  const name = parts[parts.length - 1].replace(/[ .]+$/, '');
   const ext = extOf(name);
   if (JUNK_FILES.has(name) || JUNK_EXTENSIONS.has(ext) || JUNK_NAME_SUFFIXES.some((s) => name.endsWith(s))) return 'junk';
   if (SECRET_FILES.has(name) || SECRET_EXTENSIONS.has(ext)) return 'secret';

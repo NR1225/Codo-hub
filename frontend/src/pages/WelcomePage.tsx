@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -16,6 +16,7 @@ import {
 import { faComments } from '@fortawesome/free-regular-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { markWelcomeSeen } from '../utils/welcome';
+import LegalDocModal, { type LegalDoc } from '../components/settings/docs/LegalDocModal';
 // .home-btn батырма стильдері — Home.css-те
 import './Home.css';
 import './WelcomePage.css';
@@ -36,6 +37,8 @@ const STEPS = ['s1', 's2', 's3'] as const;
 const WelcomePage: React.FC = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
+  const [legalDoc, setLegalDoc] = useState<LegalDoc | null>(null);
+  const closeLegal = useCallback(() => setLegalDoc(null), []);
 
   useEffect(() => {
     markWelcomeSeen();
@@ -198,11 +201,14 @@ const WelcomePage: React.FC = () => {
       <footer className="wl-footer">
         <span>© {new Date().getFullYear()} Codo Hub</span>
         <nav>
-          <Link to="/terms">{t('footer.terms')}</Link>
-          <Link to="/privacy">{t('footer.privacy')}</Link>
+          {/* /settings кіруді талап етеді — құжаттар аккаунтсыз модалда ашылады */}
+          <button type="button" className="wl-footer-link" onClick={() => setLegalDoc('terms')}>{t('footer.terms')}</button>
+          <button type="button" className="wl-footer-link" onClick={() => setLegalDoc('privacy')}>{t('footer.privacy')}</button>
           <Link to="/contact">{t('footer.contact')}</Link>
         </nav>
       </footer>
+
+      <LegalDocModal doc={legalDoc} onClose={closeLegal} />
     </div>
   );
 };

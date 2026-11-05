@@ -43,6 +43,34 @@ def ensure_folder(db: Session, project: VibecodingProject) -> str:
     return project.notes_folder
 
 
+def follow_rename(db: Session, project: VibecodingProject, old_name: str) -> None:
+    """Жобаның аты өзгерсе — автоматты берілген папка да жаңа атқа көшеді (ішіндегі жазбаларымен).
+    Қолданушы папканы өзі басқаша атаған болса немесе жаңа атпен папка бар болса — тиіспейміз."""
+    folder = project.notes_folder
+    if not folder or old_name == project.name:
+        return
+    old_base = _folder_name(old_name)
+    if folder != old_base and not re.fullmatch(re.escape(old_base) + r" \(\d+\)", folder):
+        return
+    target = _folder_name(project.name)
+    if target == folder or target in NoteService.folders(db, project.owner_id):
+        return
+    taken = {
+        f for (f,) in db.query(VibecodingProject.notes_folder)
+        .filter(VibecodingProject.owner_id == project.owner_id, VibecodingProject.id != project.id)
+    }
+    if target in taken:
+        return
+    NoteService.rename_folder(db, project.owner_id, folder, target)  # notes_folder-ды да жаңартады
+
+
+def release_folder(db: Session, owner_id: str, folder: Optional[str]) -> None:
+    """Жоба жойылғанда: папкасы бос болса — оны да алып тастаймыз (жазбалар болса — сақталады)"""
+    if not folder or db.query(Note.id).filter(_in_folder(owner_id, folder)).first():
+        return
+    NoteService.delete_folder(db, owner_id, folder)
+
+
 def get_project(db: Session, owner_id: str, project_id: Optional[str]) -> Optional[VibecodingProject]:
     if not project_id:
         return None

@@ -98,8 +98,14 @@ def _clean_rel(path: str) -> Optional[str]:
     if not isinstance(path, str) or "\\" in path or ":" in path or "\0" in path:
         return None
     parts = [p for p in path.split("/") if p and p != "."]
-    if not parts or any(p == ".." for p in parts):
+    if not parts:
         return None
+    for p in parts:
+        # `..` — жоғары шығу; тек-нүктелі («...», «....») не артқы нүкте/бос орынды сегменттер
+        # Windows-та басқа жолға нормаланады, сондықтан тексерілген жол нақты жазылатыннан
+        # өзгеше болуы мүмкін — бәрін де бас тартамыз (заңды файл атауында мұндай болмайды).
+        if p == ".." or p.strip(".") == "" or p != p.rstrip(" ."):
+            return None
     return "/".join(parts)
 
 

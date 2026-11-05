@@ -16,6 +16,8 @@ import './Home.css';
 // Модуль деңгейіндегі кэш: Home-қа қайта оралғанда loading флешы
 // көрінбеуі үшін — бұрын жүктелген кодтарды бірден көрсетіп, фонда жаңартамыз.
 let homeCachedCodes: CodeFile[] | null = null;
+// Аккаунттан шыққанда келесі қолданушыға бұрынғының кодтары көрінбесін
+if (typeof window !== 'undefined') window.addEventListener('codo:logout', () => { homeCachedCodes = null; });
 
 const SIDEBAR_STORAGE_KEY = 'kh-home-sidebar-collapsed';
 

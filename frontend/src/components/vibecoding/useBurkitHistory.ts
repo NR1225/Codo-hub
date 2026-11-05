@@ -48,6 +48,7 @@ export interface BurkitConversation {
   pinned?: boolean;
   /** Сөйлесу қай жобада басталды */
   projectName?: string;
+  projectId?: string;
   messages: BurkitMessage[];
 }
 
@@ -58,7 +59,9 @@ export type BurkitScope = 'vibe' | 'site';
 
 const storageKey = (scope: BurkitScope, userId?: string) => `${scope}-burkit-history:${userId ?? 'guest'}`;
 // Қай сөйлесу ашық тұрғаны — бет жаңартылғанда сол чатқа қайту үшін
-const activeKey = (historyKey: string) => historyKey.replace('-burkit-history:', '-burkit-active:');
+// slot — жоба id-і: Vibecoding-те әр жобаның өз ашық чаты болады
+const activeKey = (historyKey: string, slot?: string | null) =>
+  historyKey.replace('-burkit-history:', '-burkit-active:') + (slot ? `:${slot}` : '');
 
 export type BurkitView = 'chat' | 'history';
 
@@ -156,11 +159,13 @@ export function useBurkitHistory(scope: BurkitScope = 'vibe') {
   const clearAll = useCallback(() => update((list) => list.filter((c) => c.pinned)), [update]);
 
   /** Сақталған ашық чат (тарихтан тікелей оқылады — React күйі әлі жаңармаса да) */
-  const readActive = useCallback((): { state: BurkitActiveState; conversation: BurkitConversation | null } => {
+  const readActive = useCallback((slot?: string | null): { state: BurkitActiveState; conversation: BurkitConversation | null } => {
     let state: BurkitActiveState = { conversationId: null, view: 'chat' };
+    let saved = false;
     try {
-      const raw = JSON.parse(localStorage.getItem(activeKey(key)) || 'null');
+      const raw = JSON.parse(localStorage.getItem(activeKey(key, slot)) || 'null');
       if (raw && typeof raw === 'object') {
+        saved = true;
         state = {
           conversationId: typeof raw.conversationId === 'string' ? raw.conversationId : null,
           view: raw.view === 'history' ? 'history' : 'chat',
@@ -169,13 +174,20 @@ export function useBurkitHistory(scope: BurkitScope = 'vibe') {
     } catch {
       // бұзылған жазба — жаңа чаттан бастаймыз
     }
-    const conversation = state.conversationId ? load(key).find((c) => c.id === state.conversationId) ?? null : null;
+    const list = load(key);
+    let conversation = state.conversationId ? list.find((c) => c.id === state.conversationId) ?? null : null;
+    // Жобаның ашық чаты әлі жазылмаған — осы жобадағы ең соңғы сөйлесу
+    if (!saved && slot) {
+      conversation = list
+        .filter((c) => c.projectId === slot)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+    }
     return { state, conversation };
   }, [key]);
 
-  const saveActive = useCallback((state: BurkitActiveState) => {
+  const saveActive = useCallback((state: BurkitActiveState, slot?: string | null) => {
     try {
-      localStorage.setItem(activeKey(key), JSON.stringify(state));
+      localStorage.setItem(activeKey(key, slot), JSON.stringify(state));
     } catch {
       // сақталмаса — тек осы сессияда
     }

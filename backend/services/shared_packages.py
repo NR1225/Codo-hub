@@ -343,6 +343,31 @@ def _write_shims(python: str) -> None:
             f.write(body)
         if not IS_WINDOWS:
             os.chmod(path, 0o755)
+    _write_codo_shims(python)
+
+
+def _case_variants(word: str) -> List[str]:
+    """codo → codo, Codo, cOdo, … CODO (bash-та командалар регистрге сезімтал)"""
+    out = [""]
+    for ch in word:
+        out = [p + c for p in out for c in {ch.lower(), ch.upper()}]
+    return sorted(out)
+
+
+def _write_codo_shims(python: str) -> None:
+    """`codo` — терминалдағы Codo ЖИ көмекшісі (services/codo_cli.py).
+    Windows-та команда аты регистрге сезімтал емес; Linux-та барлық нұсқасын жазамыз."""
+    cli = os.path.join(BIN_DIR, "codo_cli.py")
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "codo_cli.py"), cli)
+    if IS_WINDOWS:
+        with open(os.path.join(BIN_DIR, "codo.cmd"), "w", encoding="utf-8", newline="") as f:
+            f.write(f'@"{python}" -I "{cli}" %*\r\n')
+        return
+    for name in _case_variants("codo"):
+        path = os.path.join(BIN_DIR, name)
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(f'#!/bin/sh\nexec "{python}" -I "{cli}" "$@"\n')
+        os.chmod(path, 0o755)
 
 
 def powershell_functions() -> str:
@@ -359,9 +384,14 @@ def powershell_functions() -> str:
     def q(value: str) -> str:
         return "'" + value.replace("'", "''") + "'"
 
-    return "".join(
+    funcs = "".join(
         f"function {tool} {{ & {q(python)} -I {q(shim)} {tool} @args }};" for tool in _SHIM_TOOLS
     )
+    # PowerShell-де функция аты регистрге сезімтал емес: codo / Codo / CODO — бәрі осы
+    cli = os.path.join(BIN_DIR, "codo_cli.py")
+    if os.path.isfile(cli):
+        funcs += f"function codo {{ & {q(python)} -I {q(cli)} @args }};"
+    return funcs
 
 
 def ensure_tools() -> Dict[str, Optional[str]]:

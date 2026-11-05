@@ -219,6 +219,26 @@ export function projectTabIds(state: Pick<VibecodingState, 'projects' | 'activeP
   return ids;
 }
 
+// Жобаға алғаш ауысқанда ашылатын файл: кіру нүктесі, болмаса README, болмаса түбірге ең жақын файл
+const ENTRY_FILES = [
+  'index.html', 'main.py', 'app.py', 'index.js', 'main.js', 'app.js', 'index.ts', 'main.ts',
+  'src/main.tsx', 'src/main.ts', 'src/main.jsx', 'src/main.js', 'src/index.tsx', 'src/index.js',
+  'src/App.tsx', 'src/App.jsx', 'main.go', 'src/main.rs', 'Main.java', 'main.cpp', 'main.c',
+];
+
+export function defaultProjectFile(project: Project | undefined): VirtualFile | null {
+  if (!project || project.files.length === 0) return null;
+  const byPath = new Map(project.files.map(f => [f.path.toLowerCase(), f]));
+  for (const entry of ENTRY_FILES) {
+    const hit = byPath.get(entry.toLowerCase());
+    if (hit) return hit;
+  }
+  const readme = project.files.find(f => /^readme(\.\w+)?$/i.test(f.path));
+  if (readme) return readme;
+  const depth = (f: VirtualFile) => f.path.split('/').length;
+  return [...project.files].sort((a, b) => depth(a) - depth(b) || a.path.localeCompare(b.path))[0];
+}
+
 /** Белсенді жобаның ашық файлдарын есте сақтап, басқа жобаға ауысу (табы да ашылады) */
 function activateProject(state: VibecodingState, projectId: string | null): VibecodingState {
   const projectTabs = { ...(state.projectTabs ?? {}) };
@@ -228,7 +248,12 @@ function activateProject(state: VibecodingState, projectId: string | null): Vibe
   const project = state.projects.find(p => p.id === projectId);
   const saved = projectId ? projectTabs[projectId] : undefined;
   const fileExists = (id: string) => !!project?.files.some(f => f.id === id);
-  const openFileIds = (saved?.openFileIds ?? []).filter(fileExists);
+  let openFileIds = (saved?.openFileIds ?? []).filter(fileExists);
+  // Бұрын ашық файл жоқ (жобаға алғаш ауысу) — коды бірден көрінуі үшін негізгі файлды ашамыз
+  if (openFileIds.length === 0) {
+    const entry = defaultProjectFile(project);
+    if (entry) openFileIds = [entry.id];
+  }
   const activeFileId = saved?.activeFileId && fileExists(saved.activeFileId)
     ? saved.activeFileId
     : openFileIds[openFileIds.length - 1] ?? null;
@@ -712,13 +737,20 @@ function vibecodingReducer(state: VibecodingState, action: VibecodingAction): Vi
       const activeProjectId = keepActive ? state.activeProjectId : projects[0]?.id ?? null;
       const activeProject = projects.find(p => p.id === activeProjectId);
       const fileExists = (id: string) => !!activeProject?.files.some(f => f.id === id);
+      let openFileIds = keepActive ? state.openFileIds.filter(fileExists) : [];
+      let activeFileId = keepActive && state.activeFileId && fileExists(state.activeFileId) ? state.activeFileId : null;
+      if (openFileIds.length === 0) {
+        const entry = defaultProjectFile(activeProject);
+        if (entry) openFileIds = [entry.id];
+      }
+      if (!activeFileId) activeFileId = openFileIds[openFileIds.length - 1] ?? null;
       return {
         ...state,
         projects,
         ownerId,
         activeProjectId,
-        openFileIds: keepActive ? state.openFileIds.filter(fileExists) : [],
-        activeFileId: keepActive && state.activeFileId && fileExists(state.activeFileId) ? state.activeFileId : null,
+        openFileIds,
+        activeFileId,
         openProjectIds: projectTabIds({ projects, activeProjectId, openProjectIds: state.openProjectIds }),
       };
     }
@@ -804,6 +836,26 @@ export const useVibecoding = () => {
 };
 
 const STORAGE_KEY = 'vibecoding_state';
+
+// Серверге әлі жетпеген (сақталуы расталмаған) жобалардың ID-лері. Бет жаңарғанда сервердегі
+// ескі нұсқа браузердегі соңғы өзгерістерді үстінен жазып жібермеуі үшін.
+const PENDING_KEY = 'vibecoding_pending_sync';
+
+function loadPending(): Set<string> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    return new Set(Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function savePending(ids: Set<string>) {
+  try {
+    if (ids.size === 0) localStorage.removeItem(PENDING_KEY);
+    else localStorage.setItem(PENDING_KEY, JSON.stringify(Array.from(ids)));
+  } catch { /* ignore */ }
+}
 
 function loadState(): VibecodingState | null {
   try {
@@ -938,7 +990,10 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
   // Әр әрекет Codo-ға арналған оқиғалар журналына да жазылады
   const logStateRef = useRef(state);
   logStateRef.current = state;
+  // Серверден жүктелген жобалар «серверге жетпеген өзгеріс» деп белгіленбеуі үшін
+  const skipPendingRef = useRef(false);
   const dispatch = useCallback<React.Dispatch<VibecodingAction>>((action) => {
+    if (action.type === 'LOAD_PROJECTS') skipPendingRef.current = true;
     const entry = describeAction(action, logStateRef.current);
     if (entry) logEvent(entry.text, entry.key);
     // DEV диагностика: панельді не жауып жатқанын көру үшін (кейін алынады)
@@ -1009,13 +1064,23 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
         }
 
         const projects = remote.map(fromServer);
+        // Серверге жетпей қалған өзгерістер (мысалы, сақталып үлгермей бет жаңартылды) —
+        // браузердегі нұсқа жаңарақ, соны қалдырып, серверге қайта жібереміз
+        const pending = loadPending();
+        if (localIsMine && pending.size > 0) {
+          local.projects.forEach(p => {
+            if (!pending.has(p.id)) return;
+            const idx = projects.findIndex(r => r.id === p.id);
+            if (idx >= 0) projects[idx] = { ...p, publishedCodeId: projects[idx].publishedCodeId };
+            else projects.push(p); // серверге ешқашан жетпеген жаңа жоба
+          });
+        }
         if (projects.length === 0) {
           // Серверде де, браузерде де жоба жоқ — әдепкі жобамен бастау
           projects.push(createDefaultProject());
         }
-        syncedRef.current = new Map(
-          projects.filter(p => remote.some(r => r.id === p.id)).map(p => [p.id, snapshotOf(p)])
-        );
+        // Сервердегі нақты нұсқаның «суреті» — жергілікті нұсқа өзгеше болса, flush оны жібереді
+        syncedRef.current = new Map(remote.map(r => [r.id, snapshotOf(fromServer(r))]));
         dispatch({ type: 'LOAD_PROJECTS', payload: { projects, ownerId: user.id } });
       } catch (err) {
         // Сервер қолжетімсіз — localStorage-пен жұмыс істей береміз
@@ -1039,12 +1104,24 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     const projects = stateRef.current.projects;
     const current = new Set(projects.map(p => p.id));
     const saves: Promise<unknown>[] = [];
+    const pending = loadPending();
+    let pendingChanged = false;
 
     projects.forEach(project => {
       const snap = snapshotOf(project);
-      if (synced.get(project.id) === snap) return;
+      if (synced.get(project.id) === snap) {
+        // Серверде дәл осы нұсқа тұр — белгіні алып тастаймыз
+        if (pending.delete(project.id)) pendingChanged = true;
+        return;
+      }
       synced.set(project.id, snap); // қайталап жібермеу үшін алдын ала белгілейміз
       saves.push(apiService.saveVibecodingProject(project.id, toServerPayload(project)).then(() => {
+        // Сұрау кезінде жаңа өзгеріс болмаса ғана «серверге жетті» деп белгілейміз
+        const cur = stateRef.current.projects.find(p => p.id === project.id);
+        if (!cur || snapshotOf(cur) === snap) {
+          const ids = loadPending();
+          if (ids.delete(project.id)) savePending(ids);
+        }
         setSaveErrors(prev => {
           if (!(project.id in prev)) return prev;
           const next = { ...prev };
@@ -1059,6 +1136,11 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
       }));
     });
 
+    pending.forEach(id => {
+      if (!current.has(id)) { pending.delete(id); pendingChanged = true; }
+    });
+    if (pendingChanged) savePending(pending);
+
     Array.from(synced.keys()).forEach(id => {
       if (current.has(id)) return;
       synced.delete(id);
@@ -1066,6 +1148,29 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
     });
     await Promise.all(saves);
   }, []);
+
+  // Өзгерген жобаларды бірден «серверге жетпеген» деп белгілеу (кешіктірмей — бет кез келген
+  // сәтте жаңартылуы мүмкін). Редьюсер тек өзгерген жобаның объектісін жаңартады.
+  const prevProjectsRef = useRef(state.projects);
+  useEffect(() => {
+    const prev = prevProjectsRef.current;
+    prevProjectsRef.current = state.projects;
+    if (skipPendingRef.current) {
+      skipPendingRef.current = false;
+      return;
+    }
+    if (prev === state.projects) return;
+    const prevById = new Map(prev.map(p => [p.id, p]));
+    const pending = loadPending();
+    let changed = false;
+    state.projects.forEach(p => {
+      if (prevById.get(p.id) !== p && !pending.has(p.id)) {
+        pending.add(p.id);
+        changed = true;
+      }
+    });
+    if (changed) savePending(pending);
+  }, [state.projects]);
 
   useEffect(() => {
     if (!isAuthenticated || !syncedRef.current) return;
@@ -1110,13 +1215,16 @@ export const VibecodingProvider: React.FC<VibecodingProviderProps> = ({ children
 
   // Бет жаңартылар/жабылар алдында — 500ms күтпей бірден сақтау
   useEffect(() => {
-    const flush = () => saveState(stateRef.current);
+    const flush = () => {
+      saveState(stateRef.current);
+      void flushToServer(); // серверге де жіберіп көреміз (үлгермесе — келесі ашылғанда жіберіледі)
+    };
     window.addEventListener('pagehide', flush);
     return () => {
       window.removeEventListener('pagehide', flush);
       flush(); // беттен шыққанда (басқа бетке өту)
     };
-  }, []);
+  }, [flushToServer]);
 
   const contextValue = useCallback(() => ({
     state,

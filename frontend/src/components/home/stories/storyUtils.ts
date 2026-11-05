@@ -59,9 +59,6 @@ export function quickStickers(usage: Record<string, number>): string[] {
   return list.slice(0, QUICK_STICKER_COUNT);
 }
 
-/** Стористің сілтемесі: басты бет ашылғанда сол сторис бірден ашылады (HomeStories) */
-export const storyLink = (id: string) => `${window.location.origin}/?story=${encodeURIComponent(id)}`;
-
 export const ACCEPT_MEDIA = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime';
 
 const SEEN_KEY = 'codo-seen-stories';

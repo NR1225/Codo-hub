@@ -523,12 +523,22 @@
   gap: 20px;
 }
 
-.wl-footer a {
+.wl-footer a,
+.wl-footer-link {
   color: inherit;
   text-decoration: none;
 }
 
-.wl-footer a:hover {
+.wl-footer-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wl-footer a:hover,
+.wl-footer-link:hover {
   color: var(--text-primary);
 }
 

@@ -17,6 +17,8 @@ interface FeedState {
 }
 
 const feedCache = new Map<string, FeedState>();
+// Аккаунттан шыққанда бұрынғы қолданушының (жабық жобалары бар) лентасы қалмасын
+if (typeof window !== 'undefined') window.addEventListener('codo:logout', () => feedCache.clear());
 const EMPTY: FeedState = { codes: [], total: 0, hasMore: false, languages: [], languagesTotal: 0 };
 const MAX_RETRIES = 2;
 

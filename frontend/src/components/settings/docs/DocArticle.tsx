@@ -23,7 +23,8 @@ const ICONS: Record<ArticleDoc, IconDefinition> = {
   privacy: faLock,
 };
 
-const DocArticle: React.FC<{ doc: ArticleDoc }> = ({ doc }) => {
+// showContactLink=false — аккаунтсыз модалда (Байланыс беті тек кірген қолданушыға ашылады)
+const DocArticle: React.FC<{ doc: ArticleDoc; showContactLink?: boolean }> = ({ doc, showContactLink = true }) => {
   const { t } = useTranslation();
   const raw = t(`settings.docs.${doc}.sections`, { returnObjects: true });
   const sections: Section[] = Array.isArray(raw) ? raw : [];
@@ -54,7 +55,7 @@ const DocArticle: React.FC<{ doc: ArticleDoc }> = ({ doc }) => {
                 {s.items.map((item) => <li key={item}>{item}</li>)}
               </ul>
             )}
-            {s.link === 'contact' && (
+            {s.link === 'contact' && showContactLink && (
               <Link to="/settings/info/contact" className="stg-article__link">
                 {t('settings.docs.toContact')} <FontAwesomeIcon icon={faArrowRight} />
               </Link>

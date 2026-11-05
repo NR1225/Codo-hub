@@ -1314,3 +1314,44 @@
     animation: none;
   }
 }
+
+/* ── «Жобаны қосу» терезесі ── */
+.nt-projects { max-width: 640px; display: flex; flex-direction: column; max-height: 80vh; }
+.nt-projects__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; }
+.nt-projects__head h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+.nt-projects__head p { margin: 0; color: var(--nt-muted); font-size: 13px; line-height: 1.45; }
+.nt-projects__tabs { display: flex; gap: 6px; padding: 0 20px; border-bottom: 1px solid var(--nt-border); }
+.nt-projects__tab { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--nt-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+.nt-projects__tab:hover { color: var(--nt-text); }
+.nt-projects__tab.is-active { color: var(--nt-text); border-bottom-color: var(--nt-accent); }
+.nt-projects__count { min-width: 18px; padding: 1px 6px; border-radius: 999px; background: var(--nt-hover); color: var(--nt-soft); font-size: 11px; text-align: center; }
+.nt-projects__tools { display: flex; align-items: center; gap: 12px; padding: 12px 20px; }
+.nt-projects__search { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 1px solid var(--nt-border); border-radius: 10px; background: var(--nt-bg); color: var(--nt-text); font-size: 14px; }
+.nt-projects__search:focus { outline: none; border-color: var(--nt-border-strong); }
+.nt-projects__ai { display: inline-flex; align-items: center; gap: 6px; color: var(--nt-soft); font-size: 13px; white-space: nowrap; cursor: pointer; user-select: none; }
+.nt-projects__list { flex: 1; min-height: 120px; overflow: auto; padding: 0 12px 8px; }
+.nt-projects__empty { padding: 32px 12px; color: var(--nt-muted); text-align: center; font-size: 14px; }
+.nt-projects__row { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 12px; }
+.nt-projects__row:hover { background: var(--nt-hover); }
+.nt-projects__icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--nt-raise); border: 1px solid var(--nt-border); color: var(--nt-soft); font-size: 14px; }
+.nt-projects__row.is-linked .nt-projects__icon { color: #34d399; }
+.nt-projects__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nt-projects__name { display: flex; align-items: center; gap: 6px; color: var(--nt-text); font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-projects__lock { color: var(--nt-muted); font-size: 11px; }
+.nt-projects__info small { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: var(--nt-muted); font-size: 12px; }
+.nt-projects__badge { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(52, 211, 153, 0.12); color: #34d399; font-size: 11px; font-weight: 600; }
+.nt-projects__actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.nt-projects__btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--nt-border-strong); border-radius: 9px; background: transparent; color: var(--nt-text); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.nt-projects__btn:hover:not(:disabled) { background: var(--nt-hover); }
+.nt-projects__btn.is-primary { border-color: transparent; background: var(--nt-accent); color: var(--nt-on-accent); }
+.nt-projects__btn.is-primary:hover:not(:disabled) { background: var(--nt-accent-hover); }
+.nt-projects__btn:disabled { opacity: 0.55; cursor: default; }
+.nt-projects__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--nt-border); color: var(--nt-muted); font-size: 12px; }
+.nt-projects__error { color: var(--nt-danger); }
+
+@media (max-width: 560px) {
+  .nt-projects { max-height: 88vh; }
+  .nt-projects__tools { flex-direction: column; align-items: stretch; }
+  .nt-projects__btn { padding: 0 10px; }
+  .nt-projects__foot { flex-direction: column; align-items: stretch; }
+}

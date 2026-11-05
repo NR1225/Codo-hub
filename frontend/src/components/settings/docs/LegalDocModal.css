@@ -1,0 +1,97 @@
+/* Аккаунтсыз ашылатын құқықтық құжат модалы (Welcome беті).
+   Portal арқылы body-ге шығады, сондықтан Settings/Welcome айнымалыларын өзі анықтайды. */
+
+.legal-modal {
+  --text-primary: var(--mono-f5f5f5);
+  --text-secondary: var(--mono-a3a3a3);
+  --home-accent: var(--mono-fafafa);
+  --home-on-accent: var(--mono-0a0a0a);
+  --stg-line: var(--mono-1f1f1f);
+  --stg-line-strong: var(--mono-333333);
+  --stg-hover: var(--mono-1a1a1a);
+  --stg-raise: var(--mono-161616);
+  --stg-muted: var(--mono-8f8f8f);
+  --stg-radius: 12px;
+  --stg-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  animation: legalFade 0.2s ease;
+}
+
+.legal-modal__dialog {
+  position: relative;
+  width: min(860px, 100%);
+  max-height: min(86vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: var(--mono-0f0f0f, #0f0f0f);
+  border: 1px solid var(--stg-line-strong);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  animation: legalRise 0.28s var(--stg-ease);
+  overflow: hidden;
+}
+
+.legal-modal__body {
+  overflow-y: auto;
+  padding: 32px clamp(18px, 4vw, 40px) 36px;
+  overscroll-behavior: contain;
+}
+
+.legal-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--stg-line-strong);
+  border-radius: 10px;
+  background: var(--stg-raise);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.legal-modal__close:hover {
+  background: var(--stg-hover);
+  color: var(--text-primary);
+}
+
+/* Жабу батырмасы тақырыпқа түспесін */
+.legal-modal .stg-article__hero {
+  padding-right: 44px;
+}
+
+@keyframes legalFade {
+  from { opacity: 0; }
+}
+
+@keyframes legalRise {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+}
+
+/* Settings.css-тегі stgBodyIn мұнда жүктелмеуі мүмкін — өз кадрларымыз */
+.legal-modal .stg-article__section {
+  animation-name: legalBodyIn;
+}
+
+@keyframes legalBodyIn {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@media (max-width: 600px) {
+  .legal-modal { padding: 0; align-items: flex-end; }
+  .legal-modal__dialog { max-height: 92vh; border-radius: 18px 18px 0 0; }
+  .legal-modal__body { padding: 28px 16px 32px; }
+}

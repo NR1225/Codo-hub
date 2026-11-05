@@ -1,7 +1,7 @@
 // Real-time авто-обновление сервисі - Firestore onSnapshot пайдалана отырып
 import { getFirebaseDb, isFirestoreBlocked, markFirestoreBlocked, isFirebaseInitialized } from './firebase';
 import { doc, onSnapshot, Unsubscribe, collection, query, where, orderBy, onSnapshot as onSnapshotCollection } from 'firebase/firestore';
-import { CodeFile, Message } from './api';
+import { CodeFile } from './api';
 
 // Real-time listener-ларды сақтау үшін
 const listeners: Map<string, Unsubscribe> = new Map();
@@ -98,105 +98,6 @@ export const subscribeToCode = (
     return unsubscribe;
   } catch (error) {
     console.error('Failed to subscribe to code:', error);
-    if (onError) {
-      onError(error as Error);
-    }
-    // Return empty unsubscribe function
-    return () => {};
-  }
-};
-
-/**
- * Хабарламаларға real-time listener қосу
- * Екі пайдаланушы арасындағы хабарламаларды автоматты түрде көрсетеді
- */
-export const subscribeToMessages = (
-  userId1: string,
-  userId2: string,
-  onUpdate: (messages: Message[]) => void,
-  onError?: (error: Error) => void
-): Unsubscribe => {
-  const listenerKey = `messages-${userId1}-${userId2}`;
-  
-  // Егер бұрынғы listener болса, оны жабу
-  const existingListener = listeners.get(listenerKey);
-  if (existingListener) {
-    existingListener();
-  }
-
-  // Check if Firestore is blocked before attempting connection
-  if (isFirestoreBlocked() || !isFirebaseInitialized()) {
-    // Return empty unsubscribe function - don't attempt connection
-    return () => {};
-  }
-
-  try {
-    const db = getFirebaseDb();
-    if (!db) return () => {};
-    // Екі пайдаланушы арасындағы хабарламаларды табу
-    const messagesRef = collection(db, 'messages');
-    const q = query(
-      messagesRef,
-      where('fromUserId', 'in', [userId1, userId2]),
-      where('toUserId', 'in', [userId1, userId2]),
-      orderBy('createdAt', 'asc')
-    );
-
-    const unsubscribe = onSnapshotCollection(
-      q,
-      (snapshot) => {
-        const messages: Message[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          messages.push({
-            id: doc.id,
-            fromUserId: data.fromUserId,
-            toUserId: data.toUserId,
-            content: data.content,
-            createdAt: data.createdAt || new Date().toISOString(),
-            read: data.read || false,
-          });
-        });
-        onUpdate(messages);
-      },
-      (error: any) => {
-        // ERR_BLOCKED_BY_CLIENT қатесін (ad blocker) елемеу
-        const errorMessage = error?.message || error?.toString() || '';
-        const errorStack = error?.stack || '';
-        const errorString = JSON.stringify(error) || '';
-        const isBlocked = 
-          error?.code === 'unavailable' || 
-          error?.code === 'permission-denied' ||
-          errorMessage.includes('BLOCKED_BY_CLIENT') ||
-          errorMessage.includes('ERR_BLOCKED_BY_CLIENT') ||
-          errorMessage.includes('network') ||
-          errorMessage.includes('Failed to fetch') ||
-          errorStack.includes('BLOCKED_BY_CLIENT') ||
-          errorStack.includes('ERR_BLOCKED_BY_CLIENT') ||
-          errorString.includes('BLOCKED_BY_CLIENT') ||
-          errorString.includes('ERR_BLOCKED_BY_CLIENT') ||
-          errorString.includes('Listen/channel') ||
-          errorString.includes('TYPE=terminate');
-        
-        if (isBlocked) {
-          // Mark Firestore as blocked for future attempts
-          markFirestoreBlocked();
-          // Тыныштықпен елемеу - API деректері пайдаланылады
-          // Error suppression utility will handle console output
-          return;
-        }
-        // Only log non-blocked errors (error suppression will filter known patterns)
-        console.error('Error listening to messages:', error);
-        if (onError) {
-          onError(error as Error);
-        }
-      }
-    );
-
-    listeners.set(listenerKey, unsubscribe);
-    return unsubscribe;
-  } catch (error) {
-    console.error('Failed to subscribe to messages:', error);
     if (onError) {
       onError(error as Error);
     }

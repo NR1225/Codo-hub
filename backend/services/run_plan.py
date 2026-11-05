@@ -76,7 +76,8 @@ def _in_dir(directory: str, command: str) -> str:
 def _free_port() -> int:
     """Жобаға бос порт: әдепкі 3000 сайттың өз бэкендімен соқтығысады
     (CRA «басқа портта іске қосайын ба? (Y/n)» деп тұрып қалады, Express EADDRINUSE береді)"""
-    for port in range(4100, 4200):
+    # 4100-4999 — dev_proxy.ALLOWED_PORTS ауқымымен бірдей болуы керек (прокси осы порттарды ғана өткізеді)
+    for port in range(4100, 5000):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
                 sock.bind(("0.0.0.0", port))

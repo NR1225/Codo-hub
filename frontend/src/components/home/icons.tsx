@@ -234,13 +234,6 @@ export const UserPlusIcon: SizedIcon = ({ size }) => (
   </Icon>
 );
 
-export const InboxIcon: SizedIcon = ({ size }) => (
-  <Icon size={size}>
-    <path d="M4 13.5 6.4 6a2 2 0 0 1 1.9-1.5h7.4A2 2 0 0 1 17.6 6l2.4 7.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
-    <path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" />
-  </Icon>
-);
-
 export const ClockIcon: SizedIcon = ({ size }) => (
   <Icon size={size}>
     <circle cx="12" cy="12" r="8.5" />
@@ -289,14 +282,6 @@ export const VideoIcon: SizedIcon = ({ size }) => (
   <Icon size={size}>
     <rect x="3" y="6" width="13" height="12" rx="2.5" />
     <path d="m16 10.5 5-3v9l-5-3" />
-  </Icon>
-);
-
-export const MusicIcon: SizedIcon = ({ size }) => (
-  <Icon size={size}>
-    <path d="M9 17.5V5.5l10-2v12" />
-    <circle cx="6.5" cy="17.5" r="2.5" />
-    <circle cx="16.5" cy="15.5" r="2.5" />
   </Icon>
 );
 

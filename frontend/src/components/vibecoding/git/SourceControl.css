@@ -128,8 +128,20 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
   padding: 4px 10px 8px;
 }
+
+/* Сайдбар ашылып/жабылғанда (тар енде) мәтін сыртқа шықпай, «…» болып қысқарады */
+.vx-git { min-width: 0; overflow: hidden; }
+.vx-git-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vx-git-label--wrap { white-space: normal; overflow-wrap: anywhere; }
 
 .vx-git-branch {
   display: inline-flex;
@@ -177,6 +189,9 @@
 
 .vx-git-commit__btn {
   height: 26px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   gap: 5px;
   border-radius: 6px;
   font-size: 11.5px;
@@ -543,32 +558,127 @@ button.vx-git-branch:hover { color: var(--ide-text); background: var(--ide-hover
   white-space: nowrap;
 }
 
-.vx-git-commit__actions { display: flex; gap: 1px; }
-.vx-git-commit__main { flex: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.vx-git-commit__more { width: 26px; padding: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
-
-.vx-git-sync { display: flex; flex-direction: column; gap: 4px; }
-
-.vx-git-sync__btn {
-  height: 26px;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 6px;
-  font-size: 11.5px;
+/* Коммит: бір біртұтас split-батырма — сол жағы «Коммит», оң жағы ▾ әрекеттер мәзірі */
+.vx-git-split {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--vx-split-bg, #fafafa);
+  color: var(--vx-split-fg, #0a0a0a);
+  transition: background 0.15s, opacity 0.15s;
 }
+:where(html.light-theme) .vx-git-split { --vx-split-bg: #0a0a0a; --vx-split-fg: #f5f5f5; }
+.vx-git-split.is-disabled { background: var(--vx-raise-2, #1c1c1c); color: var(--vx-muted, #8f8f8f); }
+:where(html.light-theme) .vx-git-split.is-disabled { background: rgba(0, 0, 0, 0.06); color: #8a8a8a; }
+
+.vx-git-split__main,
+.vx-git-split__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.vx-git-split__main {
+  flex: 1 1 0;
+  gap: 6px;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  border-radius: 7px 0 0 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.vx-git__menu-anchor:has(.vx-git-split__more) { flex-shrink: 0; }
+.vx-git-split__more {
+  position: relative;
+  width: 28px;
+  padding: 0;
+  border-radius: 0 7px 7px 0;
+}
+/* Ортадағы бөлгіш сызық — екі батырманың бір топ екенін көрсетеді */
+.vx-git-split__more::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+.vx-git-split__more svg { transition: transform 0.15s; }
+.vx-git-split__more.is-open svg { transform: rotate(180deg); }
+.vx-git-split__main:hover:not(:disabled),
+.vx-git-split__more:hover:not(:disabled),
+.vx-git-split__more.is-open { background: color-mix(in srgb, currentColor 12%, transparent); }
+.vx-git-split__main:disabled { cursor: not-allowed; }
+.vx-git-split__main:focus-visible,
+.vx-git-split__more:focus-visible { outline: 2px solid var(--ide-accent, #fafafa); outline-offset: 1px; }
+.vx-git-split__main svg,
+.vx-git-sync__btn svg,
+.vx-git-sync__ok svg { flex-shrink: 0; }
+
+/* Сайт Git-імен синхрондау — жұқа шекаралы жол */
+.vx-git-sync { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.vx-btn.vx-git-sync__btn {
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  justify-content: flex-start;
+  gap: 7px;
+  border: 1px solid var(--vx-line-strong, #333);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ide-text);
+  font-size: 11.5px;
+  font-weight: 500;
+  box-shadow: none;
+}
+.vx-btn.vx-git-sync__btn:hover:not(:disabled) { background: var(--ide-hover); transform: none; box-shadow: none; }
+.vx-git-sync__btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.vx-git-sync__btn .vx-git-label { flex: 1 1 auto; text-align: left; }
 
 .vx-git-sync__btn.is-push,
-.vx-git-sync__btn.is-publish { color: #38bdf8; border-color: color-mix(in srgb, #38bdf8 40%, transparent); }
-.vx-git-sync__btn.is-upstream { color: #f472b6; border-color: color-mix(in srgb, #f472b6 35%, transparent); }
-.vx-git-sync__n { font-family: var(--vx-mono, monospace); font-size: 10.5px; opacity: 0.85; }
+.vx-git-sync__btn.is-publish { color: #38bdf8; border-color: color-mix(in srgb, #38bdf8 40%, transparent); background: color-mix(in srgb, #38bdf8 7%, transparent); }
+.vx-git-sync__btn.is-upstream { color: #f472b6; border-color: color-mix(in srgb, #f472b6 35%, transparent); background: color-mix(in srgb, #f472b6 6%, transparent); }
+.vx-git-sync__n {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-family: var(--vx-mono, monospace);
+  font-size: 10px;
+  line-height: 1.4;
+}
 
 .vx-git-sync__ok,
 .vx-git__notice {
   display: flex;
   align-items: center;
-  gap: 5px;
+  min-width: 0;
+  gap: 6px;
   color: #34d399;
   font-size: 10.5px;
+}
+
+/* «Сақталған» күйі — батырма емес, тек ақпарат екені анық болсын */
+.vx-git-sync__ok {
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: color-mix(in srgb, #34d399 9%, transparent);
+  cursor: help;
 }
 
 .vx-git__notice { color: var(--ide-text); opacity: 0.85; }

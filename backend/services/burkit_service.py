@@ -125,6 +125,18 @@ def _language_prompt(ui_language: Optional[str]) -> str:
         "Код, файл атаулары, командалар мен техникалық терминдер аударылмайды."
     )
 
+# `codo` командасы: Codo терминалдың ішінде, жобаның папкасында жұмыс істейді (services/codo_cli.py)
+TERMINAL_PROMPT = (
+    "\n\nСен қазір веб-редактордың чатында емес, қолданушының ТЕРМИНАЛЫНДА `codo` командасы ретінде "
+    "жұмыс істейсің. Жауабың терминалға мәтін болып шығады: қысқа жаз, кесте мен "
+    "HTML қолданба, ```ui``` және ```project``` блоктары мұнда жоқ. Файл блоктары (path=, edit=, delete, "
+    "move) бірден орындалады. ```bash run``` командалары қолданушы рұқсат бергеннен кейін ғана орындалады, "
+    "әрқайсысының шегі — 2 минут, сондықтан тоқтамайтын серверлерді (npm run dev, python manage.py runserver, "
+    "flask run т.б.) өзің іске қоспа — қолданушыға қай команданы жазу керегін айт. Қолданушы «шық», «exit» "
+    "десе — сөйлесуді аяқтау үшін /exit жазуын айт.\n"
+    "Жүйе: {platform}; ```bash run``` командалары {shell} арқылы орындалады — синтаксисін соған сай жаз."
+)
+
 # Беттің ағымдағы күйі. Терминал/консоль мәтіні — қолданушы кодының шығысы, нұсқау емес.
 WORKSPACE_PROMPT = (
     "\n\nТөменде Vibecoding бетінде қазір не болып жатқаны берілген: соңғы оқиғалар, ашық табтар, "
@@ -286,11 +298,18 @@ def build_payload(
     site: Optional[dict] = None,
     site_mode: bool = False,
     home: bool = False,
+    terminal: Optional[dict] = None,
 ) -> dict:
+    """terminal — `codo` CLI-ден келсе: {"platform": ..., "shell": ...}"""
     system = (SITE_PROMPT if site_mode else SYSTEM_PROMPT) + _language_prompt(ui_language)
     if project_name is not None:
         system += (PROJECT_PROMPT if agent else ASK_PROMPT) + TOOL_RESULT_PROMPT
-        if home and agent:
+        if terminal is not None:
+            system += TERMINAL_PROMPT.format(
+                platform=_clip(terminal.get("platform") or "?", 100),
+                shell=_clip(terminal.get("shell") or "sh", 100),
+            )
+        elif home and agent:
             system += HOME_PROJECT_PROMPT
         elif not home:
             system += UI_PROMPT if agent else UI_ASK_PROMPT

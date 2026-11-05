@@ -34,28 +34,6 @@ export function saveViewMode(view: ViewMode) {
   }
 }
 
-export function compareCodes(sortBy: SortOption) {
-  return (a: CodeFile, b: CodeFile) => {
-    switch (sortBy) {
-      case 'oldest':
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      case 'rating':
-        // Лайк саны көбі бірінші; тең болса — қаралымы көбі, одан кейін жаңасы
-        return (
-          (b.likes?.length ?? 0) - (a.likes?.length ?? 0) ||
-          (b.views ?? 0) - (a.views ?? 0) ||
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      case 'title':
-        return (a.title || '').localeCompare(b.title || '');
-      case 'author':
-        return (a.author || '').localeCompare(b.author || '');
-      default:
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-  };
-}
-
 // Папка құрылымы (JSON) болса, үзінді ретінде көрсетпейміз
 export function codeSnippet(code: CodeFile): string {
   if (code.isFolder || !code.content) return '';

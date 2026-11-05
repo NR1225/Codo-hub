@@ -21,9 +21,3 @@ const LANG_COLORS: Record<string, string> = {
 export function langColor(lang: string): string {
   return LANG_COLORS[lang] ?? '#737373';
 }
-
-// Файл кеңейтпесі (белгіше ішіндегі қысқа мәтін)
-export function fileExt(name: string): string {
-  const ext = name.includes('.') ? name.split('.').pop() ?? '' : '';
-  return ext.slice(0, 4).toUpperCase();
-}

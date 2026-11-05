@@ -114,6 +114,16 @@ class BurkitChatRequest(BaseModel):
     surface: Literal["vibecoding", "home"] = "vibecoding"
 
 
+class BurkitTerminalRequest(BaseModel):
+    """`codo` CLI (терминалдағы Codo): сөйлесу + жоба папкасының файлдары"""
+    messages: list[BurkitChatMessage] = Field(min_length=1, max_length=40)
+    projectName: str = Field(min_length=1, max_length=200)
+    projectFiles: list[BurkitProjectFile] = Field(default_factory=list, max_length=500)
+    platform: str = Field(default="", max_length=100)
+    shell: str = Field(default="", max_length=100)
+    uiLanguage: Optional[Literal["kk", "ru", "en"]] = None
+
+
 class BurkitInlineRequest(BaseModel):
     """Ctrl+K: ашық файлдың startLine..endLine жолдарын нұсқау бойынша қайта жазу"""
     path: str = Field(min_length=1, max_length=512)
@@ -253,6 +263,56 @@ async def chat(
         chunks,
         media_type="text/plain; charset=utf-8",
         # Прокси (nginx) жауапты буферлемей, бірден жіберсін
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+def _terminal_rate_key(request: Request) -> str:
+    # Барлық `codo` сұраулары 127.0.0.1-ден келеді — лимит әр терминал сессиясына бөлек
+    return "codo-term:" + request.headers.get("x-codo-terminal", "")[:24]
+
+
+@router.post("/burkit/terminal")
+@limiter.limit("20/minute", key_func=_terminal_rate_key)
+async def terminal_chat(request: Request, body: BurkitTerminalRequest, db: Session = Depends(get_db)):
+    """Терминалдағы `codo` командасы. Кілт — shell-дің env-індегі CODO_AGENT_TOKEN
+    (services/terminal_service.py): тек сервердің өз ішінен (shell-ден) қабылданады."""
+    from services.terminal_service import terminal_manager
+
+    host = request.client.host if request.client else ""
+    if host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(status_code=403, detail="Тек Codo терминалынан.")
+    session = terminal_manager.find_by_agent_token(request.headers.get("x-codo-terminal"))
+    if not session:
+        raise HTTPException(status_code=401, detail="Терминал сессиясы табылмады — терминалды қайта ашыңыз.")
+    session.touch()
+    user = db.query(User).filter(User.id == session.user_id).first()
+    if not user or not user.session_id:
+        raise HTTPException(status_code=401, detail="Аккаунттан шығып кеткенсіз — қайта кіріңіз.")
+    key, _ = burkit_service.resolve_key(user)
+    if not key:
+        raise HTTPException(status_code=403, detail="Codo-ны қолдану үшін API кілтіңізді қосыңыз (қазір Google Gemini кілті қолданылады).")
+    if body.messages[-1].role != "user":
+        raise HTTPException(status_code=400, detail="Соңғы хабар қолданушыдан болуы керек.")
+    if sum(len(f.content or "") for f in body.projectFiles) > MAX_PROJECT_CHARS:
+        raise HTTPException(status_code=413, detail="Жоба файлдары тым үлкен.")
+    if any(f.data is not None for m in body.messages for f in m.files):
+        raise HTTPException(status_code=400, detail="Терминалдан файл тіркеуге болмайды.")
+
+    payload = burkit_service.build_payload(
+        [m.model_dump() for m in body.messages],
+        None,
+        None,
+        body.projectName,
+        [f.model_dump() for f in body.projectFiles],
+        agent=True,
+        ui_language=body.uiLanguage or session.lang,
+        terminal={"platform": body.platform, "shell": body.shell},
+    )
+    chunks = await burkit_service.open_stream(key, payload)
+    return StreamingResponse(
+        chunks,
+        media_type="text/plain; charset=utf-8",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
 

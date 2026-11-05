@@ -85,7 +85,11 @@ def project_files(code: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         rel = path[len(root) + 1:] if strip else path
         if rel:
             index[rel] = child
-    _index_cache[code["id"]] = (len(codes), time.monotonic(), index)
+    now = time.monotonic()
+    # Мерзімі өткен жазбалар (өшірілген жобалардыкі де) жадта жиналып қалмасын
+    for key in [k for k, v in _index_cache.items() if now - v[1] >= INDEX_TTL]:
+        del _index_cache[key]
+    _index_cache[code["id"]] = (len(codes), now, index)
     return index
 
 

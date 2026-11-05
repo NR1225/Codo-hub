@@ -8,6 +8,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from db import User, get_db
+from services import project_overview
 from services.note_service import NoteService
 from utils.auth import get_current_user
 
@@ -84,6 +85,31 @@ async def delete_folder(
 ):
     """Папканы ішіндегі барлық жазбаларымен жою"""
     return NoteService.delete_folder(db, user.id, path)
+
+
+# ---------- Жобаларды Notes-қа қосу ----------
+
+class ProjectImport(BaseModel):
+    kind: str = Field(pattern=r"^(vibe|site)$")
+    id: str = Field(min_length=1, max_length=64)
+    lang: Optional[str] = Field(default=None, max_length=5)
+    ai: bool = False
+
+
+@router.get("/notes/projects")
+@limiter.limit("30/minute")
+async def note_project_sources(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Notes-қа қосуға болатын жобалар: Vibecoding + сайттағы (өзімдікі және мүше болғандарым)"""
+    return project_overview.list_sources(db, user)
+
+
+@router.post("/notes/projects")
+@limiter.limit("20/minute")
+async def import_note_project(
+    request: Request, data: ProjectImport, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Жобаны талдап, «жоба туралы» жазба жасау немесе жаңарту (+ «Менің жобаларым» тізімі)"""
+    return await project_overview.import_project(db, user, data.kind, data.id, data.lang, data.ai)
 
 
 @router.post("/notes")

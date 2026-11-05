@@ -2096,36 +2096,6 @@
       "all": "All projects",
       "search": "Search projects…",
       "notFound": "No projects found"
-    },
-    "publish": {
-      "update": "Update on site",
-      "button": "Publish to site",
-      "updateHint": "Update the version on the Projects page with this code",
-      "hint": "Put the project on the Projects page — others can view and download it",
-      "updated": "Updated on the Projects page",
-      "published": "Published to the Projects page",
-      "skipped": "Files not published ({{count}}): secrets (.env), binary or disallowed types.",
-      "open": "Open on Projects page",
-      "copied": "Copied",
-      "copy": "Link",
-      "title": "Title",
-      "description": "Description",
-      "optional": "optional",
-      "keepDescription": "Leave empty to keep the previous description",
-      "visibility": "Who can see it",
-      "public": "Everyone",
-      "private": "Only me",
-      "keepVisibility": "If you don't choose, visibility stays as before",
-      "defaultVisibility": "If you don't choose, your profile default is used",
-      "notSaved": "The project isn't saved on the server: {{reason}}",
-      "empty": "The project is empty — add a file first",
-      "busy": "Publishing…",
-      "updateShort": "Update",
-      "go": "Publish",
-      "openShort": "Open",
-      "updateNote": "The link, likes and comments are kept — only the code is updated.",
-      "note": "The project appears on the Projects page: others can view, run and download it.",
-      "gitNote": "This shows the project on the Projects page. Saving version history (Git) is separate: “Save to site Git” in the Git panel."
     }
   },
   "notes": {
@@ -2258,6 +2228,38 @@
       "toggleMode": "toggle edit ↔ reading mode",
       "newDaily": "new note / today's daily note",
       "templates": "notes in this folder are used as templates ({{date}}, {{title}})"
+    },
+    "projects": {
+      "title": "Add project",
+      "subtitle": "Pick a Vibecoding or site project — Codo analyzes it and creates a note with its purpose, tech stack, structure and run commands.",
+      "close": "Close",
+      "tab": {
+        "vibe": "Vibecoding",
+        "site": "Site projects"
+      },
+      "search": "Search projects…",
+      "ai": "Codo analysis",
+      "aiHint": "Codo (Gemini) reads the project files and writes up its purpose, features and suggested improvements. Requires an API key.",
+      "noMatch": "Nothing found",
+      "empty": {
+        "vibe": "You don't have any Vibecoding projects yet",
+        "site": "You haven't uploaded any projects to the site"
+      },
+      "private": "Private project",
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "member": "member",
+      "linked": "Added",
+      "open": "Open note",
+      "working": "Analyzing…",
+      "refresh": "Refresh",
+      "add": "Add",
+      "progress": "Adding: {{done}} / {{total}}",
+      "hint": "Refreshing keeps whatever you wrote under “My notes”.",
+      "addAll_one": "Add all ({{count}})",
+      "addAll_other": "Add all ({{count}})",
+      "synced": "Project note updated",
+      "syncFromProject": "Refresh from project"
     }
   },
   "moderation": {
@@ -2857,20 +2859,5 @@
         "desc": "Floating and blinking elements on the welcome page"
       }
     }
-  },
-  "pageTabs": {
-    "label": "Open pages",
-    "new": "New tab",
-    "close": "Close tab",
-    "home": "Home",
-    "code": "Code",
-    "settings": "Settings",
-    "profile": "Profile",
-    "notes": "Notes",
-    "upload": "Upload",
-    "features": "Features",
-    "moderation": "Moderation",
-    "monitoring": "Monitoring",
-    "admin": "Admin"
   }
 }

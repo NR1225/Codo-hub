@@ -52,45 +52,17 @@ export function useRunState(): RunState {
   return useSyncExternalStore(subscribeRunState, getRunState, getRunState);
 }
 
-/** Іске қосу аяқталғанша (сервер адресі шықты / қате / статикалық бет ашылды) күту */
-export function waitForRunSettled(timeoutMs: number): Promise<RunState> {
-  return new Promise(resolve => {
-    const settled = (s: RunState) => s.phase === 'running' || s.phase === 'error' || s.phase === 'idle';
-    let timer = 0;
-    const unsubscribe = subscribeRunState(() => {
-      if (!settled(runState)) return;
-      window.clearTimeout(timer);
-      unsubscribe();
-      resolve(runState);
-    });
-    timer = window.setTimeout(() => {
-      unsubscribe();
-      resolve(runState);
-    }, timeoutMs);
-  });
-}
-
 // ── Көрініс панелі ашық па (тулбардағы белгіше үшін) ──
 
 let previewOpen = false;
-const previewOpenListeners = new Set<() => void>();
 
 export function setPreviewOpenState(open: boolean): void {
   if (open === previewOpen) return;
   previewOpen = open;
-  previewOpenListeners.forEach(l => l());
 }
 
 export function getPreviewOpen(): boolean {
   return previewOpen;
-}
-
-export function usePreviewOpen(): boolean {
-  return useSyncExternalStore(
-    (l) => { previewOpenListeners.add(l); return () => { previewOpenListeners.delete(l); }; },
-    () => previewOpen,
-    () => previewOpen,
-  );
 }
 
 // ── Бет оқиғалары (IDELayout тыңдайды) ──

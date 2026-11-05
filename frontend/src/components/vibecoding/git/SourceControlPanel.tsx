@@ -752,6 +752,12 @@ const SourceControlPanel: React.FC<{ isOverlay?: boolean; onClose?: () => void }
   const branchLabel = status?.detached ? `HEAD ${status.head?.slice(0, 7) ?? ''}` : status?.branch ?? '…';
 
   // ─── Codo синхрондау жолағы ───
+  const commitLabel = amend
+    ? t('vibecoding.git.amendBtn', 'Коммитті түзету')
+    : staged.length === 0 && changes.length > 0
+      ? t('vibecoding.git.commitAll', 'Барлығын коммиттеу')
+      : t('vibecoding.git.commit', 'Коммит');
+
   const syncBar = (() => {
     if (!status?.repo || !hasHead || !codoBranch || !codo) return null;
     const { ahead, behind, published } = codo;
@@ -760,34 +766,34 @@ const SourceControlPanel: React.FC<{ isOverlay?: boolean; onClose?: () => void }
       action = (
         <button type="button" className="vx-btn vx-git-sync__btn is-publish" disabled={busy} onClick={() => pushToCodo()}>
           <UploadIcon size={12} />
-          {t('vibecoding.git.codo.publish', '«{{branch}}» бұтағын сайт Git-іне сақтау', { branch: codoBranch })}
+          <span className="vx-git-label">{t('vibecoding.git.codo.publish', '«{{branch}}» бұтағын сайт Git-іне сақтау', { branch: codoBranch })}</span>
         </button>
       );
     } else if (ahead && behind) {
       action = (
         <button type="button" className="vx-btn vx-git-sync__btn" disabled={busy} onClick={sync}>
           <RefreshIcon size={12} />
-          {t('vibecoding.git.codo.sync', 'Синхрондау')} <span className="vx-git-sync__n">↓{behind} ↑{ahead}</span>
+          <span className="vx-git-label">{t('vibecoding.git.codo.sync', 'Синхрондау')}</span> <span className="vx-git-sync__n">↓{behind} ↑{ahead}</span>
         </button>
       );
     } else if (ahead) {
       action = (
         <button type="button" className="vx-btn vx-git-sync__btn is-push" disabled={busy} onClick={() => pushToCodo()}>
           <UploadIcon size={12} />
-          {t('vibecoding.git.codo.push', 'Сайт Git-іне сақтау (push)')} <span className="vx-git-sync__n">↑{ahead}</span>
+          <span className="vx-git-label">{t('vibecoding.git.codo.push', 'Сайт Git-іне сақтау (push)')}</span> <span className="vx-git-sync__n">↑{ahead}</span>
         </button>
       );
     } else if (behind) {
       action = (
         <button type="button" className="vx-btn vx-git-sync__btn" disabled={busy} onClick={() => pullFromCodo()}>
           <DownloadIcon size={12} />
-          {t('vibecoding.git.codo.pull', 'Сайт Git-інен тарту (pull)')} <span className="vx-git-sync__n">↓{behind}</span>
+          <span className="vx-git-label">{t('vibecoding.git.codo.pull', 'Сайт Git-інен тарту (pull)')}</span> <span className="vx-git-sync__n">↓{behind}</span>
         </button>
       );
     } else {
       action = (
         <span className="vx-git-sync__ok" title={t('vibecoding.git.codo.savedHint', 'Басқалар жобаны жүктегенде (fork) осы нұсқаны алады. Жобалар бетіне шығару — бөлек: «Сайтқа жариялау» батырмасы.')}>
-          <CheckIcon size={11} /> {t('vibecoding.git.codo.saved', 'Сайт Git-інде сақталған — код толық жаңартылған')}
+          <CheckIcon size={11} /> <span className="vx-git-label">{t('vibecoding.git.codo.saved', 'Сайт Git-інде сақталған — код толық жаңартылған')}</span>
         </span>
       );
     }
@@ -799,7 +805,7 @@ const SourceControlPanel: React.FC<{ isOverlay?: boolean; onClose?: () => void }
           <button type="button" className="vx-btn vx-git-sync__btn is-upstream" disabled={busy} onClick={() => pullFromCodo('upstream')}
             title={codo.parent ? `${codo.parent.name} · ${codo.parent.owner?.username ?? ''}` : undefined}>
             <DownloadIcon size={12} />
-            {t('vibecoding.git.codo.upstreamBehind', 'Түпнұсқада жаңа коммиттер')} <span className="vx-git-sync__n">↓{up.behind}</span>
+            <span className="vx-git-label">{t('vibecoding.git.codo.upstreamBehind', 'Түпнұсқада жаңа коммиттер')}</span> <span className="vx-git-sync__n">↓{up.behind}</span>
           </button>
         )}
       </div>
@@ -867,25 +873,23 @@ const SourceControlPanel: React.FC<{ isOverlay?: boolean; onClose?: () => void }
               : t('vibecoding.git.messagePlaceholder', 'Хабарлама (Ctrl+Enter — коммит)')}
             rows={Math.min(message.split('\n').length, 6)}
           />
-          <div className="vx-git-commit__actions">
-            <button type="button" className="vx-btn vx-btn--primary vx-git-commit__btn vx-git-commit__main" disabled={!canCommit} onClick={() => commit()}>
+          <div className={`vx-git-split${!canCommit ? ' is-disabled' : ''}`}>
+            <button type="button" className="vx-git-split__main" disabled={!canCommit} onClick={() => commit()} title={commitLabel}>
               <CheckIcon size={12} />
-              {amend
-                ? t('vibecoding.git.amendBtn', 'Коммитті түзету')
-                : staged.length === 0 && changes.length > 0
-                  ? t('vibecoding.git.commitAll', 'Барлығын коммиттеу')
-                  : t('vibecoding.git.commit', 'Коммит')}
+              <span className="vx-git-label">{commitLabel}</span>
             </button>
             <span className="vx-git__menu-anchor">
-              <button type="button" className="vx-btn vx-btn--primary vx-git-commit__btn vx-git-commit__more" disabled={busy}
-                onClick={() => setMenu(menu === 'commit' ? null : 'commit')} title={t('vibecoding.git.commitOptions', 'Коммит әрекеттері')}>
-                <ChevronDownIcon size={12} />
+              <button type="button" className={`vx-git-split__more${menu === 'commit' ? ' is-open' : ''}`} disabled={busy}
+                onClick={() => setMenu(menu === 'commit' ? null : 'commit')}
+                title={t('vibecoding.git.commitOptions', 'Коммит әрекеттері')}
+                aria-label={t('vibecoding.git.commitOptions', 'Коммит әрекеттері')} aria-haspopup="menu" aria-expanded={menu === 'commit'}>
+                <ChevronDownIcon size={13} />
               </button>
               {menu === 'commit' && <GitMenu items={commitMenu} onClose={() => setMenu(null)} />}
             </span>
           </div>
           {syncBar}
-          {notice && <div className="vx-git__notice"><CheckIcon size={11} /> {notice}</div>}
+          {notice && <div className="vx-git__notice"><CheckIcon size={11} /> <span className="vx-git-label vx-git-label--wrap">{notice}</span></div>}
           {error && (
             <div className="vx-git__error">
               <span>{error}</span>

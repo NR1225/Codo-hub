@@ -40,12 +40,10 @@ const Header: React.FC = () => {
     const el = headerRef.current;
     if (!el) return;
     const root = document.documentElement;
-    // Хедер бет табтарымен бірге .app-top ішінде тұрса — екеуінің жалпы биіктігі
-    const box = el.closest<HTMLElement>('.app-top') ?? el;
-    const update = () => root.style.setProperty('--header-h', `${box.getBoundingClientRect().height}px`);
+    const update = () => root.style.setProperty('--header-h', `${el.getBoundingClientRect().height}px`);
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(box);
+    observer.observe(el);
     return () => {
       observer.disconnect();
       root.style.removeProperty('--header-h');

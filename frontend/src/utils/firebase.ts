@@ -1,13 +1,12 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { getAnalytics, isSupported as isAnalyticsSupported, Analytics } from 'firebase/analytics';
+import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
 
 // Firebase configuration — will be initialized from SiteConfigContext
 // No hardcoded API keys — these come from the backend /api/config endpoint
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
-let analytics: Analytics | null = null;
 let isInitialized = false;
 
 // Track if Firestore is blocked to prevent repeated connection attempts
@@ -66,7 +65,7 @@ export const initializeFirebase = (config: {
     // Analytics — тек measurementId болса және браузер қолдаса
     if (config.measurementId) {
       isAnalyticsSupported()
-        .then((ok) => { if (ok && app) analytics = getAnalytics(app); })
+        .then((ok) => { if (ok && app) getAnalytics(app); })
         .catch(() => {});
     }
 
@@ -120,5 +119,3 @@ export const signInWithGoogle = async (): Promise<string> => {
   signOut(auth).catch(() => {});
   return idToken;
 };
-
-export const getFirebaseAnalytics = (): Analytics | null => analytics;

@@ -152,6 +152,7 @@ async def save_project(
         # Басқа біреудің жобасы — бар екенін де ашпаймыз
         raise HTTPException(status_code=404, detail="Жоба табылмады")
 
+    old_name = None
     if not project:
         count = db.query(VibecodingProject).filter(VibecodingProject.owner_id == user.id).count()
         if count >= MAX_PROJECTS_PER_USER:
@@ -169,6 +170,7 @@ async def save_project(
             project.created_at = created_at
         db.add(project)
     else:
+        old_name = project.name
         project.name = data.name
         project.files = files_json
         project.folders = folders_json
@@ -178,6 +180,11 @@ async def save_project(
     db.refresh(project)
     if not project.notes_folder:
         _link_notes(db, project)
+    elif old_name is not None and old_name != project.name:
+        try:
+            project_notes.follow_rename(db, project, old_name)
+        except HTTPException:
+            db.rollback()
     # Жоба терминалда ашылған болса — оның папкасын да жаңарту
     try:
         await asyncio.to_thread(
@@ -250,9 +257,14 @@ async def delete_project(
     project = db.query(VibecodingProject).filter(VibecodingProject.id == project_id).first()
     if not project or project.owner_id != user.id:
         raise HTTPException(status_code=404, detail="Жоба табылмады")
+    notes_folder = project.notes_folder
     db.delete(project)
     db.query(VibePullRequest).filter(VibePullRequest.target_project_id == project_id).delete()
     db.commit()
+    try:
+        project_notes.release_folder(db, user.id, notes_folder)
+    except HTTPException:
+        db.rollback()
     # Алдымен терминалдарды жабамыз — әйтпесе shell папканы бос жібермейді (Windows)
     await terminal_manager.close_project_sessions(user.id, project_id)
     await asyncio.to_thread(terminal_workspace.remove, user.id, project_id)

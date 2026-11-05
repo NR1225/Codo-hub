@@ -241,8 +241,12 @@ const ChatPanel: React.FC = () => {
   const { dispatch, activeFile, activeProject, openFiles, isMobile, isTablet, syncReady, flushProjects, saveErrors } = useVibecoding();
   const history = useBurkitHistory();
 
-  // Бет жаңартылса немесе панель жабылып-ашылса — сол чат пен көрініс қалпына келеді
-  const [initialActive] = useState(() => history.readActive());
+  // Бет жаңартылса немесе панель жабылып-ашылса — сол чат пен көрініс қалпына келеді.
+  // Әр жобаның өз чаты бар: жоба ауысқанда сол жобаның соңғы сөйлесуі ашылады
+  const projectSlot = activeProject?.id ?? null;
+  const [initialActive] = useState(() => history.readActive(projectSlot));
+  // Қазір көрсетіліп тұрған чат қай қолданушы мен жобанікі (messages-пен бірге жаңарады)
+  const [loadedSlot, setLoadedSlot] = useState(() => `${history.key}|${projectSlot ?? ''}`);
   const [view, setView] = useState<'chat' | 'history'>(initialActive.state.view);
   const [conversationId, setConversationId] = useState<string | null>(initialActive.conversation?.id ?? null);
   const [messages, setMessages] = useState<BurkitMessage[]>(initialActive.conversation?.messages ?? []);
@@ -294,6 +298,8 @@ const ChatPanel: React.FC = () => {
   const focusInput = useCallback(() => inputRef.current?.focus(), []);
   const attach = useBurkitAttachments(focusInput);
   const abortRef = useRef<AbortController | null>(null);
+  // Үзілген жауап қайта жалғасқан хабар (бір хабарды бір рет қана)
+  const resumedRef = useRef<string | null>(null);
   // Жауап келіп жатқанда жоба ауысса — файлдарға жазбаймыз
   const projectRef = useRef(activeProject);
   projectRef.current = activeProject;
@@ -311,22 +317,32 @@ const ChatPanel: React.FC = () => {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Қолданушы анықталғанда (кіру аяқталғанда) — оның сақталған чатын ашу
+  // Қолданушы анықталғанда (кіру аяқталғанда) немесе жоба ауысқанда — сол жобаның сақталған чатын ашу
   const { key: historyKey, readActive, saveActive } = history;
-  const restoredKeyRef = useRef(historyKey);
+  const currentSlot = `${historyKey}|${projectSlot ?? ''}`;
   useEffect(() => {
-    if (restoredKeyRef.current === historyKey) return;
-    restoredKeyRef.current = historyKey;
-    const { state, conversation } = readActive();
+    if (loadedSlot === currentSlot) return;
+    // Алдыңғы жобаның жауабы тоқтатылады — pending белгісі қалады, жобаға оралғанда жалғасады
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsLoading(false);
+    resumedRef.current = null;
+    dirtyRef.current = false;
+    heldRef.current.clear();
+    setRunningAction(null);
+    setActionLinks({});
+    setInputValue('');
+    const { state, conversation } = readActive(projectSlot);
     setConversationId(conversation?.id ?? null);
     setMessages(conversation?.messages ?? []);
     setView(state.view);
-  }, [historyKey, readActive]);
+    setLoadedSlot(currentSlot);
+  }, [currentSlot, loadedSlot, projectSlot, readActive]);
 
   useEffect(() => {
-    if (restoredKeyRef.current !== historyKey) return; // әлі қалпына келтірілмеді
-    saveActive({ conversationId, view });
-  }, [conversationId, view, historyKey, saveActive]);
+    if (loadedSlot !== currentSlot) return; // әлі қалпына келтірілмеді
+    saveActive({ conversationId, view }, projectSlot);
+  }, [conversationId, view, loadedSlot, currentSlot, projectSlot, saveActive]);
 
   useEffect(() => {
     apiService.getBurkitStatus()
@@ -370,7 +386,7 @@ const ChatPanel: React.FC = () => {
 
   // Сөйлесуді тарихқа сақтау
   useEffect(() => {
-    if (!dirtyRef.current || !conversationId || messages.length === 0) return;
+    if (!dirtyRef.current || !conversationId || messages.length === 0 || loadedSlot !== currentSlot) return;
     dirtyRef.current = false;
     const existing = conversationsRef.current.find((c) => c.id === conversationId);
     const firstUser = messages.find((m) => m.role === 'user');
@@ -381,9 +397,10 @@ const ChatPanel: React.FC = () => {
       updatedAt: new Date().toISOString(),
       pinned: existing?.pinned,
       projectName: existing?.projectName ?? activeProject?.name,
+      projectId: existing?.projectId ?? activeProject?.id,
       messages,
     });
-  }, [messages, conversationId, history, activeProject?.name]);
+  }, [messages, conversationId, history, activeProject?.name, activeProject?.id, loadedSlot, currentSlot]);
 
   // «/» жазылса — командалар тізімі
   const slashQuery = /^\/(\w*)$/.exec(inputValue)?.[1];
@@ -825,17 +842,17 @@ const ChatPanel: React.FC = () => {
   };
 
   // Бет жаңартылғанда (немесе панель жабылып-ашылғанда) үзілген жауапты жалғастыру
-  const resumedRef = useRef<string | null>(null);
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last?.pending || isLoading || !syncReady || !status || status.source === 'none') return;
+    if (loadedSlot !== currentSlot) return; // басқа жобаның чаты әлі ауыспады
     if (resumedRef.current === last.id) return; // бір хабарды бір рет қана
     resumedRef.current = last.id;
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     const file = lastUser?.context && activeFile?.name === lastUser.context ? activeFile : null;
     if (last.role === 'assistant') respond(messages, file, last);
     else respond(messages, file);
-  }, [messages, isLoading, syncReady, status, activeFile, respond]);
+  }, [messages, isLoading, syncReady, status, activeFile, respond, loadedSlot, currentSlot]);
 
   // Соңғы жауапты қайта алу
   const regenerate = () => {

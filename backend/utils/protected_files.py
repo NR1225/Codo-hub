@@ -146,14 +146,34 @@ def sqlite_dump(raw: bytes) -> Optional[str]:
     return _with_sqlite(raw, lambda conn: "\n".join(conn.iterdump()))
 
 
+def _deny_attach(action, *_a):
+    """sqlite3 авторизаторы: ATTACH/DETACH тыйым салынады, қалғаны рұқсат.
+
+    Дамп мәтіні — жүктелген (сенімсіз) файлдан келеді. ATTACH арқылы зиянды дамп
+    сервердегі басқа базаларға жазып, кез келген жолға файл жасай алады, сондықтан
+    тек осы екі әрекетті бөгейміз; базаны қайта құру үшін қажеттінің бәрі рұқсат."""
+    if action in (sqlite3.SQLITE_ATTACH, sqlite3.SQLITE_DETACH):
+        return sqlite3.SQLITE_DENY
+    return sqlite3.SQLITE_OK
+
+
 def sqlite_from_dump(dump: str) -> Optional[bytes]:
-    """SQL дамптан қайтадан нақты SQLite файлын құру (иесінің терминалы үшін)"""
+    """SQL дамптан қайтадан нақты SQLite файлын құру (иесінің терминалы үшін).
+
+    Дамп сенімсіз болуы мүмкін (жүктелген база файлынан), сондықтан ATTACH/DETACH
+    бөгеліп орындалады — әйтпесе зиянды дамп серверде ерікті файл жаза алар еді."""
     fd, tmp = tempfile.mkstemp(suffix=".sqlite")
     os.close(fd)
     try:
         conn = sqlite3.connect(tmp)
         try:
+            try:
+                conn.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
+            except (AttributeError, sqlite3.NotSupportedError):
+                pass  # setlimit тек Python 3.11+; авторизатор негізгі қорғаныс
+            conn.set_authorizer(_deny_attach)
             conn.executescript(dump)
+            conn.set_authorizer(None)
             conn.commit()
         finally:
             conn.close()

@@ -150,6 +150,18 @@ export function useNotesVault() {
     });
   }, []);
 
+  /** Сервер жазбаны өзі өзгертті (мысалы, жоба жаңартылды) — кэштегі мәтінді ұмытып, vault-ты қайта аламыз */
+  const refreshFromServer = useCallback(async (ids: string[]) => {
+    await flush();
+    const next = { ...contentsRef.current };
+    ids.forEach((id) => delete next[id]);
+    contentsRef.current = next;
+    setContents(next);
+    const vault = await apiService.getNoteVault();
+    setNotes(vault.notes);
+    setFolders(vault.folders);
+  }, [flush]);
+
   const createFolder = useCallback(async (path: string) => {
     const res = await apiService.createNoteFolder(path);
     setFolders(res.folders);
@@ -187,9 +199,8 @@ export function useNotesVault() {
     updateMeta,
     deleteNote,
     createFolder,
+    refreshFromServer,
     renameFolder,
     deleteFolder,
   };
 }
-
-export type NotesVault = ReturnType<typeof useNotesVault>;

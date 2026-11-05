@@ -49,6 +49,35 @@ BLOCKED_PORTS = {
     11211, 15672, 27017, 27018, 28017, 50070,
 }
 
+# Проксиге рұқсат етілген порттар (allowlist). Жоба іске қосылғанда run_plan порт
+# тағайындайды (4100-4999 ауқымы), оған қоса қолданушы фреймворктің әдепкі портында
+# қолмен іске қосуы мүмкін. Тізімде жоқ порт проксиленбейді — осылай бейтаныс порттағы
+# жергілікті қызметтерге (ішкі API, админ панелі т.б.) SSRF-ті болдырмаймыз.
+# Прод-та DEV_PROXY_PORTS арқылы өзгертуге болады, мысалы: "4100-4999,3000,8080".
+_DEFAULT_ALLOWED_PORTS = (
+    set(range(4100, 5000))                                   # run_plan тағайындайтын ауқым
+    | set(range(3000, 3011)) | {4000, 4173, 4200}            # Node/CRA/Next, Vite preview, Angular
+    | set(range(5000, 5011)) | set(range(5170, 5190))        # Flask т.б., Vite (5173+)
+    | set(range(8000, 8011)) | set(range(8080, 8091))        # Django/FastAPI, webpack/Spring
+    | {9000, 8888, 1313}                                     # жалпы, Jupyter, Hugo
+)
+
+
+def _parse_ports(spec: str) -> set:
+    out: set = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            a, _, b = part.partition("-")
+            if a.strip().isdigit() and b.strip().isdigit():
+                out.update(range(int(a.strip()), int(b.strip()) + 1))
+        elif part.isdigit():
+            out.add(int(part))
+    return out
+
+
+ALLOWED_PORTS = _parse_ports(os.getenv("DEV_PROXY_PORTS", "")) or _DEFAULT_ALLOWED_PORTS
+
 _BRIDGE_JS: Optional[bytes] = None
 
 
@@ -63,7 +92,9 @@ def port_allowed(port: int) -> bool:
     if port < 1024 or port > 65535 or port in BLOCKED_PORTS:
         return False
     own = int(os.getenv("PORT", "8000") or 8000)
-    return port != own
+    if port == own:
+        return False
+    return port in ALLOWED_PORTS
 
 
 # ── HTTP көмекшілері ──
@@ -426,11 +457,6 @@ class DevProxyManager:
             await asyncio.sleep(60)
             async with self._lock:
                 self._reap()
-
-    def close_all(self) -> None:
-        for proxy in self.proxies.values():
-            proxy.close()
-        self.proxies.clear()
 
 
 dev_proxy_manager = DevProxyManager()

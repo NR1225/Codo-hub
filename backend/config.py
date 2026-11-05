@@ -34,7 +34,6 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Codo Hub")
-RESET_PASSWORD_URL = os.getenv("RESET_PASSWORD_URL", "http://localhost:5173/reset-password")
 # Сайттың (frontend) адресі — `codo login` браузерде осы сайттың /cli/login бетін ашады.
 # Берілмесе — CORS_ORIGINS-тегі біріншісі (жергілікті әзірлеуде http://localhost:5173)
 SITE_URL = (os.getenv("SITE_URL") or os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")[0]).strip().rstrip("/")

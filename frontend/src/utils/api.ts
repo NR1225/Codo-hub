@@ -372,6 +372,27 @@ export interface NoteVaultDTO {
   folders: string[];
 }
 
+/** Notes-қа қосуға болатын жоба: Vibecoding немесе сайттағы (Жобалар беті) */
+export interface NoteProjectSource {
+  kind: 'vibe' | 'site';
+  id: string;
+  name: string;
+  fileCount: number;
+  updatedAt: string;
+  description?: string;
+  role?: 'owner' | 'member';
+  isPrivate?: boolean;
+  notesFolder?: string | null;
+  /** Бұрын қосылған болса — «жоба туралы» жазбаның id-і */
+  noteId: string | null;
+}
+
+export interface NoteProjectSourcesDTO {
+  vibe: NoteProjectSource[];
+  site: NoteProjectSource[];
+  indexNoteId: string | null;
+}
+
 export interface NoteSearchResult {
   id: string;
   title: string;
@@ -865,6 +886,8 @@ class ApiService {
 
   constructor() {
     this.baseUrl = API_BASE_URL;
+    // Аккаунттан шыққанда бұрынғы қолданушының кодтар тізімі кэште қалмасын
+    if (typeof window !== 'undefined') window.addEventListener('codo:logout', () => this.invalidateCodesCache());
   }
 
   /**
@@ -1431,6 +1454,15 @@ class ApiService {
 
   async searchNotes(q: string): Promise<NoteSearchResult[]> {
     return this.request<NoteSearchResult[]>(`/notes/search?q=${encodeURIComponent(q)}`);
+  }
+
+  async getNoteProjectSources(): Promise<NoteProjectSourcesDTO> {
+    return this.request<NoteProjectSourcesDTO>('/notes/projects');
+  }
+
+  /** Жобаны талдап, «жоба туралы» жазба жасау/жаңарту; ai — Codo мақсатын талдайды */
+  async importNoteProject(data: { kind: 'vibe' | 'site'; id: string; lang?: string; ai?: boolean }): Promise<NoteMeta & { created: boolean }> {
+    return this.request('/notes/projects', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async createNoteFolder(path: string): Promise<{ folders: string[] }> {
