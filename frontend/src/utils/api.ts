@@ -2,6 +2,7 @@ import type { WorkspaceSnapshot } from './vibeActivity';
 import type { BurkitSiteContext } from './burkitProjectTools';
 import { API_BASE_URL } from './constants';
 import i18n from '../i18n/config';
+import { siteOrigin } from './platform';
 
 function tApi(key: string, options?: Record<string, string>): string {
   return String(i18n.t(key, options));
@@ -1747,7 +1748,7 @@ class ApiService {
     // site — CLI жүктегеннен кейін жобаның осы сайттағы сілтемесін шығарады
     return this.request('/cli/tokens', {
       method: 'POST',
-      body: JSON.stringify({ name, site: window.location.origin }),
+      body: JSON.stringify({ name, site: siteOrigin }),
     });
   }
 
@@ -1759,7 +1760,7 @@ class ApiService {
   async approveCliLogin(code: string): Promise<{ deviceName: string }> {
     return this.request('/cli/login/approve', {
       method: 'POST',
-      body: JSON.stringify({ code, site: window.location.origin }),
+      body: JSON.stringify({ code, site: siteOrigin }),
     });
   }
 

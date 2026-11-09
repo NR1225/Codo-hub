@@ -1,6 +1,8 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut } from 'firebase/auth';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { isNativeApp } from './platform';
 import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
 
 // Firebase configuration — will be initialized from SiteConfigContext
@@ -112,6 +114,20 @@ export const signInWithGoogle = async (): Promise<string> => {
     throw new Error('Firebase is not initialized');
   }
   const auth = getAuth(app);
+
+  // Android қосымшасы: WebView ішінде Google popup-қа тыйым салынған, сондықтан
+  // нативті Google терезесі ашылады, алынған Google ID token-мен Firebase-ке кіреміз.
+  if (isNativeApp) {
+    const native = await FirebaseAuthentication.signInWithGoogle();
+    const googleIdToken = native.credential?.idToken;
+    if (!googleIdToken) throw new Error('Google sign-in cancelled');
+    const result = await signInWithCredential(auth, GoogleAuthProvider.credential(googleIdToken));
+    const idToken = await result.user.getIdToken();
+    signOut(auth).catch(() => {});
+    FirebaseAuthentication.signOut().catch(() => {});
+    return idToken;
+  }
+
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   const result = await signInWithPopup(auth, provider);

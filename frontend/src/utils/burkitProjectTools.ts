@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { apiService, CodeFile, VibecodingProjectDTO } from './api';
 import type { BlockAction, ProjectOp } from '../components/vibecoding/burkitBlocks';
+import { siteOrigin } from './platform';
 
 /* Codo-ның сайттағы жобалармен жұмысы (```project … блоктары) — басты беттегі де, Vibecoding-тегі де
    Codo осыны қолданады. Жобаны жасау/өшіру/ашу әр бетте әртүрлі (Vibecoding-те — контекст арқылы,
@@ -45,7 +46,7 @@ export const ALWAYS_CONFIRM_OPS = new Set<ProjectOp>(['delete', 'unpublish']);
 // Басқа беттер (басты беттің жобалар тізімі) Vibecoding жобалары өзгергенін біледі
 export const VIBE_PROJECTS_EVENT = 'vibeProjectsUpdated';
 
-export const shareUrl = (token: string) => `${window.location.origin}/vibecoding/shared/${token}`;
+export const shareUrl = (token: string) => `${siteOrigin}/vibecoding/shared/${token}`;
 
 /** Чатқа/Codo-ға түсінікті бір жолдық сипаттама */
 export function describeProjectAction(action: ProjectAction): string {
@@ -122,7 +123,7 @@ export async function runProjectAction(action: ProjectAction, host: ProjectHost,
         `Vibecoding жобаларым (${vibes.length}):`,
         ...vibes.map((p) => `- ${p.name}${p.id === host.currentProjectId ? ' (ашық)' : ''}${p.shareToken ? ` · сілтеме: ${shareUrl(p.shareToken)}` : ''}`),
         `Жобалар бетінде жарияланғандарым (${published.length}):`,
-        ...published.map((c) => `- ${c.title} · ${window.location.origin}/view/${c.id}`),
+        ...published.map((c) => `- ${c.title} · ${siteOrigin}/view/${c.id}`),
         `Достарым: ${friends.map((f) => `@${f.username}`).join(', ') || 'жоқ'}`,
         `Топтарым: ${groups.map((g) => `«${g.name}»`).join(', ') || 'жоқ'}`,
       ];
@@ -157,7 +158,7 @@ export async function runProjectAction(action: ProjectAction, host: ProjectHost,
       });
       apiService.invalidateCodesCache();
       codesChanged();
-      const link = `${window.location.origin}/view/${res.codeId}`;
+      const link = `${siteOrigin}/view/${res.codeId}`;
       const failed = res.failed ? ` ${res.failed} файл жүктелмеді: ${res.failedFiles.slice(0, 10).join(', ')}.` : '';
       // Құпия (.env, кілттер) мен бинарлы файлдар жарияланбайды; кэш/қоқыс — үнсіз
       const skipped = res.skipped?.length ? ` Құпия/бинарлы болғандықтан жарияланбады: ${res.skipped.slice(0, 10).join(', ')}.` : '';

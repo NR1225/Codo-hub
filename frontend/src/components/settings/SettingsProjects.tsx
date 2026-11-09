@@ -13,6 +13,7 @@ import { useConfirm } from '../../contexts/ToastContext';
 import { formatDate } from '../../utils/dateFormatter';
 import { langColor } from '../vibecoding/langColors';
 import './SettingsProjects.css';
+import { siteOrigin } from '../../utils/platform';
 
 /* Баптаулар → «Жобалар»: шолу (статистика), көріну баптаулары
    (жаңа жобалар әдепкіде жабық, бәрін бірден жабу/ашу) және жобалар тізімі */
@@ -102,7 +103,7 @@ const SettingsProjects: React.FC = () => {
 
   const share = async (project: CodeFile) => {
     setMenu(null);
-    const url = `${window.location.origin}/view/${project.id}`;
+    const url = `${siteOrigin}/view/${project.id}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: project.title, text: project.description || project.title, url });

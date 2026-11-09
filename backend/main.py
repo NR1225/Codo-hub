@@ -154,6 +154,10 @@ _cors_origins_str = os.getenv("CORS_ORIGINS",
     "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178,http://localhost:5179,"
     "http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175,http://127.0.0.1:5176,http://127.0.0.1:5177,http://127.0.0.1:5178,http://127.0.0.1:5179")
 _cors_origins = [origin.strip() for origin in _cors_origins_str.split(",") if origin.strip()]
+# Android қосымшасы (Capacitor WebView) https://localhost origin-нен сұрау жібереді
+for _mobile_origin in ("https://localhost", "http://localhost", "capacitor://localhost"):
+    if _mobile_origin not in _cors_origins:
+        _cors_origins.append(_mobile_origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -355,8 +359,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str = Qu
     """WebSocket endpoint for real-time messaging (requires JWT token)"""
     # Validate Origin header to prevent cross-site WebSocket hijacking
     origin = websocket.headers.get("origin", "")
-    allowed_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")
-    allowed_origins = [o.strip() for o in allowed_origins_str.split(",") if o.strip()]
+    allowed_origins = _cors_origins
     if not origin or origin not in allowed_origins:
         await websocket.close(code=4003, reason="Origin not allowed")
         return
@@ -474,8 +477,7 @@ async def terminal_websocket_endpoint(
 
     # Validate Origin header
     origin = websocket.headers.get("origin", "")
-    allowed_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")
-    allowed_origins = [o.strip() for o in allowed_origins_str.split(",") if o.strip()]
+    allowed_origins = _cors_origins
     if not origin or origin not in allowed_origins:
         await websocket.close(code=4003, reason="Origin not allowed")
         return

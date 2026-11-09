@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
+import NativeBridge from './components/NativeBridge';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -179,6 +180,7 @@ const App: React.FC = () => {
               <AuthBridge />
               <FirebaseBridge />
               <ScrollToTop />
+              <NativeBridge />
               <AppContent />
             </Router>
           </ToastProvider>
